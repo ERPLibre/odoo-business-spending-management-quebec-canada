@@ -22,6 +22,7 @@ BACKUP_PATH = "/home/mathben/Documents/technolibre/accorderie/accorderie20200826
 def post_init_hook(cr, e):
     migration = MigrationAccorderie(cr)
     migration.setup_configuration()
+    migration.migrate_tbl_ville()
     migration.migrate_tbl_accorderie()
     migration.migrate_tbl_fournisseur()
 
@@ -98,6 +99,22 @@ class MigrationAccorderie:
             event_config = env['res.config.settings'].sudo().create(values)
             event_config.execute()
 
+    def migrate_tbl_ville(self):
+        print("Begin migrate tbl_ville")
+        cur = self.conn.cursor()
+        # Get all ville
+        str_query = f"""SELECT * FROM tbl_ville;"""
+        cur.nextset()
+        cur.execute(str_query)
+        tpl_result = cur.fetchall()
+
+        # 0 `NoVille` int(10) UNSIGNED NOT NULL,
+        # 1 `Ville` varchar(60) DEFAULT NULL,
+        # 2 `NoRegion` int(10) UNSIGNED DEFAULT NULL
+
+        lst_result = list(tpl_result)
+        self.dct_tbl["tbl_ville"] = lst_result
+
     def migrate_tbl_accorderie(self):
         print("Begin migrate tbl_accorderie")
         cur = self.conn.cursor()
@@ -141,8 +158,8 @@ class MigrationAccorderie:
                 i += 1
                 pos_id = f"{i}/{len(tpl_result)}"
 
-                # Exception for head quarter
                 if result[5].strip() == "Réseau Accorderie (du Qc)":
+                    # Update main company
                     name = result[5].strip()
                     obj = env['res.company'].browse(1)
                     head_quarter = obj
@@ -153,7 +170,16 @@ class MigrationAccorderie:
                     obj.partner_id.fax = result[10].strip()
                     obj.email = result[11].strip()
                     obj.website = "www.accorderie.ca"
+                    obj.state_id = 543  # Quebec
+                    obj.country_id = 38  # Canada
                     obj.tz = "America/Montreal"
+                    # City
+                    city_name = self._get_ville(result[2])
+                    if city_name:
+                        obj.city = city_name
+                    else:
+                        print(f"Error, cannot find city {result[2]}")
+
                     if result[16]:
                         data = open(f"{self.logo_path}/{result[16]}", "rb").read()
                         obj.logo = base64.b64encode(data)
@@ -164,6 +190,7 @@ class MigrationAccorderie:
                         obj.logo = base64.b64encode(data)
                     print(f"{pos_id} - RES.PARTNER - tbl_accorderie - UPDATED {name}")
                 else:
+                    # Create new accorderie
                     name = f"Accorderie {result[6].strip()}"
                     value = {
                         'name': name,
@@ -171,11 +198,20 @@ class MigrationAccorderie:
                         'zip': result[8].strip(),
                         'phone': result[9].strip(),
                         'email': result[11].strip(),
+                        'state_id': 543,  # Quebec
+                        'country_id': 38,  # Canada
                         # 'website': result[14].strip(),
                     }
                     if result[16]:
                         data = open(f"{self.logo_path}/{result[16]}", "rb").read()
                         value["logo"] = base64.b64encode(data)
+
+                    # City
+                    city_name = self._get_ville(result[2])
+                    if city_name:
+                        value["city"] = city_name
+                    else:
+                        print(f"Error, cannot find city {result[2]}")
 
                     obj = env['res.company'].create(value)
                     lst_child_company.append(obj)
@@ -263,6 +299,8 @@ class MigrationAccorderie:
                 if not company_id:
                     raise Exception(f"Cannot find associated accorderie {result}")
 
+                city_name = self._get_ville(result[3])
+
                 value = {
                     'name': name,
                     'street': result[5].strip(),
@@ -272,12 +310,19 @@ class MigrationAccorderie:
                     'email': result[9].strip(),
                     'supplier': True,
                     'customer': False,
+                    'state_id': 543,  # Quebec
+                    'country_id': 38,  # Canada
                     'company_type': 'company',
                     'comment': result[13].strip(),
                     'tz': "America/Montreal",
                     'active': result[14] == 1,
                     'company_id': company_id.id,
                 }
+
+                if city_name:
+                    value['city'] = city_name
+                else:
+                    print(f"Error, cannot find city {result[3]}")
 
                 obj = env['res.partner'].create(value)
 
@@ -297,3 +342,9 @@ class MigrationAccorderie:
             for obj_id_accorderie, tpl_obj in self.dct_tbl.get("tbl_accorderie"):
                 if tpl_obj[0] == id_accorderie:
                     return obj_id_accorderie, tpl_obj
+
+    def _get_ville(self, id_ville: int = None):
+        if id_ville:
+            for tpl_obj in self.dct_tbl.get("tbl_ville"):
+                if tpl_obj[0] == id_ville:
+                    return tpl_obj[1]
