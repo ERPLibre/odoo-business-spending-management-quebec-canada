@@ -25,6 +25,7 @@ def post_init_hook(cr, e):
     migration.migrate_tbl_ville()
     migration.migrate_tbl_accorderie()
     migration.migrate_tbl_fournisseur()
+    migration.migrate_tbl_membre()
 
 
 class MigrationAccorderie:
@@ -177,8 +178,6 @@ class MigrationAccorderie:
                     city_name = self._get_ville(result[2])
                     if city_name:
                         obj.city = city_name
-                    else:
-                        print(f"Error, cannot find city {result[2]}")
 
                     if result[16]:
                         data = open(f"{self.logo_path}/{result[16]}", "rb").read()
@@ -188,7 +187,7 @@ class MigrationAccorderie:
                         _path = os.path.dirname(__file__)
                         data = open(f"{_path}/static/img/logonoiblancaccorderie.jpg", "rb").read()
                         obj.logo = base64.b64encode(data)
-                    print(f"{pos_id} - RES.PARTNER - tbl_accorderie - UPDATED {name}")
+                    print(f"{pos_id} - RES.PARTNER - tbl_accorderie - UPDATED '{name}' id {result[0]}")
                 else:
                     # Create new accorderie
                     name = f"Accorderie {result[6].strip()}"
@@ -210,8 +209,6 @@ class MigrationAccorderie:
                     city_name = self._get_ville(result[2])
                     if city_name:
                         value["city"] = city_name
-                    else:
-                        print(f"Error, cannot find city {result[2]}")
 
                     obj = env['res.company'].create(value)
                     lst_child_company.append(obj)
@@ -219,7 +216,7 @@ class MigrationAccorderie:
                     obj.partner_id.active = result[19] == 0
                     obj.partner_id.fax = result[10].strip()
 
-                    print(f"{pos_id} - RES.PARTNER - tbl_accorderie - ADDED {name}")
+                    print(f"{pos_id} - RES.PARTNER - tbl_accorderie - ADDED '{name}' id {result[0]}")
                 lst_result.append((obj, result))
 
                 if head_quarter:
@@ -288,11 +285,12 @@ class MigrationAccorderie:
                     if accorderie_id.partner_id.comment:
                         new_comment = f"{accorderie_id.partner_id.comment}\n"
                     accorderie_id.partner_id.comment = f"{new_comment}Fournisseur : {result[13].strip()}"
-                    print(f"{pos_id} - RES.PARTNER - tbl_fournisseur - UPDATED {name}/{accorderie_id.partner_id.name}")
+                    print(f"{pos_id} - RES.PARTNER - tbl_fournisseur - "
+                          f"UPDATED '{name}/{accorderie_id.partner_id.name}' id {result[0]}")
                     continue
                 # elif name in dct_debug.keys():
                 #     lst_duplicated = dct_debug.get(name)
-                #     print(f"{pos_id} - RES.PARTNER - tbl_fournisseur - SKIPPED {name}")
+                #     print(f"{pos_id} - RES.PARTNER - tbl_fournisseur - SKIPPED '{name}' id {result[0]}")
                 #     continue
 
                 company_id, _ = self._get_accorderie(id_accorderie=result[1])
@@ -321,8 +319,6 @@ class MigrationAccorderie:
 
                 if city_name:
                     value['city'] = city_name
-                else:
-                    print(f"Error, cannot find city {result[3]}")
 
                 obj = env['res.partner'].create(value)
 
@@ -335,7 +331,182 @@ class MigrationAccorderie:
                 }
                 obj_contact = env['res.partner'].create(value_contact)
 
-                print(f"{pos_id} - RES.PARTNER - tbl_fournisseur - ADDED {name}")
+                print(f"{pos_id} - RES.PARTNER - tbl_fournisseur - ADDED '{name}' id {result[0]}")
+
+    def migrate_tbl_membre(self):
+        print("Begin migrate tbl_membre")
+        cur = self.conn.cursor()
+        # Get all fournisseur
+        str_query = f"""SELECT * FROM tbl_membre;"""
+        cur.nextset()
+        cur.execute(str_query)
+        tpl_result = cur.fetchall()
+
+        self.dct_tbl["tbl_membre"] = tpl_result
+        # 0 `NoMembre` int(10) UNSIGNED NOT NULL,
+        # 1 `NoCartier` int(10) UNSIGNED DEFAULT '0',
+        # 2 `NoAccorderie` int(10) UNSIGNED NOT NULL,
+        # 3 `NoPointService` int(10) UNSIGNED DEFAULT NULL,
+        # 4 `NoTypeCommunication` int(10) UNSIGNED NOT NULL,
+        # 5 `NoOccupation` int(10) UNSIGNED NOT NULL,
+        # 6 `NoOrigine` int(10) UNSIGNED NOT NULL,
+        # 7 `NoSituationMaison` int(10) UNSIGNED NOT NULL,
+        # 8 `NoProvenance` int(10) UNSIGNED NOT NULL,
+        # 9 `NoRevenuFamilial` int(10) UNSIGNED NOT NULL,
+        # 10 `NoArrondissement` int(10) UNSIGNED DEFAULT NULL,
+        # 11 `NoVille` int(10) UNSIGNED NOT NULL,
+        # 12 `NoRegion` int(10) UNSIGNED NOT NULL,
+        # 13 `MembreCA` tinyint(4) DEFAULT '0',
+        # 14 `PartSocialPaye` tinyint(4) DEFAULT '0',
+        # 15 `CodePostal` varchar(7) DEFAULT NULL,
+        # 16 `DateAdhesion` date DEFAULT NULL,
+        # 17 `Nom` varchar(45) DEFAULT NULL,
+        # 18 `Prenom` varchar(45) DEFAULT NULL,
+        # 19 `Adresse` varchar(255) DEFAULT NULL,
+        # 20 `Telephone1` varchar(10) DEFAULT NULL,
+        # 21 `PosteTel1` varchar(10) DEFAULT NULL,
+        # 22 `NoTypeTel1` int(10) UNSIGNED DEFAULT NULL,
+        # 23 `Telephone2` varchar(10) DEFAULT NULL,
+        # 24 `PosteTel2` varchar(10) DEFAULT NULL,
+        # 25 `NoTypeTel2` int(10) UNSIGNED DEFAULT NULL,
+        # 26 `Telephone3` varchar(10) DEFAULT NULL,
+        # 27 `PosteTel3` varchar(10) DEFAULT NULL,
+        # 28 `NoTypeTel3` int(10) UNSIGNED DEFAULT NULL,
+        # 29 `Courriel` varchar(255) DEFAULT NULL,
+        # 30 `AchatRegrouper` tinyint(1) DEFAULT NULL,
+        # 31 `PretActif` tinyint(1) DEFAULT NULL,
+        # 32 `PretRadier` tinyint(1) DEFAULT NULL,
+        # 33 `PretPayer` tinyint(1) DEFAULT NULL,
+        # 34 `EtatCompteCourriel` tinyint(1) DEFAULT NULL,
+        # 35 `BottinTel` tinyint(1) DEFAULT NULL,
+        # 36 `BottinCourriel` tinyint(1) DEFAULT NULL,
+        # 37 `MembreActif` tinyint(1) DEFAULT '-1',
+        # 38 `MembreConjoint` tinyint(1) DEFAULT NULL,
+        # 39 `NoMembreConjoint` int(10) UNSIGNED DEFAULT NULL,
+        # 40 `Memo` text,
+        # 41 `Sexe` tinyint(1) DEFAULT NULL,
+        # 42 `AnneeNaissance` int(4) DEFAULT NULL,
+        # 43 `PrecisezOrigine` varchar(45) DEFAULT NULL,
+        # 44 `NomUtilisateur` varchar(15) DEFAULT NULL,
+        # 45 `MotDePasse` varchar(15) DEFAULT NULL,
+        # 46 `ProfilApprouver` tinyint(1) DEFAULT '-1',
+        # 47 `MembrePrinc` tinyint(1) DEFAULT NULL,
+        # 48 `NomAccorderie` varchar(90) DEFAULT NULL,
+        # 49 `RecevoirCourrielGRP` tinyint(1) DEFAULT NULL,
+        # 50 `PasCommunication` tinyint(1) DEFAULT NULL,
+        # 51 `DescriptionAccordeur` varchar(255) DEFAULT NULL,
+        # 52 `Date_MAJ_Membre` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        # 53 `TransfereDe` int(10) DEFAULT NULL
+
+        with api.Environment.manage():
+            env = api.Environment(self.cr, SUPERUSER_ID, {})
+
+            i = 0
+            for result in tpl_result:
+                i += 1
+                pos_id = f"{i}/{len(tpl_result)}"
+                if result[18] and result[17]:
+                    name = f"{result[18].strip()} {result[17].strip()}"
+                elif result[18]:
+                    name = f"{result[18].strip()}"
+                elif result[17]:
+                    name = f"{result[17].strip()}"
+
+                company_id, _ = self._get_accorderie(id_accorderie=result[2])
+                if not company_id:
+                    raise Exception(f"Cannot find associated accorderie {result}")
+
+                city_name = self._get_ville(result[11])
+
+                value = {
+                    'name': name,
+                    'street': result[19].strip(),
+                    'zip': result[15].strip(),
+                    'email': result[29].strip(),
+                    'supplier': False,
+                    'customer': True,
+                    'state_id': 543,  # Quebec
+                    'country_id': 38,  # Canada
+                    'tz': "America/Montreal",
+                    'active': result[37] == 0,
+                    'company_id': company_id.id,
+                }
+
+                if result[40]:
+                    value['comment'] = result[40].strip()
+
+                if city_name:
+                    value['city'] = city_name
+
+                self._set_phone(result, value)
+
+                obj = env['res.partner'].create(value)
+
+                print(f"{pos_id} - RES.PARTNER - tbl_membre - ADDED '{name}' id {result[0]}")
+
+    def _set_phone(self, result, value):
+        # Manage phone
+        # result 22, 25, 28 is type
+        # Type: 1 choose (empty)
+        # Type: 2 domicile Phone
+        # Type: 3 Travail À SUPPORTÉ
+        # Type: 4 Cellulaire MOBILE
+        # Type: 5 Téléavertisseur (pagette) NON SUPPORTÉ
+
+        # Pagette
+        if result[22] == 5 or result[25] == 5 or result[28] == 5:
+            print("WARNING, le pagette n'est pas supporté.")
+
+        # Travail
+        if result[22] == 3 or result[25] == 3 or result[28] == 3:
+            print("WARNING, le téléphone travail n'est pas supporté.")
+
+        # MOBILE
+        has_mobile = False
+        if result[22] == 4 and result[20] and result[20].strip():
+            has_mobile = True
+            value['mobile'] = result[20].strip()
+            if result[21] and result[21].strip():
+                print("WARNING, le numéro de poste du mobile n'est pas supporté.")
+        if result[25] == 4 and result[23] and result[23].strip():
+            if has_mobile:
+                print("WARNING, duplicat du cellulaire.")
+            else:
+                has_mobile = True
+                value['mobile'] = result[23].strip()
+                if result[24] and result[24].strip():
+                    print("WARNING, le numéro de poste du mobile n'est pas supporté.")
+        if result[28] == 4 and result[26] and result[26].strip():
+            if has_mobile:
+                print("WARNING, duplicat du cellulaire.")
+            else:
+                has_mobile = True
+                value['mobile'] = result[26].strip()
+                if result[27] and result[27].strip():
+                    print("WARNING, le numéro de poste du mobile n'est pas supporté.")
+
+        has_domicile = False
+        if result[22] == 2 and result[20] and result[20].strip():
+            has_domicile = True
+            value['phone'] = result[20].strip()
+            if result[21] and result[21] and result[21].strip():
+                print("WARNING, le numéro de poste du domicile n'est pas supporté.")
+        if result[25] == 2 and result[23] and result[23].strip():
+            if has_domicile:
+                print("WARNING, duplicat du cellulaire.")
+            else:
+                has_domicile = True
+                value['phone'] = result[23].strip()
+                if result[24] and result[24].strip():
+                    print("WARNING, le numéro de poste du domicile n'est pas supporté.")
+        if result[28] == 2 and result[26] and result[26].strip():
+            if has_domicile:
+                print("WARNING, duplicat du cellulaire.")
+            else:
+                has_domicile = True
+                value['phone'] = result[26].strip()
+                if result[27] and result[27].strip():
+                    print("WARNING, le numéro de poste du domicile n'est pas supporté.")
 
     def _get_accorderie(self, id_accorderie: int = None):
         if id_accorderie:
@@ -348,3 +519,4 @@ class MigrationAccorderie:
             for tpl_obj in self.dct_tbl.get("tbl_ville"):
                 if tpl_obj[0] == id_ville:
                     return tpl_obj[1]
+            print(f"Error, cannot find city {id_ville}")
