@@ -4,6 +4,7 @@ import logging
 import base64
 from odoo import _, api, SUPERUSER_ID
 import collections
+import os
 
 _logger = logging.getLogger(__name__)
 
@@ -14,9 +15,13 @@ try:
 except (ImportError, AssertionError):
     _logger.info('MySQLdb not available. Please install "mysqlclient" python package.')
 
+# TODO update me with your backup version
+BACKUP_PATH = "/home/mathben/Documents/technolibre/accorderie/accorderie20200826/Intranet"
+
 
 def post_init_hook(cr, e):
     migration = MigrationAccorderie(cr)
+    migration.setup_configuration()
     migration.migrate_tbl_accorderie()
     migration.migrate_tbl_fournisseur()
 
@@ -30,11 +35,68 @@ class MigrationAccorderie:
         self.passwd = "accorderie"
         self.db_name = "accorderie_log_2019_2"
         self.conn = MySQLdb.connect(host=self.host, user=self.user, passwd=self.passwd, db=self.db_name)
-        self.source_code_path = "/home/mathben/Documents/technolibre/accorderie/accorderie20200826/Intranet"
+        # Path of the backup
+        self.source_code_path = BACKUP_PATH
         self.logo_path = f"{self.source_code_path}/images/logo"
         self.cr = cr
 
         self.dct_tbl = {}
+
+    def setup_configuration(self):
+        print("Update configuration")
+
+        with api.Environment.manage():
+            env = api.Environment(self.cr, SUPERUSER_ID, {})
+            # CRM
+            # team = env['crm.team'].browse(1)
+            # Team name Europe need to be change in i18n french canadian
+            # team.name = "Québec"
+
+            # General configuration
+            values = {
+                # 'use_quotation_validity_days': True,
+                # 'quotation_validity_days': 30,
+                # 'portal_confirmation_sign': True,
+                # 'portal_invoice_confirmation_sign': True,
+                # 'group_sale_delivery_address': True,
+                # 'group_sale_order_template': True,
+                # 'default_sale_order_template_id': True,
+                # 'use_sale_note': True,
+                # 'sale_note': "N° TPS : \n"
+                #              "N° TVQ : \n"
+                #              "N° RBQ : 5775-6991-01\n"
+                #              "N° BSP : SC 20047464\n"
+                #              "Des frais de 2% par mois sont exigés sur tout solde impayé"
+                #              " après la date d'échéance.",
+                # 'refund_total_tip_amount_included_to_employee': True,
+                # 'group_discount_per_so_line': True,
+                # 'group_use_lead': True,
+                # 'generate_lead_from_alias': True,
+                # 'crm_alias_prefix': "service",
+                'theme_color_brand': "#004a98",
+                # 'theme_color_primary': "#2CD5C4",
+                'theme_background_image': env.ref("accorderie_migrate_mysql.theme_background_image").datas,
+                # 'branding_color_text': "#4c4c4c",
+
+                # Enable multi company for each accorderie
+                'group_multi_company': True,
+                'company_share_partner': False,
+                'company_share_product': False,
+
+                # Ignore KPI digest
+                'digest_emails': False,
+
+                # Authentication
+                'auth_signup_reset_password': True,
+
+                # Commercial
+                # TODO Cause bug when uninstall
+                # 'module_web_unsplash': False,
+                # 'module_partner_autocomplete': False,
+
+            }
+            event_config = env['res.config.settings'].sudo().create(values)
+            event_config.execute()
 
     def migrate_tbl_accorderie(self):
         print("Begin migrate tbl_accorderie")
@@ -72,15 +134,18 @@ class MigrationAccorderie:
 
         with api.Environment.manage():
             env = api.Environment(self.cr, SUPERUSER_ID, {})
+            head_quarter = None
+            lst_child_company = []
             i = 0
             for result in tpl_result:
                 i += 1
                 pos_id = f"{i}/{len(tpl_result)}"
 
-                # Exception for warehouse
+                # Exception for head quarter
                 if result[5].strip() == "Réseau Accorderie (du Qc)":
                     name = result[5].strip()
                     obj = env['res.company'].browse(1)
+                    head_quarter = obj
                     obj.name = name
                     obj.street = result[7].strip()
                     obj.zip = result[8].strip()
@@ -91,6 +156,11 @@ class MigrationAccorderie:
                     obj.tz = "America/Montreal"
                     if result[16]:
                         data = open(f"{self.logo_path}/{result[16]}", "rb").read()
+                        obj.logo = base64.b64encode(data)
+                    else:
+                        # obj.logo = base64.b64encode(env.ref("accorderie_migrate_mysql.logo_blanc_accorderie").datas),
+                        _path = os.path.dirname(__file__)
+                        data = open(f"{_path}/static/img/logonoiblancaccorderie.jpg", "rb").read()
                         obj.logo = base64.b64encode(data)
                     print(f"{pos_id} - RES.PARTNER - tbl_accorderie - UPDATED {name}")
                 else:
@@ -108,12 +178,17 @@ class MigrationAccorderie:
                         value["logo"] = base64.b64encode(data)
 
                     obj = env['res.company'].create(value)
+                    lst_child_company.append(obj)
                     obj.tz = "America/Montreal"
                     obj.partner_id.active = result[19] == 0
                     obj.partner_id.fax = result[10].strip()
 
                     print(f"{pos_id} - RES.PARTNER - tbl_accorderie - ADDED {name}")
                 lst_result.append((obj, result))
+
+                if head_quarter:
+                    for child in lst_child_company:
+                        child.parent_id = head_quarter.id
 
     def migrate_tbl_fournisseur(self):
         print("Begin migrate tbl_fournisseur")
@@ -126,20 +201,21 @@ class MigrationAccorderie:
 
         self.dct_tbl["tbl_fournisseur"] = tpl_result
 
+        # Ignore duplicate since enable multi-company with different contact, not sharing
         # Debug duplicate data, need unique name
-        dct_debug = collections.defaultdict(list)
-        for result in tpl_result:
-            dct_debug[result[4]].append(result)
-        lst_to_remove = []
-        for key, value in dct_debug.items():
-            if len(value) > 1:
-                print(f"Duplicate name ({len(value)}) {key}: {value}\n")
-            else:
-                lst_to_remove.append(key)
-        for key in lst_to_remove:
-            del dct_debug[key]
-
-        self.dct_tbl["tbl_fournisseur|conflict"] = dct_debug
+        # dct_debug = collections.defaultdict(list)
+        # for result in tpl_result:
+        #     dct_debug[result[4]].append(result)
+        # lst_to_remove = []
+        # for key, value in dct_debug.items():
+        #     if len(value) > 1:
+        #         print(f"Duplicate name ({len(value)}) {key}: {value}\n")
+        #     else:
+        #         lst_to_remove.append(key)
+        # for key in lst_to_remove:
+        #     del dct_debug[key]
+        #
+        # self.dct_tbl["tbl_fournisseur|conflict"] = dct_debug
 
         # 0 `NoFournisseur` int(10) UNSIGNED NOT NULL,
         # 1 `NoAccorderie` int(10) UNSIGNED NOT NULL,
@@ -168,7 +244,7 @@ class MigrationAccorderie:
                 name = result[4].strip()
 
                 if "Accorderie" in name:
-                    accorderie_id = self._get_accorderie(result[1])
+                    accorderie_id, _ = self._get_accorderie(result[1])
                     if not accorderie_id:
                         raise Exception(f"Cannot find associated accorderie {result}")
                     accorderie_id.partner_id.supplier = True
@@ -179,9 +255,14 @@ class MigrationAccorderie:
                     print(f"{pos_id} - RES.PARTNER - tbl_fournisseur - UPDATED {name}/{accorderie_id.partner_id.name}")
                     continue
                 elif name in dct_debug.keys():
-                    lst_duplicated = dct_debug.get(name)
-                    print(f"{pos_id} - RES.PARTNER - tbl_fournisseur - SKIPPED {name}")
-                    continue
+                    # lst_duplicated = dct_debug.get(name)
+                    # print(f"{pos_id} - RES.PARTNER - tbl_fournisseur - SKIPPED {name}")
+                    # continue
+                    pass
+
+                company_id, _ = self._get_accorderie(id_accorderie=result[1])
+                if not company_id:
+                    raise Exception(f"Cannot find associated accorderie {result}")
 
                 value = {
                     'name': name,
@@ -196,6 +277,7 @@ class MigrationAccorderie:
                     'comment': result[13].strip(),
                     'tz': "America/Montreal",
                     'active': result[14] == 1,
+                    'company_id': company_id.id,
                 }
 
                 obj = env['res.partner'].create(value)
@@ -205,6 +287,7 @@ class MigrationAccorderie:
                     'function': result[11].strip(),
                     'email': result[12].strip(),
                     'parent_id': obj.id,
+                    'company_id': company_id.id,
                 }
                 obj_contact = env['res.partner'].create(value_contact)
 
@@ -214,4 +297,4 @@ class MigrationAccorderie:
         if id_accorderie:
             for obj_id_accorderie, tpl_obj in self.dct_tbl.get("tbl_accorderie"):
                 if tpl_obj[0] == id_accorderie:
-                    return obj_id_accorderie
+                    return obj_id_accorderie, tpl_obj

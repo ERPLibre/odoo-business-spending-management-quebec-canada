@@ -14,7 +14,18 @@ accorderie migrate mysql
 
 """,
     'depends': [
-        'l10n_ca'
+        # 'l10n_ca_qc',
+        'erplibre_base',
+        'erplibre_base_quebec',
+        'crm',
+        'project',
+        'sale',
+        'hr',
+        'partner_fax',
+        'website',
+        'website_livechat',
+        'im_livechat',
+        'muk_web_theme',
     ],
     'external_dependencies': {
         'python': [
@@ -22,6 +33,7 @@ accorderie migrate mysql
         ],
     },
     'data': [
+        'data/accorderie_web_data.xml',
     ],
     "post_init_hook": "post_init_hook",
     'installable': True,
