@@ -26,6 +26,7 @@ def post_init_hook(cr, e):
     migration.migrate_tbl_accorderie()
     migration.migrate_tbl_fournisseur()
     migration.migrate_tbl_membre()
+    migration.update_user()
 
 
 class MigrationAccorderie:
@@ -443,6 +444,16 @@ class MigrationAccorderie:
                 obj = env['res.partner'].create(value)
 
                 print(f"{pos_id} - RES.PARTNER - tbl_membre - ADDED '{name}' id {result[0]}")
+
+    def update_user(self):
+        print("Update user preference")
+        with api.Environment.manage():
+            env = api.Environment(self.cr, SUPERUSER_ID, {})
+
+            administrator = env['res.users'].browse(2)
+            # administrator.email = "admin@nuagelibre.ca"
+            # Add all society to administrator
+            administrator.company_ids = env['res.company'].search([]).ids
 
     def _set_phone(self, result, value):
         # Manage phone
