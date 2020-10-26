@@ -254,11 +254,10 @@ class MigrationAccorderie:
                     accorderie_id.partner_id.comment = f"{new_comment}Fournisseur : {result[13].strip()}"
                     print(f"{pos_id} - RES.PARTNER - tbl_fournisseur - UPDATED {name}/{accorderie_id.partner_id.name}")
                     continue
-                elif name in dct_debug.keys():
-                    # lst_duplicated = dct_debug.get(name)
-                    # print(f"{pos_id} - RES.PARTNER - tbl_fournisseur - SKIPPED {name}")
-                    # continue
-                    pass
+                # elif name in dct_debug.keys():
+                #     lst_duplicated = dct_debug.get(name)
+                #     print(f"{pos_id} - RES.PARTNER - tbl_fournisseur - SKIPPED {name}")
+                #     continue
 
                 company_id, _ = self._get_accorderie(id_accorderie=result[1])
                 if not company_id:
