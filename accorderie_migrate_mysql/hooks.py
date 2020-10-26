@@ -75,27 +75,45 @@ class MigrationAccorderie:
             i = 0
             for result in tpl_result:
                 i += 1
-                name = f"Accorderie {result[6].strip()}"
-                value = {
-                    'name': name,
-                    'street': result[7].strip(),
-                    'zip': result[8].strip(),
-                    'phone': result[9].strip(),
-                    'email': result[11].strip(),
-                    # 'website': result[14],
-                }
-                if result[16]:
-                    data = open(f"{self.logo_path}/{result[16]}", "rb").read()
-                    value["logo"] = base64.b64encode(data)
-
-                obj = env['res.company'].create(value)
-                obj.tz = "America/Montreal"
-                obj.partner_id.active = result[19] == 0
-
-                lst_result.append((obj, result))
-
                 pos_id = f"{i}/{len(tpl_result)}"
-                print(f"{pos_id} - RES.PARTNER - tbl_accorderie - {name} added.")
+
+                # Exception for warehouse
+                if result[5].strip() == "Réseau Accorderie (du Qc)":
+                    name = result[5].strip()
+                    obj = env['res.company'].browse(1)
+                    obj.name = name
+                    obj.street = result[7].strip()
+                    obj.zip = result[8].strip()
+                    obj.phone = result[9].strip()
+                    obj.partner_id.fax = result[10].strip()
+                    obj.email = result[11].strip()
+                    obj.website = "www.accorderie.ca"
+                    obj.tz = "America/Montreal"
+                    if result[16]:
+                        data = open(f"{self.logo_path}/{result[16]}", "rb").read()
+                        obj.logo = base64.b64encode(data)
+                    print(f"{pos_id} - RES.PARTNER - tbl_accorderie - UPDATED {name}")
+                else:
+                    name = f"Accorderie {result[6].strip()}"
+                    value = {
+                        'name': name,
+                        'street': result[7].strip(),
+                        'zip': result[8].strip(),
+                        'phone': result[9].strip(),
+                        'email': result[11].strip(),
+                        # 'website': result[14].strip(),
+                    }
+                    if result[16]:
+                        data = open(f"{self.logo_path}/{result[16]}", "rb").read()
+                        value["logo"] = base64.b64encode(data)
+
+                    obj = env['res.company'].create(value)
+                    obj.tz = "America/Montreal"
+                    obj.partner_id.active = result[19] == 0
+                    obj.partner_id.fax = result[10].strip()
+
+                    print(f"{pos_id} - RES.PARTNER - tbl_accorderie - ADDED {name}")
+                lst_result.append((obj, result))
 
     def migrate_tbl_fournisseur(self):
         print("Begin migrate tbl_fournisseur")
@@ -170,21 +188,23 @@ class MigrationAccorderie:
                     'street': result[5].strip(),
                     'zip': result[6].strip(),
                     'phone': result[7].strip(),
+                    'fax': result[8].strip(),
                     'email': result[9].strip(),
+                    'supplier': True,
+                    'customer': False,
+                    'company_type': 'company',
+                    'comment': result[13].strip(),
+                    'tz': "America/Montreal",
+                    'active': result[14] == 1,
                 }
 
-                obj = env['res.company'].create(value)
-                obj.tz = "America/Montreal"
-                obj.partner_id.comment = result[13].strip()
-                obj.partner_id.supplier = True
-                obj.partner_id.customer = False
-                obj.partner_id.active = result[14] == 1
+                obj = env['res.partner'].create(value)
 
                 value_contact = {
                     'name': result[10].strip(),
                     'function': result[11].strip(),
                     'email': result[12].strip(),
-                    'parent_id': obj.partner_id.id,
+                    'parent_id': obj.id,
                 }
                 obj_contact = env['res.partner'].create(value_contact)
 
