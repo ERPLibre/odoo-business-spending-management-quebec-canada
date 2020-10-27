@@ -26,6 +26,8 @@ def post_init_hook(cr, e):
     migration.migrate_tbl_accorderie()
     migration.migrate_tbl_fournisseur()
     migration.migrate_tbl_membre()
+    migration.migrate_tbl_titre()
+    migration.migrate_tbl_produit()
     migration.update_user()
 
 
@@ -217,7 +219,7 @@ class MigrationAccorderie:
                     obj.partner_id.active = result[19] == 0
                     obj.partner_id.fax = result[10].strip()
 
-                    print(f"{pos_id} - RES.PARTNER - tbl_accorderie - ADDED '{name}' id {result[0]}")
+                    print(f"{pos_id} - res.company - tbl_accorderie - ADDED '{name}' id {result[0]}")
                 lst_result.append((obj, result))
 
                 if head_quarter:
@@ -332,7 +334,7 @@ class MigrationAccorderie:
                 }
                 obj_contact = env['res.partner'].create(value_contact)
 
-                print(f"{pos_id} - RES.PARTNER - tbl_fournisseur - ADDED '{name}' id {result[0]}")
+                print(f"{pos_id} - res.partner - tbl_fournisseur - ADDED '{name}' id {result[0]}")
 
     def migrate_tbl_membre(self):
         print("Begin migrate tbl_membre")
@@ -344,6 +346,7 @@ class MigrationAccorderie:
         tpl_result = cur.fetchall()
 
         self.dct_tbl["tbl_membre"] = tpl_result
+
         # 0 `NoMembre` int(10) UNSIGNED NOT NULL,
         # 1 `NoCartier` int(10) UNSIGNED DEFAULT '0',
         # 2 `NoAccorderie` int(10) UNSIGNED NOT NULL,
@@ -443,7 +446,96 @@ class MigrationAccorderie:
 
                 obj = env['res.partner'].create(value)
 
-                print(f"{pos_id} - RES.PARTNER - tbl_membre - ADDED '{name}' id {result[0]}")
+                print(f"{pos_id} - res.partner - tbl_membre - ADDED '{name}' id {result[0]}")
+
+    def migrate_tbl_titre(self):
+        print("Begin migrate tbl_titre")
+        cur = self.conn.cursor()
+        str_query = f"""SELECT * FROM tbl_titre;"""
+        cur.nextset()
+        cur.execute(str_query)
+        tpl_result = cur.fetchall()
+
+        lst_result = []
+        self.dct_tbl["tbl_titre"] = lst_result
+
+        # `NoTitre` int(10) UNSIGNED NOT NULL,
+        # `Titre` varchar(50) CHARACTER SET latin1 DEFAULT NULL,
+        # `Visible_Titre` tinyint(1) UNSIGNED DEFAULT NULL,
+        # `DateMAJ_Titre` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        with api.Environment.manage():
+            env = api.Environment(self.cr, SUPERUSER_ID, {})
+
+            value = {
+                'name': "Aliment",
+            }
+
+            product_cat_root_id = env['product.category'].create(value)
+
+            i = 0
+            for result in tpl_result:
+                i += 1
+                pos_id = f"{i}/{len(tpl_result)}"
+                name = result[1]
+
+                value = {
+                    'name': name,
+                    'parent_id': product_cat_root_id.id,
+                }
+
+                product_cat_id = env['product.category'].create(value)
+
+                lst_result.append((product_cat_id, result))
+
+                print(f"{pos_id} - product.category - tbl_titre - ADDED '{name}' id {result[0]}")
+
+    def migrate_tbl_produit(self):
+        print("Begin migrate tbl_produit")
+        cur = self.conn.cursor()
+        str_query = f"""SELECT * FROM tbl_produit;"""
+        cur.nextset()
+        cur.execute(str_query)
+        tpl_result = cur.fetchall()
+
+        lst_result = []
+        self.dct_tbl["tbl_produit"] = lst_result
+
+        # 0 `NoProduit` int(10) UNSIGNED NOT NULL,
+        # 1 `NoTitre` int(10) UNSIGNED NOT NULL,
+        # 2 `NoAccorderie` int(10) UNSIGNED NOT NULL,
+        # 3 `NomProduit` varchar(80) CHARACTER SET latin1 DEFAULT NULL,
+        # 4 `TaxableF` tinyint(1) UNSIGNED DEFAULT '0',
+        # 5 `TaxableP` tinyint(1) UNSIGNED DEFAULT '0',
+        # 6 `Visible_Produit` tinyint(1) UNSIGNED DEFAULT '0',
+        # 7 `DateMAJ_Produit` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+
+        with api.Environment.manage():
+            env = api.Environment(self.cr, SUPERUSER_ID, {})
+
+            i = 0
+            for result in tpl_result:
+                i += 1
+                pos_id = f"{i}/{len(tpl_result)}"
+                name = result[3]
+
+                company_id, _ = self._get_accorderie(id_accorderie=result[2])
+                if not company_id:
+                    raise Exception(f"Cannot find associated accorderie {result}")
+
+                titre_id, _ = self._get_titre(id_titre=result[1])
+
+                value = {
+                    'name': name,
+                    'categ_id': titre_id.id,
+                    'active': result[6] == 1,
+                    'company_id': company_id.id,
+                }
+
+                product_id = env['product.template'].create(value)
+
+                lst_result.append((product_id, result))
+
+                print(f"{pos_id} - product.template - tbl_produit - ADDED '{name}' id {result[0]}")
 
     def update_user(self):
         print("Update user preference")
@@ -524,6 +616,14 @@ class MigrationAccorderie:
             for obj_id_accorderie, tpl_obj in self.dct_tbl.get("tbl_accorderie"):
                 if tpl_obj[0] == id_accorderie:
                     return obj_id_accorderie, tpl_obj
+            print(f"Error, cannot find accorderie {id_accorderie}")
+
+    def _get_titre(self, id_titre: int = None):
+        if id_titre:
+            for obj_id_titre, tpl_obj in self.dct_tbl.get("tbl_titre"):
+                if tpl_obj[0] == id_titre:
+                    return obj_id_titre, tpl_obj
+            print(f"Error, cannot find product titre {id_titre}")
 
     def _get_ville(self, id_ville: int = None):
         if id_ville:
