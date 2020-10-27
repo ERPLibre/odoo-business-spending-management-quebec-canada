@@ -24,10 +24,15 @@ def post_init_hook(cr, e):
     migration.setup_configuration()
     migration.migrate_tbl_ville()
     migration.migrate_tbl_accorderie()
+
+    # Create document database per company
+    migration.setup_document()
+
     migration.migrate_tbl_fournisseur()
     migration.migrate_tbl_membre()
     migration.migrate_tbl_titre()
     migration.migrate_tbl_produit()
+    migration.migrate_tbl_fichier()
     migration.update_user()
 
 
@@ -48,7 +53,7 @@ class MigrationAccorderie:
         self.dct_tbl = {}
 
     def setup_configuration(self):
-        print("Update configuration")
+        print("Setup configuration")
 
         with api.Environment.manage():
             env = api.Environment(self.cr, SUPERUSER_ID, {})
@@ -95,13 +100,50 @@ class MigrationAccorderie:
                 'auth_signup_reset_password': True,
 
                 # Commercial
-                # TODO Cause bug when uninstall
+                # TODO Cause bug when uninstall, need to do it manually
                 # 'module_web_unsplash': False,
                 # 'module_partner_autocomplete': False,
 
             }
             event_config = env['res.config.settings'].sudo().create(values)
             event_config.execute()
+
+    def setup_document(self):
+        print("Setup document")
+
+        dct_storage = {}
+        self.dct_tbl["storage"] = dct_storage
+
+        with api.Environment.manage():
+            env = api.Environment(self.cr, SUPERUSER_ID, {})
+
+            lst_result = self.dct_tbl["tbl_accorderie"]
+
+            i = 0
+            for result in lst_result:
+                i += 1
+                pos_id = f"{i}/{len(lst_result)}"
+
+                name = result[0].name
+
+                value = {
+                    'name': name,
+                    'company': result[0].id
+                }
+
+                storage_id = env["muk_dms.storage"].create(value)
+
+                value = {
+                    'name': name,
+                    'root_storage': storage_id.id,
+                    'is_root_directory': True,
+                }
+
+                directory_id = env["muk_dms.directory"].create(value)
+
+                dct_storage[result[0].id] = storage_id, directory_id
+
+                print(f"{pos_id} - muk_dms.storage - NEW - ADDED '{name}' id {storage_id.id}")
 
     def migrate_tbl_ville(self):
         print("Begin migrate tbl_ville")
@@ -536,6 +578,56 @@ class MigrationAccorderie:
                 lst_result.append((product_id, result))
 
                 print(f"{pos_id} - product.template - tbl_produit - ADDED '{name}' id {result[0]}")
+
+    def migrate_tbl_fichier(self):
+        # TODO complete this function and migrate_tbl_type_fichier
+        return
+        print("Begin migrate tbl_fichier")
+        cur = self.conn.cursor()
+        str_query = f"""SELECT * FROM tbl_fichier;"""
+        cur.nextset()
+        cur.execute(str_query)
+        tpl_result = cur.fetchall()
+
+        lst_result = []
+        self.dct_tbl["tbl_fichier"] = lst_result
+
+        # 0 `NoProduit` int(10) UNSIGNED NOT NULL,
+        # 1 `NoTitre` int(10) UNSIGNED NOT NULL,
+        # 2 `NoAccorderie` int(10) UNSIGNED NOT NULL,
+        # 3 `NomProduit` varchar(80) CHARACTER SET latin1 DEFAULT NULL,
+        # 4 `TaxableF` tinyint(1) UNSIGNED DEFAULT '0',
+        # 5 `TaxableP` tinyint(1) UNSIGNED DEFAULT '0',
+        # 6 `Visible_Produit` tinyint(1) UNSIGNED DEFAULT '0',
+        # 7 `DateMAJ_Produit` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+
+        with api.Environment.manage():
+            env = api.Environment(self.cr, SUPERUSER_ID, {})
+
+            i = 0
+            for result in tpl_result:
+                i += 1
+                pos_id = f"{i}/{len(tpl_result)}"
+                name = result[3]
+
+                company_id, _ = self._get_accorderie(id_accorderie=result[2])
+                if not company_id:
+                    raise Exception(f"Cannot find associated accorderie {result}")
+
+                titre_id, _ = self._get_titre(id_titre=result[1])
+
+                value = {
+                    'name': name,
+                    'categ_id': titre_id.id,
+                    'active': result[6] == 1,
+                    'company_id': company_id.id,
+                }
+
+                product_id = env['product.template'].create(value)
+
+                lst_result.append((product_id, result))
+
+                print(f"{pos_id} - muk_dms.file - tbl_fichier - ADDED '{name}' id {result[0]}")
 
     def update_user(self):
         print("Update user preference")

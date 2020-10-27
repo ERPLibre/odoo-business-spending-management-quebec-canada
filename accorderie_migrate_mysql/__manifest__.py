@@ -26,6 +26,11 @@ accorderie migrate mysql
         'website_livechat',
         'im_livechat',
         'muk_web_theme',
+        # Document
+        'muk_dms',
+        'muk_dms_mail',
+        'muk_dms_thumbnails',
+        'muk_dms_view',
     ],
     'external_dependencies': {
         'python': [
