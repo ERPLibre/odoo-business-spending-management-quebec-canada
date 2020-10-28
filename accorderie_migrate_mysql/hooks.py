@@ -223,6 +223,8 @@ class MigrationAccorderie:
                     obj.state_id = 543  # Quebec
                     obj.country_id = 38  # Canada
                     obj.tz = "America/Montreal"
+                    obj.create_date = result[20]
+
                     # City
                     city_name = self._get_ville(result[2])
                     if city_name:
@@ -248,8 +250,10 @@ class MigrationAccorderie:
                         'email': result[11].strip(),
                         'state_id': 543,  # Quebec
                         'country_id': 38,  # Canada
+                        'create_date': result[20],
                         # 'website': result[14].strip(),
                     }
+
                     if result[16]:
                         data = open(f"{self.logo_path}/{result[16]}", "rb").read()
                         value["logo"] = base64.b64encode(data)
@@ -334,6 +338,8 @@ class MigrationAccorderie:
                     if accorderie_id.partner_id.comment:
                         new_comment = f"{accorderie_id.partner_id.comment}\n"
                     accorderie_id.partner_id.comment = f"{new_comment}Fournisseur : {result[13].strip()}"
+                    accorderie_id.create_date = result[15]
+
                     print(f"{pos_id} - RES.PARTNER - tbl_fournisseur - "
                           f"UPDATED '{name}/{accorderie_id.partner_id.name}' id {result[0]}")
                     continue
@@ -364,6 +370,7 @@ class MigrationAccorderie:
                     'tz': "America/Montreal",
                     'active': result[14] == 1,
                     'company_id': company_id.id,
+                    'create_date': result[15],
                 }
 
                 if city_name:
@@ -377,7 +384,9 @@ class MigrationAccorderie:
                     'email': result[12].strip(),
                     'parent_id': obj.id,
                     'company_id': company_id.id,
+                    'create_date': result[15],
                 }
+
                 obj_contact = env['res.partner'].create(value_contact)
 
                 print(f"{pos_id} - res.partner - tbl_fournisseur - ADDED '{name}' id {result[0]}")
@@ -480,6 +489,7 @@ class MigrationAccorderie:
                     'tz': "America/Montreal",
                     'active': result[37] == 0,
                     'company_id': company_id.id,
+                    'create_date': result[52],
                 }
 
                 if result[40]:
@@ -505,10 +515,11 @@ class MigrationAccorderie:
         lst_result = []
         self.dct_tbl["tbl_titre"] = lst_result
 
-        # `NoTitre` int(10) UNSIGNED NOT NULL,
-        # `Titre` varchar(50) CHARACTER SET latin1 DEFAULT NULL,
-        # `Visible_Titre` tinyint(1) UNSIGNED DEFAULT NULL,
-        # `DateMAJ_Titre` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        # 0 `NoTitre` int(10) UNSIGNED NOT NULL,
+        # 1 `Titre` varchar(50) CHARACTER SET latin1 DEFAULT NULL,
+        # 2 `Visible_Titre` tinyint(1) UNSIGNED DEFAULT NULL,
+        # 3 `DateMAJ_Titre` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+
         with api.Environment.manage():
             env = api.Environment(self.cr, SUPERUSER_ID, {})
 
@@ -527,6 +538,7 @@ class MigrationAccorderie:
                 value = {
                     'name': name,
                     'parent_id': product_cat_root_id.id,
+                    'create_date': result[3],
                 }
 
                 product_cat_id = env['product.category'].create(value)
@@ -575,6 +587,7 @@ class MigrationAccorderie:
                     'categ_id': titre_id.id,
                     'active': result[6] == 1,
                     'company_id': company_id.id,
+                    'create_date': result[7],
                 }
 
                 product_id = env['product.template'].create(value)
@@ -609,6 +622,7 @@ class MigrationAccorderie:
 
                 value = {
                     'name': name,
+                    'create_date': result[2],
                 }
 
                 category_id = env['muk_dms.category'].create(value)
@@ -660,7 +674,9 @@ class MigrationAccorderie:
                     'active': result[7] == 1,
                     'directory': directory_id.id,
                     'content': content,
+                    'create_date': result[8],
                 }
+
                 # Validate not duplicate
                 files_id = env['muk_dms.file'].search([('name', '=', name), ('directory', '=', directory_id.id)])
                 if not files_id:
