@@ -5,12 +5,7 @@ import base64
 from odoo import _, api, SUPERUSER_ID
 # import collections
 # from odoo.exceptions import ValidationError
-# from Crypto.Cipher import AES
 import os
-
-from base64 import b64decode
-from base64 import b64encode
-from Crypto.Cipher import AES
 
 _logger = logging.getLogger(__name__)
 
@@ -494,10 +489,6 @@ class MigrationAccorderie:
                     raise Exception(f"Cannot find associated accorderie {result}")
 
                 city_name = self._get_ville(result[11])
-                password = result[54]
-                password = AESCipher(SECRET_PASSWORD).decrypt(result[45])
-                password = self._mysql_aes_decrypt(result[45], SECRET_PASSWORD)
-                password = self._aes_decrypt(result[45])
 
                 value = {
                     'name': name,
@@ -512,6 +503,8 @@ class MigrationAccorderie:
                     'active': result[37] == 0,
                     'company_id': company_id.id,
                     'create_date': result[52],
+                    # 'login': result[44],
+                    # 'password': result[54],
                 }
 
                 if result[40]:
@@ -822,72 +815,3 @@ class MigrationAccorderie:
     def _get_storage(self, id_accorderie: int = None):
         if id_accorderie:
             return self.dct_tbl.get("storage").get(id_accorderie)
-
-    def _mysql_aes_decrypt(self, val, key):
-
-        def mysql_aes_key(key):
-            final_key = bytearray(16)
-            for i, c in enumerate(key):
-                final_key[i % 16] ^= ord(key[i])
-            return bytes(final_key)
-
-        k = mysql_aes_key(key)
-
-        cipher = AES.new(k, AES.MODE_ECB)
-
-        return cipher.decrypt(val).decode()
-
-    def _aes_encrypt(self, data):
-        key = SECRET_PASSWORD  # key used for encryption, only strings of length 16, 24 and 32
-
-        BS = AES.block_size
-        pad = lambda s: s + (BS - len(s) % BS) * chr(BS - len(s) % BS)
-        cipher = AES.new(key)
-        encrypted = cipher.encrypt(pad(data))  # aesEncrypted
-
-        result = base64.b64encode(encrypted)  # base64 encode
-        return result
-
-    def _aes_decrypt(self, data):
-        key = SECRET_PASSWORD
-        unpad = lambda s: s[0:-s[-1]]
-        cipher = AES.new(key)
-        result2 = base64.b64decode(data)
-        decrypted = unpad(cipher.decrypt(result2))
-        return decrypted
-
-
-class AESCipher:
-    """
-    Usage:
-        c = AESCipher('password').encrypt('message')
-        m = AESCipher('password').decrypt(c)
-    Tested under Python 3 and PyCrypto 2.6.1.
-    """
-
-    def __init__(self, key):
-        BLOCK_SIZE = 16  # Bytes
-        self.pad = lambda s: s + (BLOCK_SIZE - len(s) % BLOCK_SIZE) * \
-                             chr(BLOCK_SIZE - len(s) % BLOCK_SIZE)
-        self.unpad = lambda s: s[:-ord(s[len(s) - 1:])]
-
-        # self.key = md5(key.encode('utf8')).hexdigest()
-
-        self.key = self.mysql_aes_key(key)
-
-    def mysql_aes_key(self, key):
-        final_key = bytearray(16)
-        for i, c in enumerate(key):
-            final_key[i % 16] ^= ord(key[i])
-        return bytes(final_key)
-
-    def encrypt(self, raw):
-        raw = self.pad(raw)
-        cipher = AES.new(self.key, AES.MODE_ECB)
-        return b64encode(cipher.encrypt(raw))
-
-    def decrypt(self, enc):
-        # enc = b64decode(enc)
-        enc = self.mysql_aes_key(enc)
-        cipher = AES.new(self.key, AES.MODE_ECB)
-        return self.unpad(cipher.decrypt(enc)).decode('utf8')
