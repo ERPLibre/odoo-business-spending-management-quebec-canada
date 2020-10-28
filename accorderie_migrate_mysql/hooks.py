@@ -20,6 +20,8 @@ except (ImportError, AssertionError):
 BACKUP_PATH = "/home/mathben/Documents/technolibre/accorderie/accorderie20200826/Intranet"
 FILE_PATH = f"{BACKUP_PATH}/document/doc"
 SECRET_PASSWORD = ""
+DEBUG_LIMIT = False
+LIMIT = 200
 
 
 def post_init_hook(cr, e):
@@ -33,20 +35,20 @@ def post_init_hook(cr, e):
     migration.migrate_tbl_accorderie()
 
     # Create document database per company
-    # migration.setup_document()
+    migration.setup_document()
 
     # Create supplier, member and product
-    # migration.migrate_tbl_fournisseur()
+    migration.migrate_tbl_fournisseur()
     migration.migrate_tbl_membre()
-    # migration.migrate_tbl_titre()
-    # migration.migrate_tbl_produit()
+    migration.migrate_tbl_titre()
+    migration.migrate_tbl_produit()
 
     # Create files
-    # migration.migrate_tbl_type_fichier()
-    # migration.migrate_tbl_fichier()
+    migration.migrate_tbl_type_fichier()
+    migration.migrate_tbl_fichier()
 
     # Update user configuration
-    # migration.update_user()
+    migration.update_user()
 
 
 class MigrationAccorderie:
@@ -137,6 +139,10 @@ class MigrationAccorderie:
                 i += 1
                 pos_id = f"{i}/{len(lst_result)}"
 
+                if DEBUG_LIMIT and i >= LIMIT:
+                    print(f"REACH LIMIT {LIMIT}")
+                    break
+
                 name = result[0].name
 
                 value = {
@@ -217,6 +223,10 @@ class MigrationAccorderie:
             for result in tpl_result:
                 i += 1
                 pos_id = f"{i}/{len(tpl_result)}"
+
+                if DEBUG_LIMIT and i >= LIMIT:
+                    print(f"REACH LIMIT {LIMIT}")
+                    break
 
                 if result[5].strip() == "Réseau Accorderie (du Qc)":
                     # Update main company
@@ -337,6 +347,11 @@ class MigrationAccorderie:
             for result in tpl_result:
                 i += 1
                 pos_id = f"{i}/{len(tpl_result)}"
+
+                if DEBUG_LIMIT and i >= LIMIT:
+                    print(f"REACH LIMIT {LIMIT}")
+                    break
+
                 name = result[4].strip()
 
                 if "Accorderie" in name:
@@ -476,6 +491,12 @@ class MigrationAccorderie:
                 i += 1
                 pos_id = f"{i}/{len(tpl_result)}"
 
+                if DEBUG_LIMIT and i >= LIMIT:
+                    print(f"REACH LIMIT {LIMIT}")
+                    break
+
+                login = result[44]
+
                 # Get the name in 1 field
                 if result[18] and result[17]:
                     name = f"{result[18].strip()} {result[17].strip()}"
@@ -483,6 +504,14 @@ class MigrationAccorderie:
                     name = f"{result[18].strip()}"
                 elif result[17]:
                     name = f"{result[17].strip()}"
+                else:
+                    name = ""
+
+                email = result[29].strip()
+
+                if not login or not name:
+                    print(f"{pos_id} - res.partner - tbl_membre - SKIPPED EMPTY LOGIN '{name}' id {result[0]}")
+                    continue
 
                 company_id, _ = self._get_accorderie(id_accorderie=result[2])
                 if not company_id:
@@ -494,7 +523,7 @@ class MigrationAccorderie:
                     'name': name,
                     'street': result[19].strip(),
                     'zip': result[15].strip(),
-                    'email': result[29].strip(),
+                    'email': email,
                     'supplier': False,
                     'customer': True,
                     'state_id': 543,  # Quebec
@@ -503,8 +532,6 @@ class MigrationAccorderie:
                     'active': result[37] == 0,
                     'company_id': company_id.id,
                     'create_date': result[52],
-                    # 'login': result[44],
-                    # 'password': result[54],
                 }
 
                 if result[40]:
@@ -515,7 +542,21 @@ class MigrationAccorderie:
 
                 self._set_phone(result, value)
 
-                obj = env['res.partner'].create(value)
+                obj_partner = env['res.partner'].create(value)
+
+                value = {
+                    'name': name,
+                    'active': result[37] == 0,
+                    'login': login,
+                    'password': result[54],
+                    'email': email,
+                    'groups_id': [(4, env.ref('base.group_user').id)],
+                    'company_id': company_id.id,
+                    'company_ids': [(4, company_id.id)],
+                    'partner_id': obj_partner.id,
+                }
+
+                obj_user = env['res.users'].with_context({'no_reset_password': True}).create(value)
 
                 print(f"{pos_id} - res.partner - tbl_membre - ADDED '{name}' id {result[0]}")
 
@@ -548,6 +589,11 @@ class MigrationAccorderie:
             for result in tpl_result:
                 i += 1
                 pos_id = f"{i}/{len(tpl_result)}"
+
+                if DEBUG_LIMIT and i >= LIMIT:
+                    print(f"REACH LIMIT {LIMIT}")
+                    break
+
                 name = result[1]
 
                 value = {
@@ -589,6 +635,11 @@ class MigrationAccorderie:
             for result in tpl_result:
                 i += 1
                 pos_id = f"{i}/{len(tpl_result)}"
+
+                if DEBUG_LIMIT and i >= LIMIT:
+                    print(f"REACH LIMIT {LIMIT}")
+                    break
+
                 name = result[3]
 
                 company_id, _ = self._get_accorderie(id_accorderie=result[2])
@@ -633,6 +684,11 @@ class MigrationAccorderie:
             for result in tpl_result:
                 i += 1
                 pos_id = f"{i}/{len(tpl_result)}"
+
+                if DEBUG_LIMIT and i >= LIMIT:
+                    print(f"REACH LIMIT {LIMIT}")
+                    break
+
                 name = result[1]
 
                 value = {
@@ -673,6 +729,11 @@ class MigrationAccorderie:
             i = 0
             for result in tpl_result:
                 i += 1
+
+                if DEBUG_LIMIT and i >= LIMIT:
+                    print(f"REACH LIMIT {LIMIT}")
+                    break
+
                 pos_id = f"{i}/{len(tpl_result)}"
                 name = result[4]
 
