@@ -4,8 +4,13 @@ import logging
 import base64
 from odoo import _, api, SUPERUSER_ID
 # import collections
-from odoo.exceptions import ValidationError
+# from odoo.exceptions import ValidationError
+# from Crypto.Cipher import AES
 import os
+
+from base64 import b64decode
+from base64 import b64encode
+from Crypto.Cipher import AES
 
 _logger = logging.getLogger(__name__)
 
@@ -19,24 +24,34 @@ except (ImportError, AssertionError):
 # TODO update me with your backup version
 BACKUP_PATH = "/home/mathben/Documents/technolibre/accorderie/accorderie20200826/Intranet"
 FILE_PATH = f"{BACKUP_PATH}/document/doc"
+SECRET_PASSWORD = ""
 
 
 def post_init_hook(cr, e):
     migration = MigrationAccorderie(cr)
+
+    # General configuration
     migration.setup_configuration()
+
+    # Create company
     migration.migrate_tbl_ville()
     migration.migrate_tbl_accorderie()
 
     # Create document database per company
-    migration.setup_document()
+    # migration.setup_document()
 
-    migration.migrate_tbl_fournisseur()
+    # Create supplier, member and product
+    # migration.migrate_tbl_fournisseur()
     migration.migrate_tbl_membre()
-    migration.migrate_tbl_titre()
-    migration.migrate_tbl_produit()
-    migration.migrate_tbl_type_fichier()
-    migration.migrate_tbl_fichier()
-    migration.update_user()
+    # migration.migrate_tbl_titre()
+    # migration.migrate_tbl_produit()
+
+    # Create files
+    # migration.migrate_tbl_type_fichier()
+    # migration.migrate_tbl_fichier()
+
+    # Update user configuration
+    # migration.update_user()
 
 
 class MigrationAccorderie:
@@ -238,7 +253,7 @@ class MigrationAccorderie:
                         _path = os.path.dirname(__file__)
                         data = open(f"{_path}/static/img/logonoiblancaccorderie.jpg", "rb").read()
                         obj.logo = base64.b64encode(data)
-                    print(f"{pos_id} - RES.PARTNER - tbl_accorderie - UPDATED '{name}' id {result[0]}")
+                    print(f"{pos_id} - res.partner - tbl_accorderie - UPDATED '{name}' id {result[0]}")
                 else:
                     # Create new accorderie
                     name = f"Accorderie {result[6].strip()}"
@@ -340,12 +355,12 @@ class MigrationAccorderie:
                     accorderie_id.partner_id.comment = f"{new_comment}Fournisseur : {result[13].strip()}"
                     accorderie_id.create_date = result[15]
 
-                    print(f"{pos_id} - RES.PARTNER - tbl_fournisseur - "
+                    print(f"{pos_id} - res.partner - tbl_fournisseur - "
                           f"UPDATED '{name}/{accorderie_id.partner_id.name}' id {result[0]}")
                     continue
                 # elif name in dct_debug.keys():
                 #     lst_duplicated = dct_debug.get(name)
-                #     print(f"{pos_id} - RES.PARTNER - tbl_fournisseur - SKIPPED '{name}' id {result[0]}")
+                #     print(f"{pos_id} - res.partner - tbl_fournisseur - SKIPPED '{name}' id {result[0]}")
                 #     continue
 
                 company_id, _ = self._get_accorderie(id_accorderie=result[1])
@@ -395,7 +410,7 @@ class MigrationAccorderie:
         print("Begin migrate tbl_membre")
         cur = self.conn.cursor()
         # Get all fournisseur
-        str_query = f"""SELECT * FROM tbl_membre;"""
+        str_query = f"""SELECT *,DECODE(MotDePasse,'{SECRET_PASSWORD}') AS MotDePasse FROM tbl_membre;"""
         cur.nextset()
         cur.execute(str_query)
         tpl_result = cur.fetchall()
@@ -456,6 +471,7 @@ class MigrationAccorderie:
         # 51 `DescriptionAccordeur` varchar(255) DEFAULT NULL,
         # 52 `Date_MAJ_Membre` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         # 53 `TransfereDe` int(10) DEFAULT NULL
+        # 54 PASSWORD
 
         with api.Environment.manage():
             env = api.Environment(self.cr, SUPERUSER_ID, {})
@@ -464,6 +480,8 @@ class MigrationAccorderie:
             for result in tpl_result:
                 i += 1
                 pos_id = f"{i}/{len(tpl_result)}"
+
+                # Get the name in 1 field
                 if result[18] and result[17]:
                     name = f"{result[18].strip()} {result[17].strip()}"
                 elif result[18]:
@@ -476,6 +494,10 @@ class MigrationAccorderie:
                     raise Exception(f"Cannot find associated accorderie {result}")
 
                 city_name = self._get_ville(result[11])
+                password = result[54]
+                password = AESCipher(SECRET_PASSWORD).decrypt(result[45])
+                password = self._mysql_aes_decrypt(result[45], SECRET_PASSWORD)
+                password = self._aes_decrypt(result[45])
 
                 value = {
                     'name': name,
@@ -800,3 +822,72 @@ class MigrationAccorderie:
     def _get_storage(self, id_accorderie: int = None):
         if id_accorderie:
             return self.dct_tbl.get("storage").get(id_accorderie)
+
+    def _mysql_aes_decrypt(self, val, key):
+
+        def mysql_aes_key(key):
+            final_key = bytearray(16)
+            for i, c in enumerate(key):
+                final_key[i % 16] ^= ord(key[i])
+            return bytes(final_key)
+
+        k = mysql_aes_key(key)
+
+        cipher = AES.new(k, AES.MODE_ECB)
+
+        return cipher.decrypt(val).decode()
+
+    def _aes_encrypt(self, data):
+        key = SECRET_PASSWORD  # key used for encryption, only strings of length 16, 24 and 32
+
+        BS = AES.block_size
+        pad = lambda s: s + (BS - len(s) % BS) * chr(BS - len(s) % BS)
+        cipher = AES.new(key)
+        encrypted = cipher.encrypt(pad(data))  # aesEncrypted
+
+        result = base64.b64encode(encrypted)  # base64 encode
+        return result
+
+    def _aes_decrypt(self, data):
+        key = SECRET_PASSWORD
+        unpad = lambda s: s[0:-s[-1]]
+        cipher = AES.new(key)
+        result2 = base64.b64decode(data)
+        decrypted = unpad(cipher.decrypt(result2))
+        return decrypted
+
+
+class AESCipher:
+    """
+    Usage:
+        c = AESCipher('password').encrypt('message')
+        m = AESCipher('password').decrypt(c)
+    Tested under Python 3 and PyCrypto 2.6.1.
+    """
+
+    def __init__(self, key):
+        BLOCK_SIZE = 16  # Bytes
+        self.pad = lambda s: s + (BLOCK_SIZE - len(s) % BLOCK_SIZE) * \
+                             chr(BLOCK_SIZE - len(s) % BLOCK_SIZE)
+        self.unpad = lambda s: s[:-ord(s[len(s) - 1:])]
+
+        # self.key = md5(key.encode('utf8')).hexdigest()
+
+        self.key = self.mysql_aes_key(key)
+
+    def mysql_aes_key(self, key):
+        final_key = bytearray(16)
+        for i, c in enumerate(key):
+            final_key[i % 16] ^= ord(key[i])
+        return bytes(final_key)
+
+    def encrypt(self, raw):
+        raw = self.pad(raw)
+        cipher = AES.new(self.key, AES.MODE_ECB)
+        return b64encode(cipher.encrypt(raw))
+
+    def decrypt(self, enc):
+        # enc = b64decode(enc)
+        enc = self.mysql_aes_key(enc)
+        cipher = AES.new(self.key, AES.MODE_ECB)
+        return self.unpad(cipher.decrypt(enc)).decode('utf8')
