@@ -3,7 +3,8 @@
 import logging
 import base64
 from odoo import _, api, SUPERUSER_ID
-import collections
+# import collections
+from odoo.exceptions import ValidationError
 import os
 
 _logger = logging.getLogger(__name__)
@@ -17,6 +18,7 @@ except (ImportError, AssertionError):
 
 # TODO update me with your backup version
 BACKUP_PATH = "/home/mathben/Documents/technolibre/accorderie/accorderie20200826/Intranet"
+FILE_PATH = f"{BACKUP_PATH}/document/doc"
 
 
 def post_init_hook(cr, e):
@@ -32,6 +34,7 @@ def post_init_hook(cr, e):
     migration.migrate_tbl_membre()
     migration.migrate_tbl_titre()
     migration.migrate_tbl_produit()
+    migration.migrate_tbl_type_fichier()
     migration.migrate_tbl_fichier()
     migration.update_user()
 
@@ -141,9 +144,10 @@ class MigrationAccorderie:
 
                 directory_id = env["muk_dms.directory"].create(value)
 
-                dct_storage[result[0].id] = storage_id, directory_id
+                # Key is original id of tbl_accorderie
+                dct_storage[result[1][0]] = storage_id, directory_id
 
-                print(f"{pos_id} - muk_dms.storage - NEW - ADDED '{name}' id {storage_id.id}")
+                print(f"{pos_id} - muk_dms.storage - tbl_accorderie - ADDED '{name}' id {storage_id.id}")
 
     def migrate_tbl_ville(self):
         print("Begin migrate tbl_ville")
@@ -579,9 +583,41 @@ class MigrationAccorderie:
 
                 print(f"{pos_id} - product.template - tbl_produit - ADDED '{name}' id {result[0]}")
 
+    def migrate_tbl_type_fichier(self):
+        print("Begin migrate tbl_type_fichier")
+        cur = self.conn.cursor()
+        str_query = f"""SELECT * FROM tbl_type_fichier;"""
+        cur.nextset()
+        cur.execute(str_query)
+        tpl_result = cur.fetchall()
+
+        lst_result = []
+        self.dct_tbl["tbl_type_fichier"] = lst_result
+
+        # 0 `Id_TypeFichier` int(10) UNSIGNED NOT NULL,
+        # 1 `TypeFichier` varchar(80) COLLATE latin1_general_ci DEFAULT NULL,
+        # 2 `DateMAJ_TypeFichier` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+
+        with api.Environment.manage():
+            env = api.Environment(self.cr, SUPERUSER_ID, {})
+
+            i = 0
+            for result in tpl_result:
+                i += 1
+                pos_id = f"{i}/{len(tpl_result)}"
+                name = result[1]
+
+                value = {
+                    'name': name,
+                }
+
+                category_id = env['muk_dms.category'].create(value)
+
+                lst_result.append((category_id, result))
+
+                print(f"{pos_id} - muk_dms.category - tbl_type_fichier - ADDED '{name}' id {result[0]}")
+
     def migrate_tbl_fichier(self):
-        # TODO complete this function and migrate_tbl_type_fichier
-        return
         print("Begin migrate tbl_fichier")
         cur = self.conn.cursor()
         str_query = f"""SELECT * FROM tbl_fichier;"""
@@ -592,14 +628,15 @@ class MigrationAccorderie:
         lst_result = []
         self.dct_tbl["tbl_fichier"] = lst_result
 
-        # 0 `NoProduit` int(10) UNSIGNED NOT NULL,
-        # 1 `NoTitre` int(10) UNSIGNED NOT NULL,
+        # 0 `Id_Fichier` int(10) UNSIGNED NOT NULL,
+        # 1 `Id_TypeFichier` int(10) UNSIGNED NOT NULL,
         # 2 `NoAccorderie` int(10) UNSIGNED NOT NULL,
-        # 3 `NomProduit` varchar(80) CHARACTER SET latin1 DEFAULT NULL,
-        # 4 `TaxableF` tinyint(1) UNSIGNED DEFAULT '0',
-        # 5 `TaxableP` tinyint(1) UNSIGNED DEFAULT '0',
-        # 6 `Visible_Produit` tinyint(1) UNSIGNED DEFAULT '0',
-        # 7 `DateMAJ_Produit` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        # 3 `NomFichierStokage` varchar(255) COLLATE latin1_general_ci NOT NULL,
+        # 4 `NomFichierOriginal` varchar(255) COLLATE latin1_general_ci NOT NULL,
+        # 5 `Si_Admin` tinyint(3) UNSIGNED DEFAULT '1',
+        # 6 `Si_AccorderieLocalSeulement` tinyint(3) UNSIGNED DEFAULT '1',
+        # 7 `Si_Disponible` tinyint(3) UNSIGNED DEFAULT '0',
+        # 8 `DateMAJ_Fichier` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 
         with api.Environment.manage():
             env = api.Environment(self.cr, SUPERUSER_ID, {})
@@ -608,26 +645,39 @@ class MigrationAccorderie:
             for result in tpl_result:
                 i += 1
                 pos_id = f"{i}/{len(tpl_result)}"
-                name = result[3]
+                name = result[4]
 
-                company_id, _ = self._get_accorderie(id_accorderie=result[2])
-                if not company_id:
-                    raise Exception(f"Cannot find associated accorderie {result}")
+                data = open(f"{FILE_PATH}/{result[3]}", "rb").read()
+                content = base64.b64encode(data)
 
-                titre_id, _ = self._get_titre(id_titre=result[1])
+                _, directory_id = self._get_storage(id_accorderie=result[2])
+
+                type_fichier_id, _ = self._get_type_fichier(id_type_fichier=result[1])
 
                 value = {
                     'name': name,
-                    'categ_id': titre_id.id,
-                    'active': result[6] == 1,
-                    'company_id': company_id.id,
+                    'category': type_fichier_id.id,
+                    'active': result[7] == 1,
+                    'directory': directory_id.id,
+                    'content': content,
                 }
+                # Validate not duplicate
+                files_id = env['muk_dms.file'].search([('name', '=', name), ('directory', '=', directory_id.id)])
+                if not files_id:
+                    file_id = env['muk_dms.file'].create(value)
+                else:
+                    if len(files_id) > 1:
+                        raise Exception(f"ERROR, duplicate file id {i}")
+                    if files_id[0].content == content:
+                        print(f"{pos_id} - muk_dms.file - tbl_fichier - SKIPPED DUPLICATED SAME CONTENT '{name}' "
+                              f"on storage '{directory_id.name}' id {result[0]}")
+                    else:
+                        raise Exception(f"ERROR, duplicate file id {i}, content is different, but same name '{name}'")
 
-                product_id = env['product.template'].create(value)
+                lst_result.append((file_id, result))
 
-                lst_result.append((product_id, result))
-
-                print(f"{pos_id} - muk_dms.file - tbl_fichier - ADDED '{name}' id {result[0]}")
+                print(f"{pos_id} - muk_dms.file - tbl_fichier - ADDED '{name}' "
+                      f"on storage '{directory_id.name}' id {result[0]}")
 
     def update_user(self):
         print("Update user preference")
@@ -717,9 +767,20 @@ class MigrationAccorderie:
                     return obj_id_titre, tpl_obj
             print(f"Error, cannot find product titre {id_titre}")
 
+    def _get_type_fichier(self, id_type_fichier: int = None):
+        if id_type_fichier:
+            for obj_id_titre, tpl_obj in self.dct_tbl.get("tbl_type_fichier"):
+                if tpl_obj[0] == id_type_fichier:
+                    return obj_id_titre, tpl_obj
+            print(f"Error, cannot find type file {id_type_fichier}")
+
     def _get_ville(self, id_ville: int = None):
         if id_ville:
             for tpl_obj in self.dct_tbl.get("tbl_ville"):
                 if tpl_obj[0] == id_ville:
                     return tpl_obj[1]
             print(f"Error, cannot find city {id_ville}")
+
+    def _get_storage(self, id_accorderie: int = None):
+        if id_accorderie:
+            return self.dct_tbl.get("storage").get(id_accorderie)
