@@ -427,11 +427,11 @@ class MigrationAccorderie:
 
         self.dct_tbl["tbl_membre"] = tpl_result
 
-        dct_debug_profile = self._check_duplicate(tpl_result, 44)
+        dct_debug_login = self._check_duplicate(tpl_result, 44)
         dct_debug_email = self._check_duplicate(tpl_result, 29)
         # self.dct_tbl["tbl_membre|conflict"] = dct_debug
         # print("profile")
-        # print(dct_debug_profile)
+        # print(dct_debug_login)
         # print("email")
         # print(dct_debug_email)
 
@@ -527,6 +527,11 @@ class MigrationAccorderie:
 
                 email = result[29].strip()
                 if not email:
+                    if login in dct_debug_login.keys():
+                        # TODO Need to merge it
+                        print(f"{pos_id} - res.partner - tbl_membre - SKIPPED DUPPLICATED LOGIN "
+                              f"name '{name}' login '{login}' email '{email}' id {result[0]}")
+                        continue
                     # Need an email for login, force create it
                     # TODO coder un séquenceur dans Odoo pour la création de courriel générique
                     # email = GENERIC_EMAIL % i
@@ -538,7 +543,7 @@ class MigrationAccorderie:
                     continue
 
                 # Show duplicate profile
-                # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_profile.items())[:15] for a in va[1] if a[37] == -1])
+                # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_login.items())[:15] for a in va[1] if a[37] == -1])
                 # Show duplicate email
                 # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1]])
                 # Show duplicate not empty email
@@ -548,10 +553,10 @@ class MigrationAccorderie:
                 # Show duplicate email active user
                 # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1] if a[37] == -1])
                 # duplicate email and duplicate user and active
-                # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1] if a[37] == -1 and a[44] in dct_debug_profile])
+                # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1] if a[37] == -1 and a[44] in dct_debug_login])
 
                 # Technique remplacé par l'utilisation du courriel
-                # if login in dct_debug_profile.keys():
+                # if login in dct_debug_login.keys():
                 #     # Validate unique email
                 #     print(f"{pos_id} - res.partner - tbl_membre - SKIPPED DUPLICATED "
                 #           f"name '{name}' login '{login}' id {result[0]}")
