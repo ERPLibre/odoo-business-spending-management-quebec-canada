@@ -3,7 +3,7 @@
 import logging
 import base64
 from odoo import _, api, SUPERUSER_ID
-# import collections
+import collections
 # from odoo.exceptions import ValidationError
 import os
 
@@ -22,6 +22,7 @@ FILE_PATH = f"{BACKUP_PATH}/document/doc"
 SECRET_PASSWORD = ""
 DEBUG_LIMIT = False
 LIMIT = 200
+GENERIC_EMAIL = f"%s_membre@accorderie.ca"
 
 
 def post_init_hook(cr, e):
@@ -419,13 +420,20 @@ class MigrationAccorderie:
     def migrate_tbl_membre(self):
         print("Begin migrate tbl_membre")
         cur = self.conn.cursor()
-        # Get all fournisseur
         str_query = f"""SELECT *,DECODE(MotDePasse,'{SECRET_PASSWORD}') AS MotDePasse FROM tbl_membre;"""
         cur.nextset()
         cur.execute(str_query)
         tpl_result = cur.fetchall()
 
         self.dct_tbl["tbl_membre"] = tpl_result
+
+        dct_debug_profile = self._check_duplicate(tpl_result, 44)
+        dct_debug_email = self._check_duplicate(tpl_result, 29)
+        # self.dct_tbl["tbl_membre|conflict"] = dct_debug
+        # print("profile")
+        # print(dct_debug_profile)
+        # print("email")
+        # print(dct_debug_email)
 
         # 0 `NoMembre` int(10) UNSIGNED NOT NULL,
         # 1 `NoCartier` int(10) UNSIGNED DEFAULT '0',
@@ -507,11 +515,50 @@ class MigrationAccorderie:
                 else:
                     name = ""
 
-                email = result[29].strip()
-
                 if not login or not name:
                     print(f"{pos_id} - res.partner - tbl_membre - SKIPPED EMPTY LOGIN '{name}' id {result[0]}")
                     continue
+
+                # Ignore test user
+                if "test" in name or "test" in login:
+                    print(f"{pos_id} - res.partner - tbl_membre - SKIPPED TEST LOGIN "
+                          f"name '{name}' login '{login}' id {result[0]}")
+                    continue
+
+                email = result[29].strip()
+                if not email:
+                    # Need an email for login, force create it
+                    # TODO coder un séquenceur dans Odoo pour la création de courriel générique
+                    # email = GENERIC_EMAIL % i
+                    email = GENERIC_EMAIL % login
+                elif email in dct_debug_email.keys():
+                    # TODO merge user
+                    print(f"{pos_id} - res.partner - tbl_membre - SKIPPED DUPPLICATED EMAIL "
+                          f"name '{name}' login '{login}' email '{email}' id {result[0]}")
+                    continue
+
+                # Show duplicate profile
+                # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_profile.items())[:15] for a in va[1] if a[37] == -1])
+                # Show duplicate email
+                # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1]])
+                # Show duplicate not empty email
+                # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1] if a[29].strip() != ""])
+                # Show duplicate not empty email actif
+                # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1] if a[29].strip() != "" and a[37] == -1])
+                # Show duplicate email active user
+                # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1] if a[37] == -1])
+                # duplicate email and duplicate user and active
+                # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1] if a[37] == -1 and a[44] in dct_debug_profile])
+
+                # Technique remplacé par l'utilisation du courriel
+                # if login in dct_debug_profile.keys():
+                #     # Validate unique email
+                #     print(f"{pos_id} - res.partner - tbl_membre - SKIPPED DUPLICATED "
+                #           f"name '{name}' login '{login}' id {result[0]}")
+                #
+                #     if email in dct_debug_email:
+                #         print(dct_debug_email[email])
+                #     continue
 
                 company_id, _ = self._get_accorderie(id_accorderie=result[2])
                 if not company_id:
@@ -519,6 +566,7 @@ class MigrationAccorderie:
 
                 city_name = self._get_ville(result[11])
 
+                # TODO ajouter l'ancien login en description
                 value = {
                     'name': name,
                     'street': result[19].strip(),
@@ -547,7 +595,7 @@ class MigrationAccorderie:
                 value = {
                     'name': name,
                     'active': result[37] == 0,
-                    'login': login,
+                    'login': email,
                     'password': result[54],
                     'email': email,
                     'groups_id': [(4, env.ref('base.group_user').id)],
@@ -876,3 +924,19 @@ class MigrationAccorderie:
     def _get_storage(self, id_accorderie: int = None):
         if id_accorderie:
             return self.dct_tbl.get("storage").get(id_accorderie)
+
+    def _check_duplicate(self, tpl_result, index):
+        # Ignore duplicate since enable multi-company with different contact, not sharing
+        # Debug duplicate data, need unique name
+        dct_debug = collections.defaultdict(list)
+        for result in tpl_result:
+            dct_debug[result[index]].append(result)
+        lst_to_remove = []
+        for key, value in dct_debug.items():
+            if len(value) > 1:
+                print(f"Duplicate name ({len(value)}) {key}: {value}\n")
+            else:
+                lst_to_remove.append(key)
+        for key in lst_to_remove:
+            del dct_debug[key]
+        return dct_debug
