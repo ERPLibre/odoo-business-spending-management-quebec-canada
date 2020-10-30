@@ -29,27 +29,28 @@ def post_init_hook(cr, e):
     migration = MigrationAccorderie(cr)
 
     # General configuration
-    migration.setup_configuration()
+    migration.setup_configuration(dry_run=False)
 
     # Create company
-    migration.migrate_tbl_ville()
-    migration.migrate_tbl_accorderie()
+    migration.migrate_tbl_ville(dry_run=False)
+    migration.migrate_tbl_accorderie(dry_run=False)
 
     # Create document database per company
-    migration.setup_document()
+    migration.setup_document(dry_run=False)
 
-    # Create supplier, member and product
-    migration.migrate_tbl_fournisseur()
-    migration.migrate_tbl_membre()
-    migration.migrate_tbl_titre()
-    migration.migrate_tbl_produit()
+    # Create supplier, member, services and product
+    migration.migrate_tbl_fournisseur(dry_run=False)
+    migration.migrate_tbl_membre(dry_run=False)
+    migration.migrate_tbl_titre(dry_run=False)
+    migration.migrate_tbl_produit(dry_run=False)
+    migration.migrate_tbl_categorie(dry_run=False)
 
     # Create files
-    migration.migrate_tbl_type_fichier()
-    migration.migrate_tbl_fichier()
+    migration.migrate_tbl_type_fichier(dry_run=False)
+    migration.migrate_tbl_fichier(dry_run=False)
 
     # Update user configuration
-    migration.update_user()
+    migration.update_user(dry_run=False)
 
 
 class MigrationAccorderie:
@@ -68,7 +69,7 @@ class MigrationAccorderie:
 
         self.dct_tbl = {}
 
-    def setup_configuration(self):
+    def setup_configuration(self, dry_run=False):
         print("Setup configuration")
 
         with api.Environment.manage():
@@ -121,10 +122,11 @@ class MigrationAccorderie:
                 # 'module_partner_autocomplete': False,
 
             }
-            event_config = env['res.config.settings'].sudo().create(values)
-            event_config.execute()
+            if not dry_run:
+                event_config = env['res.config.settings'].sudo().create(values)
+                event_config.execute()
 
-    def setup_document(self):
+    def setup_document(self, dry_run=False):
         print("Setup document")
 
         dct_storage = {}
@@ -151,7 +153,8 @@ class MigrationAccorderie:
                     'company': result[0].id
                 }
 
-                storage_id = env["muk_dms.storage"].create(value)
+                if not dry_run:
+                    storage_id = env["muk_dms.storage"].create(value)
 
                 value = {
                     'name': name,
@@ -159,14 +162,15 @@ class MigrationAccorderie:
                     'is_root_directory': True,
                 }
 
-                directory_id = env["muk_dms.directory"].create(value)
+                if not dry_run:
+                    directory_id = env["muk_dms.directory"].create(value)
 
                 # Key is original id of tbl_accorderie
                 dct_storage[result[1][0]] = storage_id, directory_id
 
                 print(f"{pos_id} - muk_dms.storage - tbl_accorderie - ADDED '{name}' id {storage_id.id}")
 
-    def migrate_tbl_ville(self):
+    def migrate_tbl_ville(self, dry_run=False):
         print("Begin migrate tbl_ville")
         cur = self.conn.cursor()
         # Get all ville
@@ -182,7 +186,7 @@ class MigrationAccorderie:
         lst_result = list(tpl_result)
         self.dct_tbl["tbl_ville"] = lst_result
 
-    def migrate_tbl_accorderie(self):
+    def migrate_tbl_accorderie(self, dry_run=False):
         print("Begin migrate tbl_accorderie")
         cur = self.conn.cursor()
         # Get all Accorderie
@@ -284,7 +288,8 @@ class MigrationAccorderie:
                     if city_name:
                         value["city"] = city_name
 
-                    obj = env['res.company'].create(value)
+                    if not dry_run:
+                        obj = env['res.company'].create(value)
                     lst_child_company.append(obj)
                     obj.tz = "America/Montreal"
                     obj.partner_id.active = result[19] == 0
@@ -297,7 +302,7 @@ class MigrationAccorderie:
                     for child in lst_child_company:
                         child.parent_id = head_quarter.id
 
-    def migrate_tbl_fournisseur(self):
+    def migrate_tbl_fournisseur(self, dry_run=False):
         print("Begin migrate tbl_fournisseur")
         cur = self.conn.cursor()
         # Get all fournisseur
@@ -402,7 +407,8 @@ class MigrationAccorderie:
                 if city_name:
                     value['city'] = city_name
 
-                obj = env['res.partner'].create(value)
+                if not dry_run:
+                    obj = env['res.partner'].create(value)
 
                 value_contact = {
                     'name': result[10].strip(),
@@ -413,11 +419,12 @@ class MigrationAccorderie:
                     'create_date': result[15],
                 }
 
-                obj_contact = env['res.partner'].create(value_contact)
+                if not dry_run:
+                    obj_contact = env['res.partner'].create(value_contact)
 
                 print(f"{pos_id} - res.partner - tbl_fournisseur - ADDED '{name}' id {result[0]}")
 
-    def migrate_tbl_membre(self):
+    def migrate_tbl_membre(self, dry_run=False):
         print("Begin migrate tbl_membre")
         cur = self.conn.cursor()
         str_query = f"""SELECT *,DECODE(MotDePasse,'{SECRET_PASSWORD}') AS MotDePasse FROM tbl_membre;"""
@@ -595,7 +602,8 @@ class MigrationAccorderie:
 
                 self._set_phone(result, value)
 
-                obj_partner = env['res.partner'].create(value)
+                if not dry_run:
+                    obj_partner = env['res.partner'].create(value)
 
                 value = {
                     'name': name,
@@ -609,11 +617,12 @@ class MigrationAccorderie:
                     'partner_id': obj_partner.id,
                 }
 
-                obj_user = env['res.users'].with_context({'no_reset_password': True}).create(value)
+                if not dry_run:
+                    obj_user = env['res.users'].with_context({'no_reset_password': True}).create(value)
 
                 print(f"{pos_id} - res.partner - tbl_membre - ADDED '{name}' id {result[0]}")
 
-    def migrate_tbl_titre(self):
+    def migrate_tbl_titre(self, dry_run=False):
         print("Begin migrate tbl_titre")
         cur = self.conn.cursor()
         str_query = f"""SELECT * FROM tbl_titre;"""
@@ -636,7 +645,8 @@ class MigrationAccorderie:
                 'name': "Aliment",
             }
 
-            product_cat_root_id = env['product.category'].create(value)
+            if not dry_run:
+                product_cat_root_id = env['product.category'].create(value)
 
             i = 0
             for result in tpl_result:
@@ -655,13 +665,14 @@ class MigrationAccorderie:
                     'create_date': result[3],
                 }
 
-                product_cat_id = env['product.category'].create(value)
+                if not dry_run:
+                    product_cat_id = env['product.category'].create(value)
 
                 lst_result.append((product_cat_id, result))
 
                 print(f"{pos_id} - product.category - tbl_titre - ADDED '{name}' id {result[0]}")
 
-    def migrate_tbl_produit(self):
+    def migrate_tbl_produit(self, dry_run=False):
         print("Begin migrate tbl_produit")
         cur = self.conn.cursor()
         str_query = f"""SELECT * FROM tbl_produit;"""
@@ -709,13 +720,106 @@ class MigrationAccorderie:
                     'create_date': result[7],
                 }
 
-                product_id = env['product.template'].create(value)
+                if not dry_run:
+                    product_id = env['product.template'].create(value)
 
                 lst_result.append((product_id, result))
 
                 print(f"{pos_id} - product.template - tbl_produit - ADDED '{name}' id {result[0]}")
 
-    def migrate_tbl_type_fichier(self):
+    def migrate_tbl_categorie_sous_categorie(self, dry_run=False):
+        print("Begin migrate tbl_categorie_sous_categorie")
+        cur = self.conn.cursor()
+        str_query = f"""SELECT * FROM tbl_categorie;"""
+        cur.nextset()
+        cur.execute(str_query)
+        tpl_result = cur.fetchall()
+
+        lst_result = []
+        self.dct_tbl["tbl_categorie_sous_categorie"] = lst_result
+
+        # 0 `NoCategorieSousCategorie` int(10) UNSIGNED NOT NULL,
+        # 1 `NoSousCategorie` char(2) CHARACTER SET latin1 DEFAULT NULL,
+        # 2 `NoCategorie` int(10) UNSIGNED DEFAULT NULL,
+        # 3 `TitreOffre` varchar(255) CHARACTER SET latin1 DEFAULT NULL,
+        # 4 `Supprimer` int(1) DEFAULT NULL,
+        # 5 `Approuver` int(1) DEFAULT NULL,
+        # 6 `Description` varchar(255) CHARACTER SET latin1 DEFAULT NULL,
+        # 7 `NoOffre` int(10) UNSIGNED DEFAULT NULL
+
+        with api.Environment.manage():
+            env = api.Environment(self.cr, SUPERUSER_ID, {})
+
+            i = 0
+            for result in tpl_result:
+                i += 1
+                pos_id = f"{i}/{len(tpl_result)}"
+
+                if DEBUG_LIMIT and i >= LIMIT:
+                    print(f"REACH LIMIT {LIMIT}")
+                    break
+
+                name = result[3]
+
+                parent_id, _ = self._get_categorie(id_categorie=result[2])
+
+                value = {
+                    'name': name,
+                    'parent_id': parent_id,
+                    'active': result[4] == 0,
+                    'description': result[6].strip(),
+                }
+
+                if not dry_run:
+                    product_id = env['hr.skill'].create(value)
+
+                lst_result.append((product_id, result))
+
+                print(f"{pos_id} - hr.skill - tbl_categorie_sous_categorie - ADDED '{name}' id {result[0]}")
+
+    def migrate_tbl_categorie(self, dry_run=False):
+        print("Begin migrate tbl_categorie")
+        cur = self.conn.cursor()
+        str_query = f"""SELECT * FROM tbl_categorie;"""
+        cur.nextset()
+        cur.execute(str_query)
+        tpl_result = cur.fetchall()
+
+        lst_result = []
+        self.dct_tbl["tbl_categorie"] = lst_result
+
+        # 0 `NoCategorie` int(10) UNSIGNED NOT NULL,
+        # 1 `TitreCategorie` varchar(255) CHARACTER SET latin1 DEFAULT NULL,
+        # 2 `Supprimer` int(1) DEFAULT NULL,
+        # 3 `Approuver` int(1) DEFAULT NULL
+
+        with api.Environment.manage():
+            env = api.Environment(self.cr, SUPERUSER_ID, {})
+
+            i = 0
+            for result in tpl_result:
+                i += 1
+                pos_id = f"{i}/{len(tpl_result)}"
+
+                if DEBUG_LIMIT and i >= LIMIT:
+                    print(f"REACH LIMIT {LIMIT}")
+                    break
+
+                name = result[3]
+
+                value = {
+                    'name': name,
+                    'active': result[2] == 0,
+                }
+
+                if not dry_run:
+                    product_id = env['hr.skill'].create(value)
+
+                lst_result.append((product_id, result))
+
+                print(f"{pos_id} - hr.skill - tbl_categorie - ADDED '{name}' id {result[0]}")
+
+    def migrate_tbl_type_fichier(self, dry_run=False):
         print("Begin migrate tbl_type_fichier")
         cur = self.conn.cursor()
         str_query = f"""SELECT * FROM tbl_type_fichier;"""
@@ -749,13 +853,14 @@ class MigrationAccorderie:
                     'create_date': result[2],
                 }
 
-                category_id = env['muk_dms.category'].create(value)
+                if not dry_run:
+                    category_id = env['muk_dms.category'].create(value)
 
                 lst_result.append((category_id, result))
 
                 print(f"{pos_id} - muk_dms.category - tbl_type_fichier - ADDED '{name}' id {result[0]}")
 
-    def migrate_tbl_fichier(self):
+    def migrate_tbl_fichier(self, dry_run=False):
         print("Begin migrate tbl_fichier")
         cur = self.conn.cursor()
         str_query = f"""SELECT * FROM tbl_fichier;"""
@@ -809,7 +914,8 @@ class MigrationAccorderie:
                 # Validate not duplicate
                 files_id = env['muk_dms.file'].search([('name', '=', name), ('directory', '=', directory_id.id)])
                 if not files_id:
-                    file_id = env['muk_dms.file'].create(value)
+                    if not dry_run:
+                        file_id = env['muk_dms.file'].create(value)
                 else:
                     if len(files_id) > 1:
                         raise Exception(f"ERROR, duplicate file id {i}")
@@ -824,7 +930,7 @@ class MigrationAccorderie:
                 print(f"{pos_id} - muk_dms.file - tbl_fichier - ADDED '{name}' "
                       f"on storage '{directory_id.name}' id {result[0]}")
 
-    def update_user(self):
+    def update_user(self, dry_run=False):
         print("Update user preference")
         with api.Environment.manage():
             env = api.Environment(self.cr, SUPERUSER_ID, {})
@@ -925,6 +1031,13 @@ class MigrationAccorderie:
                 if tpl_obj[0] == id_ville:
                     return tpl_obj[1]
             print(f"Error, cannot find city {id_ville}")
+
+    def _get_categorie(self, id_categorie: int = None):
+        if id_categorie:
+            for obj_id_titre, tpl_obj in self.dct_tbl.get("tbl_categorie"):
+                if tpl_obj[0] == id_categorie:
+                    return obj_id_titre, tpl_obj
+            print(f"Error, cannot find city {id_categorie}")
 
     def _get_storage(self, id_accorderie: int = None):
         if id_accorderie:
