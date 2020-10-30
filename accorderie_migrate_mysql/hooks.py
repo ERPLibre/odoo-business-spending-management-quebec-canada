@@ -44,6 +44,8 @@ def post_init_hook(cr, e):
     migration.migrate_tbl_titre(dry_run=False)
     migration.migrate_tbl_produit(dry_run=False)
     migration.migrate_tbl_categorie(dry_run=False)
+    migration.migrate_tbl_sous_categorie(dry_run=False)
+    migration.migrate_tbl_categorie_sous_categorie(dry_run=False)
 
     # Create files
     migration.migrate_tbl_type_fichier(dry_run=False)
@@ -146,29 +148,33 @@ class MigrationAccorderie:
                     print(f"REACH LIMIT {LIMIT}")
                     break
 
-                name = result[0].name
-
-                value = {
-                    'name': name,
-                    'company': result[0].id
-                }
-
                 if not dry_run:
+                    name = result[0].name
+
+                    value = {
+                        'name': name,
+                        'company': result[0].id
+                    }
+
                     storage_id = env["muk_dms.storage"].create(value)
 
-                value = {
-                    'name': name,
-                    'root_storage': storage_id.id,
-                    'is_root_directory': True,
-                }
+                    value = {
+                        'name': name,
+                        'root_storage': storage_id.id,
+                        'is_root_directory': True,
+                    }
 
-                if not dry_run:
                     directory_id = env["muk_dms.directory"].create(value)
+                else:
+                    storage_id = None
+                    directory_id = None
+                    name = ""
 
                 # Key is original id of tbl_accorderie
                 dct_storage[result[1][0]] = storage_id, directory_id
 
-                print(f"{pos_id} - muk_dms.storage - tbl_accorderie - ADDED '{name}' id {storage_id.id}")
+                print(f"{pos_id} - muk_dms.storage - tbl_accorderie - "
+                      f"ADDED '{name}' id {storage_id.id if storage_id else ''}")
 
     def migrate_tbl_ville(self, dry_run=False):
         print("Begin migrate tbl_ville")
@@ -290,10 +296,12 @@ class MigrationAccorderie:
 
                     if not dry_run:
                         obj = env['res.company'].create(value)
-                    lst_child_company.append(obj)
-                    obj.tz = "America/Montreal"
-                    obj.partner_id.active = result[19] == 0
-                    obj.partner_id.fax = result[10].strip()
+                        lst_child_company.append(obj)
+                        obj.tz = "America/Montreal"
+                        obj.partner_id.active = result[19] == 0
+                        obj.partner_id.fax = result[10].strip()
+                    else:
+                        obj = None
 
                     print(f"{pos_id} - res.company - tbl_accorderie - ADDED '{name}' id {result[0]}")
                 lst_result.append((obj, result))
@@ -359,67 +367,65 @@ class MigrationAccorderie:
                     break
 
                 name = result[4].strip()
-
-                if "Accorderie" in name:
-                    accorderie_id, _ = self._get_accorderie(result[1])
-                    if not accorderie_id:
-                        raise Exception(f"Cannot find associated accorderie {result}")
-                    accorderie_id.partner_id.supplier = True
-                    new_comment = ""
-                    if accorderie_id.partner_id.comment:
-                        new_comment = f"{accorderie_id.partner_id.comment}\n"
-                    accorderie_id.partner_id.comment = f"{new_comment}Fournisseur : {result[13].strip()}"
-                    accorderie_id.create_date = result[15]
-
-                    print(f"{pos_id} - res.partner - tbl_fournisseur - "
-                          f"UPDATED '{name}/{accorderie_id.partner_id.name}' id {result[0]}")
-                    continue
-                # elif name in dct_debug.keys():
-                #     lst_duplicated = dct_debug.get(name)
-                #     print(f"{pos_id} - res.partner - tbl_fournisseur - SKIPPED '{name}' id {result[0]}")
-                #     continue
-
-                company_id, _ = self._get_accorderie(id_accorderie=result[1])
-                if not company_id:
-                    raise Exception(f"Cannot find associated accorderie {result}")
-
-                city_name = self._get_ville(result[3])
-
-                value = {
-                    'name': name,
-                    'street': result[5].strip(),
-                    'zip': result[6].strip(),
-                    'phone': result[7].strip(),
-                    'fax': result[8].strip(),
-                    'email': result[9].strip(),
-                    'supplier': True,
-                    'customer': False,
-                    'state_id': 543,  # Quebec
-                    'country_id': 38,  # Canada
-                    'company_type': 'company',
-                    'comment': result[13].strip(),
-                    'tz': "America/Montreal",
-                    'active': result[14] == 1,
-                    'company_id': company_id.id,
-                    'create_date': result[15],
-                }
-
-                if city_name:
-                    value['city'] = city_name
-
                 if not dry_run:
+                    if "Accorderie" in name:
+                        accorderie_id, _ = self._get_accorderie(result[1])
+                        if not accorderie_id:
+                            raise Exception(f"Cannot find associated accorderie {result}")
+                        accorderie_id.partner_id.supplier = True
+                        new_comment = ""
+                        if accorderie_id.partner_id.comment:
+                            new_comment = f"{accorderie_id.partner_id.comment}\n"
+                        accorderie_id.partner_id.comment = f"{new_comment}Fournisseur : {result[13].strip()}"
+                        accorderie_id.create_date = result[15]
+
+                        print(f"{pos_id} - res.partner - tbl_fournisseur - "
+                              f"UPDATED '{name}/{accorderie_id.partner_id.name}' id {result[0]}")
+                        continue
+                    # elif name in dct_debug.keys():
+                    #     lst_duplicated = dct_debug.get(name)
+                    #     print(f"{pos_id} - res.partner - tbl_fournisseur - SKIPPED '{name}' id {result[0]}")
+                    #     continue
+
+                    company_id, _ = self._get_accorderie(id_accorderie=result[1])
+                    if not company_id:
+                        raise Exception(f"Cannot find associated accorderie {result}")
+
+                    city_name = self._get_ville(result[3])
+
+                    value = {
+                        'name': name,
+                        'street': result[5].strip(),
+                        'zip': result[6].strip(),
+                        'phone': result[7].strip(),
+                        'fax': result[8].strip(),
+                        'email': result[9].strip(),
+                        'supplier': True,
+                        'customer': False,
+                        'state_id': 543,  # Quebec
+                        'country_id': 38,  # Canada
+                        'company_type': 'company',
+                        'comment': result[13].strip(),
+                        'tz': "America/Montreal",
+                        'active': result[14] == 1,
+                        'company_id': company_id.id,
+                        'create_date': result[15],
+                    }
+
+                    if city_name:
+                        value['city'] = city_name
+
                     obj = env['res.partner'].create(value)
 
-                value_contact = {
-                    'name': result[10].strip(),
-                    'function': result[11].strip(),
-                    'email': result[12].strip(),
-                    'parent_id': obj.id,
-                    'company_id': company_id.id,
-                    'create_date': result[15],
-                }
+                    value_contact = {
+                        'name': result[10].strip(),
+                        'function': result[11].strip(),
+                        'email': result[12].strip(),
+                        'parent_id': obj.id,
+                        'company_id': company_id.id,
+                        'create_date': result[15],
+                    }
 
-                if not dry_run:
                     obj_contact = env['res.partner'].create(value_contact)
 
                 print(f"{pos_id} - res.partner - tbl_fournisseur - ADDED '{name}' id {result[0]}")
@@ -510,115 +516,116 @@ class MigrationAccorderie:
                     print(f"REACH LIMIT {LIMIT}")
                     break
 
-                login = result[44]
+                if not dry_run:
+                    login = result[44]
 
-                # Get the name in 1 field
-                if result[18] and result[17]:
-                    name = f"{result[18].strip()} {result[17].strip()}"
-                elif result[18]:
-                    name = f"{result[18].strip()}"
-                elif result[17]:
-                    name = f"{result[17].strip()}"
-                else:
-                    name = ""
+                    # Get the name in 1 field
+                    if result[18] and result[17]:
+                        name = f"{result[18].strip()} {result[17].strip()}"
+                    elif result[18]:
+                        name = f"{result[18].strip()}"
+                    elif result[17]:
+                        name = f"{result[17].strip()}"
+                    else:
+                        name = ""
 
-                if not login or not name:
-                    print(f"{pos_id} - res.partner - tbl_membre - SKIPPED EMPTY LOGIN '{name}' id {result[0]}")
-                    continue
+                    if not login or not name:
+                        print(f"{pos_id} - res.partner - tbl_membre - SKIPPED EMPTY LOGIN '{name}' id {result[0]}")
+                        continue
 
-                # Ignore test user
-                if "test" in name or "test" in login:
-                    print(f"{pos_id} - res.partner - tbl_membre - SKIPPED TEST LOGIN "
-                          f"name '{name}' login '{login}' id {result[0]}")
-                    continue
+                    # Ignore test user
+                    if "test" in name or "test" in login:
+                        print(f"{pos_id} - res.partner - tbl_membre - SKIPPED TEST LOGIN "
+                              f"name '{name}' login '{login}' id {result[0]}")
+                        continue
 
-                email = result[29].strip()
-                if not email:
-                    if login in dct_debug_login.keys():
-                        # TODO Need to merge it
-                        print(f"{pos_id} - res.partner - tbl_membre - SKIPPED DUPPLICATED LOGIN "
+                    email = result[29].strip()
+                    if not email:
+                        if login in dct_debug_login.keys():
+                            # TODO Need to merge it
+                            print(f"{pos_id} - res.partner - tbl_membre - SKIPPED DUPPLICATED LOGIN "
+                                  f"name '{name}' login '{login}' email '{email}' id {result[0]}")
+                            continue
+                        # Need an email for login, force create it
+                        # TODO coder un séquenceur dans Odoo pour la création de courriel générique
+                        # email = GENERIC_EMAIL % i
+                        email = GENERIC_EMAIL % login
+                    elif email in dct_debug_email.keys():
+                        # TODO merge user
+                        print(f"{pos_id} - res.partner - tbl_membre - SKIPPED DUPPLICATED EMAIL "
                               f"name '{name}' login '{login}' email '{email}' id {result[0]}")
                         continue
-                    # Need an email for login, force create it
-                    # TODO coder un séquenceur dans Odoo pour la création de courriel générique
-                    # email = GENERIC_EMAIL % i
-                    email = GENERIC_EMAIL % login
-                elif email in dct_debug_email.keys():
-                    # TODO merge user
-                    print(f"{pos_id} - res.partner - tbl_membre - SKIPPED DUPPLICATED EMAIL "
-                          f"name '{name}' login '{login}' email '{email}' id {result[0]}")
-                    continue
 
-                # Show duplicate profile
-                # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_login.items())[:15] for a in va[1] if a[37] == -1])
-                # Show duplicate email
-                # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1]])
-                # Show duplicate not empty email
-                # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1] if a[29].strip() != ""])
-                # Show duplicate not empty email actif
-                # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1] if a[29].strip() != "" and a[37] == -1])
-                # Show duplicate email active user
-                # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1] if a[37] == -1])
-                # duplicate email and duplicate user and active
-                # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1] if a[37] == -1 and a[44] in dct_debug_login])
+                    # Show duplicate profile
+                    # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_login.items())[:15] for a in va[1] if a[37] == -1])
+                    # Show duplicate email
+                    # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1]])
+                    # Show duplicate not empty email
+                    # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1] if a[29].strip() != ""])
+                    # Show duplicate not empty email actif
+                    # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1] if a[29].strip() != "" and a[37] == -1])
+                    # Show duplicate email active user
+                    # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1] if a[37] == -1])
+                    # duplicate email and duplicate user and active
+                    # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1] if a[37] == -1 and a[44] in dct_debug_login])
 
-                # Technique remplacé par l'utilisation du courriel
-                # if login in dct_debug_login.keys():
-                #     # Validate unique email
-                #     print(f"{pos_id} - res.partner - tbl_membre - SKIPPED DUPLICATED "
-                #           f"name '{name}' login '{login}' id {result[0]}")
-                #
-                #     if email in dct_debug_email:
-                #         print(dct_debug_email[email])
-                #     continue
+                    # Technique remplacé par l'utilisation du courriel
+                    # if login in dct_debug_login.keys():
+                    #     # Validate unique email
+                    #     print(f"{pos_id} - res.partner - tbl_membre - SKIPPED DUPLICATED "
+                    #           f"name '{name}' login '{login}' id {result[0]}")
+                    #
+                    #     if email in dct_debug_email:
+                    #         print(dct_debug_email[email])
+                    #     continue
 
-                company_id, _ = self._get_accorderie(id_accorderie=result[2])
-                if not company_id:
-                    raise Exception(f"Cannot find associated accorderie {result}")
+                    company_id, _ = self._get_accorderie(id_accorderie=result[2])
+                    if not company_id:
+                        raise Exception(f"Cannot find associated accorderie {result}")
 
-                city_name = self._get_ville(result[11])
+                    city_name = self._get_ville(result[11])
 
-                # TODO ajouter l'ancien login en description
-                value = {
-                    'name': name,
-                    'street': result[19].strip(),
-                    'zip': result[15].strip(),
-                    'email': email,
-                    'supplier': False,
-                    'customer': True,
-                    'state_id': 543,  # Quebec
-                    'country_id': 38,  # Canada
-                    'tz': "America/Montreal",
-                    'active': result[37] == 0,
-                    'company_id': company_id.id,
-                    'create_date': result[52],
-                }
+                    # TODO ajouter l'ancien login en description
+                    value = {
+                        'name': name,
+                        'street': result[19].strip(),
+                        'zip': result[15].strip(),
+                        'email': email,
+                        'supplier': False,
+                        'customer': True,
+                        'state_id': 543,  # Quebec
+                        'country_id': 38,  # Canada
+                        'tz': "America/Montreal",
+                        'active': result[37] == 0,
+                        'company_id': company_id.id,
+                        'create_date': result[52],
+                    }
 
-                if result[40]:
-                    value['comment'] = result[40].strip()
+                    if result[40]:
+                        value['comment'] = result[40].strip()
 
-                if city_name:
-                    value['city'] = city_name
+                    if city_name:
+                        value['city'] = city_name
 
-                self._set_phone(result, value)
+                    self._set_phone(result, value)
 
-                if not dry_run:
                     obj_partner = env['res.partner'].create(value)
 
-                value = {
-                    'name': name,
-                    'active': result[37] == 0,
-                    'login': email,
-                    'password': result[54],
-                    'email': email,
-                    'groups_id': [(4, env.ref('base.group_user').id)],
-                    'company_id': company_id.id,
-                    'company_ids': [(4, company_id.id)],
-                    'partner_id': obj_partner.id,
-                }
+                    value = {
+                        'name': name,
+                        'active': result[37] == 0,
+                        'login': email,
+                        'password': result[54],
+                        'email': email,
+                        'groups_id': [(4, env.ref('base.group_user').id)],
+                        'company_id': company_id.id,
+                        'company_ids': [(4, company_id.id)],
+                        'partner_id': obj_partner.id,
+                    }
 
-                if not dry_run:
                     obj_user = env['res.users'].with_context({'no_reset_password': True}).create(value)
+                else:
+                    name = ""
 
                 print(f"{pos_id} - res.partner - tbl_membre - ADDED '{name}' id {result[0]}")
 
@@ -658,15 +665,16 @@ class MigrationAccorderie:
                     break
 
                 name = result[1]
-
-                value = {
-                    'name': name,
-                    'parent_id': product_cat_root_id.id,
-                    'create_date': result[3],
-                }
-
                 if not dry_run:
+                    value = {
+                        'name': name,
+                        'parent_id': product_cat_root_id.id,
+                        'create_date': result[3],
+                    }
+
                     product_cat_id = env['product.category'].create(value)
+                else:
+                    product_cat_id = None
 
                 lst_result.append((product_cat_id, result))
 
@@ -704,78 +712,31 @@ class MigrationAccorderie:
                     print(f"REACH LIMIT {LIMIT}")
                     break
 
-                name = result[3]
-
-                company_id, _ = self._get_accorderie(id_accorderie=result[2])
-                if not company_id:
-                    raise Exception(f"Cannot find associated accorderie {result}")
-
-                titre_id, _ = self._get_titre(id_titre=result[1])
-
-                value = {
-                    'name': name,
-                    'categ_id': titre_id.id,
-                    'active': result[6] == 1,
-                    'company_id': company_id.id,
-                    'create_date': result[7],
-                }
-
                 if not dry_run:
-                    product_id = env['product.template'].create(value)
+                    name = result[3]
 
-                lst_result.append((product_id, result))
+                    company_id, _ = self._get_accorderie(id_accorderie=result[2])
+                    if not company_id:
+                        raise Exception(f"Cannot find associated accorderie {result}")
+
+                    titre_id, _ = self._get_titre(id_titre=result[1])
+
+                    value = {
+                        'name': name,
+                        'categ_id': titre_id.id,
+                        'active': result[6] == 1,
+                        'company_id': company_id.id,
+                        'create_date': result[7],
+                    }
+
+                    skill_id = env['product.template'].create(value)
+                else:
+                    skill_id = None
+                    name = ""
+
+                lst_result.append((skill_id, result))
 
                 print(f"{pos_id} - product.template - tbl_produit - ADDED '{name}' id {result[0]}")
-
-    def migrate_tbl_categorie_sous_categorie(self, dry_run=False):
-        print("Begin migrate tbl_categorie_sous_categorie")
-        cur = self.conn.cursor()
-        str_query = f"""SELECT * FROM tbl_categorie;"""
-        cur.nextset()
-        cur.execute(str_query)
-        tpl_result = cur.fetchall()
-
-        lst_result = []
-        self.dct_tbl["tbl_categorie_sous_categorie"] = lst_result
-
-        # 0 `NoCategorieSousCategorie` int(10) UNSIGNED NOT NULL,
-        # 1 `NoSousCategorie` char(2) CHARACTER SET latin1 DEFAULT NULL,
-        # 2 `NoCategorie` int(10) UNSIGNED DEFAULT NULL,
-        # 3 `TitreOffre` varchar(255) CHARACTER SET latin1 DEFAULT NULL,
-        # 4 `Supprimer` int(1) DEFAULT NULL,
-        # 5 `Approuver` int(1) DEFAULT NULL,
-        # 6 `Description` varchar(255) CHARACTER SET latin1 DEFAULT NULL,
-        # 7 `NoOffre` int(10) UNSIGNED DEFAULT NULL
-
-        with api.Environment.manage():
-            env = api.Environment(self.cr, SUPERUSER_ID, {})
-
-            i = 0
-            for result in tpl_result:
-                i += 1
-                pos_id = f"{i}/{len(tpl_result)}"
-
-                if DEBUG_LIMIT and i >= LIMIT:
-                    print(f"REACH LIMIT {LIMIT}")
-                    break
-
-                name = result[3]
-
-                parent_id, _ = self._get_categorie(id_categorie=result[2])
-
-                value = {
-                    'name': name,
-                    'parent_id': parent_id,
-                    'active': result[4] == 0,
-                    'description': result[6].strip(),
-                }
-
-                if not dry_run:
-                    product_id = env['hr.skill'].create(value)
-
-                lst_result.append((product_id, result))
-
-                print(f"{pos_id} - hr.skill - tbl_categorie_sous_categorie - ADDED '{name}' id {result[0]}")
 
     def migrate_tbl_categorie(self, dry_run=False):
         print("Begin migrate tbl_categorie")
@@ -805,19 +766,137 @@ class MigrationAccorderie:
                     print(f"REACH LIMIT {LIMIT}")
                     break
 
-                name = result[3]
+                if not dry_run:
+                    # TODO create new field instead put that information in name
+                    name = f"{result[0]} - {result[1]}"
 
-                value = {
-                    'name': name,
-                    'active': result[2] == 0,
-                }
+                    value = {
+                        'name': name,
+                        'active': result[2] == 0,
+                    }
+
+                    skill_id = env['hr.skill'].create(value)
+                else:
+                    skill_id = None
+                    name = ""
+
+                lst_result.append((skill_id, result))
+
+                print(f"{pos_id} - hr.skill - tbl_categorie - ADDED '{name}' id {result[0]}")
+
+    def migrate_tbl_sous_categorie(self, dry_run=False):
+        print("Begin migrate tbl_sous_categorie")
+        cur = self.conn.cursor()
+        str_query = f"""SELECT * FROM tbl_sous_categorie;"""
+        cur.nextset()
+        cur.execute(str_query)
+        tpl_result = cur.fetchall()
+
+        lst_result = []
+        self.dct_tbl["tbl_sous_categorie"] = lst_result
+
+        # 0 `NoSousCategorie` char(2) NOT NULL DEFAULT '',
+        # 1 `NoCategorie` int(10) UNSIGNED NOT NULL DEFAULT '0',
+        # 2 `TitreSousCategorie` varchar(255) DEFAULT NULL,
+        # 3 `Supprimer` int(1) DEFAULT NULL,
+        # 4 `Approuver` int(1) DEFAULT NULL
+
+        with api.Environment.manage():
+            env = api.Environment(self.cr, SUPERUSER_ID, {})
+
+            i = 0
+            for result in tpl_result:
+                i += 1
+                pos_id = f"{i}/{len(tpl_result)}"
+
+                if DEBUG_LIMIT and i >= LIMIT:
+                    print(f"REACH LIMIT {LIMIT}")
+                    break
 
                 if not dry_run:
+                    # TODO create new field instead put that information in name
+                    name = f"{result[0]}-{result[1]} - {result[2]}"
+
+                    parent_id, _ = self._get_categorie(id_categorie=result[1])
+
+                    value = {
+                        'name': name,
+                        'parent_id': parent_id.id,
+                        'active': result[3] == 0,
+                    }
+
+                    skill_id = env['hr.skill'].create(value)
+                else:
+                    skill_id = None
+                    name = ""
+
+                lst_result.append((skill_id, result))
+
+                print(f"{pos_id} - hr.skill - tbl_sous_categorie - ADDED '{name}' id {result[0]}")
+
+    def migrate_tbl_categorie_sous_categorie(self, dry_run=False):
+        print("Begin migrate tbl_categorie_sous_categorie")
+        cur = self.conn.cursor()
+        str_query = f"""SELECT * FROM tbl_categorie_sous_categorie;"""
+        cur.nextset()
+        cur.execute(str_query)
+        tpl_result = cur.fetchall()
+
+        lst_result = []
+        self.dct_tbl["tbl_categorie_sous_categorie"] = lst_result
+        # dct_parent_key = collections.defaultdict(list)
+
+        # 0 `NoCategorieSousCategorie` int(10) UNSIGNED NOT NULL,
+        # 1 `NoSousCategorie` char(2) CHARACTER SET latin1 DEFAULT NULL,
+        # 2 `NoCategorie` int(10) UNSIGNED DEFAULT NULL,
+        # 3 `TitreOffre` varchar(255) CHARACTER SET latin1 DEFAULT NULL,
+        # 4 `Supprimer` int(1) DEFAULT NULL,
+        # 5 `Approuver` int(1) DEFAULT NULL,
+        # 6 `Description` varchar(255) CHARACTER SET latin1 DEFAULT NULL,
+        # 7 `NoOffre` int(10) UNSIGNED DEFAULT NULL
+
+        with api.Environment.manage():
+            env = api.Environment(self.cr, SUPERUSER_ID, {})
+
+            i = 0
+            for result in tpl_result:
+                i += 1
+                pos_id = f"{i}/{len(tpl_result)}"
+
+                if DEBUG_LIMIT and i >= LIMIT:
+                    print(f"REACH LIMIT {LIMIT}")
+                    break
+
+                if result[7] > 900:
+                    print(f"{pos_id} - hr.skill - tbl_categorie_sous_categorie - SKIPPED "
+                          f"result '{result[7]}' because > 900 and id {result[0]}")
+                    continue
+
+                if not dry_run:
+                    # parent_key = f"{result[2]}-{result[1]}"
+                    # dct_parent_key[parent_key].append(True)
+
+                    # TODO create new field instead put that information in name
+                    # name = f"{parent_key}-{len(dct_parent_key[parent_key])} - {result[3]}"
+                    name = f"{result[2]}-{result[1]}-{result[7]} - {result[3]}"
+
+                    parent_id, _ = self._get_sous_categorie(id_categorie=result[2], id_sous_categorie=result[1])
+
+                    value = {
+                        'name': name,
+                        'parent_id': parent_id.id,
+                        'active': result[4] == 0,
+                        'description': result[6].strip(),
+                    }
+
                     product_id = env['hr.skill'].create(value)
+                else:
+                    product_id = None
+                    name = ""
 
                 lst_result.append((product_id, result))
 
-                print(f"{pos_id} - hr.skill - tbl_categorie - ADDED '{name}' id {result[0]}")
+                print(f"{pos_id} - hr.skill - tbl_categorie_sous_categorie - ADDED '{name}' id {result[0]}")
 
     def migrate_tbl_type_fichier(self, dry_run=False):
         print("Begin migrate tbl_type_fichier")
@@ -846,15 +925,18 @@ class MigrationAccorderie:
                     print(f"REACH LIMIT {LIMIT}")
                     break
 
-                name = result[1]
-
-                value = {
-                    'name': name,
-                    'create_date': result[2],
-                }
-
                 if not dry_run:
+                    name = result[1]
+
+                    value = {
+                        'name': name,
+                        'create_date': result[2],
+                    }
+
                     category_id = env['muk_dms.category'].create(value)
+                else:
+                    category_id = None
+                    name = ""
 
                 lst_result.append((category_id, result))
 
@@ -893,42 +975,50 @@ class MigrationAccorderie:
                     break
 
                 pos_id = f"{i}/{len(tpl_result)}"
-                name = result[4]
 
-                data = open(f"{FILE_PATH}/{result[3]}", "rb").read()
-                content = base64.b64encode(data)
+                if not dry_run:
+                    name = result[4]
 
-                _, directory_id = self._get_storage(id_accorderie=result[2])
+                    data = open(f"{FILE_PATH}/{result[3]}", "rb").read()
+                    content = base64.b64encode(data)
 
-                type_fichier_id, _ = self._get_type_fichier(id_type_fichier=result[1])
+                    _, directory_id = self._get_storage(id_accorderie=result[2])
 
-                value = {
-                    'name': name,
-                    'category': type_fichier_id.id,
-                    'active': result[7] == 1,
-                    'directory': directory_id.id,
-                    'content': content,
-                    'create_date': result[8],
-                }
+                    type_fichier_id, _ = self._get_type_fichier(id_type_fichier=result[1])
 
-                # Validate not duplicate
-                files_id = env['muk_dms.file'].search([('name', '=', name), ('directory', '=', directory_id.id)])
-                if not files_id:
-                    if not dry_run:
-                        file_id = env['muk_dms.file'].create(value)
-                else:
-                    if len(files_id) > 1:
-                        raise Exception(f"ERROR, duplicate file id {i}")
-                    if files_id[0].content == content:
-                        print(f"{pos_id} - muk_dms.file - tbl_fichier - SKIPPED DUPLICATED SAME CONTENT '{name}' "
-                              f"on storage '{directory_id.name}' id {result[0]}")
+                    value = {
+                        'name': name,
+                        'category': type_fichier_id.id,
+                        'active': result[7] == 1,
+                        'directory': directory_id.id,
+                        'content': content,
+                        'create_date': result[8],
+                    }
+
+                    # Validate not duplicate
+                    files_id = env['muk_dms.file'].search([('name', '=', name), ('directory', '=', directory_id.id)])
+                    if not files_id:
+                        if not dry_run:
+                            file_id = env['muk_dms.file'].create(value)
                     else:
-                        raise Exception(f"ERROR, duplicate file id {i}, content is different, but same name '{name}'")
+                        if len(files_id) > 1:
+                            raise Exception(f"ERROR, duplicate file id {i}")
+                        if files_id[0].content == content:
+                            print(f"{pos_id} - muk_dms.file - tbl_fichier - SKIPPED DUPLICATED SAME CONTENT '{name}' "
+                                  f"on storage '{directory_id.name}' id {result[0]}")
+                        else:
+                            raise Exception(
+                                f"ERROR, duplicate file id {i}, content is different, but same name '{name}'")
+                else:
+                    file_id = None
+                    directory_id = None
+                    name = ""
+                    pos_id = ""
 
                 lst_result.append((file_id, result))
 
                 print(f"{pos_id} - muk_dms.file - tbl_fichier - ADDED '{name}' "
-                      f"on storage '{directory_id.name}' id {result[0]}")
+                      f"on storage '{directory_id.name if directory_id else ''}' id {result[0]}")
 
     def update_user(self, dry_run=False):
         print("Update user preference")
@@ -1037,7 +1127,14 @@ class MigrationAccorderie:
             for obj_id_titre, tpl_obj in self.dct_tbl.get("tbl_categorie"):
                 if tpl_obj[0] == id_categorie:
                     return obj_id_titre, tpl_obj
-            print(f"Error, cannot find city {id_categorie}")
+            print(f"Error, cannot find categorie {id_categorie}")
+
+    def _get_sous_categorie(self, id_categorie: int = None, id_sous_categorie: int = None):
+        if id_categorie and id_sous_categorie:
+            for obj_id_titre, tpl_obj in self.dct_tbl.get("tbl_sous_categorie"):
+                if tpl_obj[1] == id_categorie and tpl_obj[0] == id_sous_categorie:
+                    return obj_id_titre, tpl_obj
+            print(f"Error, cannot find categorie {id_categorie} and sous_categorie {id_sous_categorie}")
 
     def _get_storage(self, id_accorderie: int = None):
         if id_accorderie:
