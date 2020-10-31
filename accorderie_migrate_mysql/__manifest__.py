@@ -31,6 +31,10 @@ accorderie migrate mysql
         'muk_dms_mail',
         'muk_dms_thumbnails',
         'muk_dms_view',
+        'membership',
+        'membership_extension',
+        'fieldservice',
+        'fieldservice_skill',
     ],
     'external_dependencies': {
         'python': [

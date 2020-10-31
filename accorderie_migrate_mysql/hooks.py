@@ -41,6 +41,7 @@ def post_init_hook(cr, e):
     # Create supplier, member, services and product
     migration.migrate_tbl_fournisseur(dry_run=False)
     migration.migrate_tbl_membre(dry_run=False)
+    migration.migrate_tbl_pointservice(dry_run=False)
     migration.migrate_tbl_titre(dry_run=False)
     migration.migrate_tbl_produit(dry_run=False)
     migration.migrate_tbl_categorie(dry_run=False)
@@ -438,10 +439,11 @@ class MigrationAccorderie:
         cur.execute(str_query)
         tpl_result = cur.fetchall()
 
-        self.dct_tbl["tbl_membre"] = tpl_result
+        lst_result = []
+        self.dct_tbl["tbl_membre"] = lst_result
 
-        dct_debug_login = self._check_duplicate(tpl_result, 44)
-        dct_debug_email = self._check_duplicate(tpl_result, 29)
+        dct_debug_login = self._check_duplicate(tpl_result, 44, verbose=False)
+        dct_debug_email = self._check_duplicate(tpl_result, 29, verbose=False)
         # self.dct_tbl["tbl_membre|conflict"] = dct_debug
         # print("profile")
         # print(dct_debug_login)
@@ -515,7 +517,7 @@ class MigrationAccorderie:
                 if DEBUG_LIMIT and i >= LIMIT:
                     print(f"REACH LIMIT {LIMIT}")
                     break
-
+                obj_user = None
                 if not dry_run:
                     login = result[44]
 
@@ -531,6 +533,7 @@ class MigrationAccorderie:
 
                     if not login or not name:
                         print(f"{pos_id} - res.partner - tbl_membre - SKIPPED EMPTY LOGIN '{name}' id {result[0]}")
+                        lst_result.append((None, result))
                         continue
 
                     # Ignore test user
@@ -552,7 +555,7 @@ class MigrationAccorderie:
                         email = GENERIC_EMAIL % login
                     elif email in dct_debug_email.keys():
                         # TODO merge user
-                        print(f"{pos_id} - res.partner - tbl_membre - SKIPPED DUPPLICATED EMAIL "
+                        print(f"{pos_id} - res.partner - tbl_membre - SKIPPED DUPLICATED EMAIL "
                               f"name '{name}' login '{login}' email '{email}' id {result[0]}")
                         continue
 
@@ -621,13 +624,90 @@ class MigrationAccorderie:
                         'company_id': company_id.id,
                         'company_ids': [(4, company_id.id)],
                         'partner_id': obj_partner.id,
+                        'free_member': True,
                     }
 
                     obj_user = env['res.users'].with_context({'no_reset_password': True}).create(value)
                 else:
                     name = ""
-
+                lst_result.append((obj_user, result))
                 print(f"{pos_id} - res.partner - tbl_membre - ADDED '{name}' id {result[0]}")
+
+    def migrate_tbl_pointservice(self, dry_run=False):
+        print("Begin migrate tbl_pointservice")
+        cur = self.conn.cursor()
+        str_query = f"""SELECT * FROM tbl_pointservice;"""
+        cur.nextset()
+        cur.execute(str_query)
+        tpl_result = cur.fetchall()
+
+        lst_result = []
+        self.dct_tbl["tbl_pointservice"] = lst_result
+
+        # 0 `NoPointService` int(10) UNSIGNED NOT NULL,
+        # 1 `NoAccorderie` int(10) UNSIGNED NOT NULL,
+        # 2 `NoMembre` int(10) UNSIGNED DEFAULT NULL,
+        # 3 `NomPointService` varchar(255) CHARACTER SET latin1 DEFAULT NULL,
+        # 4 `OrdrePointService` tinyint(3) UNSIGNED DEFAULT '0',
+        # 5 `NoteGrpAchatPageClient` text COLLATE latin1_general_ci,
+        # 6 `DateMAJ_PointService` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+
+        with api.Environment.manage():
+            env = api.Environment(self.cr, SUPERUSER_ID, {})
+            i = 0
+            for result in tpl_result:
+                i += 1
+                pos_id = f"{i}/{len(tpl_result)}"
+
+                if DEBUG_LIMIT and i >= LIMIT:
+                    print(f"REACH LIMIT {LIMIT}")
+                    break
+
+                if not dry_run:
+                    company_id, _ = self._get_accorderie(id_accorderie=result[1])
+                    member_id, tpl_member = self._get_member(id_member=result[2])
+                    if not(not member_id and tpl_member):
+                        print("Error, member not suppose to be create.")
+                        continue
+
+                    email = tpl_member[29].strip()
+
+                    # TODO missing Telephone2 if exist, tpl_result[23]
+                    name = f"Point de service {result[3].strip()}"
+                    value = {
+                        'name': name,
+                        'email': email,
+                        'street': tpl_member[19].strip(),
+                        'zip': tpl_member[15].strip(),
+                        'customer': False,
+                        'supplier': False,
+                        'phone': tpl_member[20],
+                        'state_id': 543,  # Quebec
+                        'country_id': 38,  # Canada
+                        'create_date': result[6],
+                        'parent_id': company_id.id,
+                        # 'website': result[14].strip(),
+                    }
+
+                    # City
+                    city_name = self._get_ville(tpl_member[11])
+                    if city_name:
+                        value["city"] = city_name
+
+                    obj = env['res.company'].create(value)
+                    obj.tz = "America/Montreal"
+
+                    # TODO set res.partner update member with self._set_member(id_member=result[2], member)
+
+                    # if member_id:
+                    #     member_id.parent_id = obj.partner_id.id
+                    # else:
+                    #     print(f"ERROR, missing member id {result[2]}.")
+                else:
+                    obj = None
+
+                print(f"{pos_id} - res.company - tbl_pointservice - ADDED '{name}' id {result[0]}")
+                lst_result.append((obj, result))
 
     def migrate_tbl_titre(self, dry_run=False):
         print("Begin migrate tbl_titre")
@@ -1100,6 +1180,15 @@ class MigrationAccorderie:
                 if tpl_obj[0] == id_accorderie:
                     return obj_id_accorderie, tpl_obj
             print(f"Error, cannot find accorderie {id_accorderie}")
+        return None, None
+
+    def _get_member(self, id_member: int = None):
+        if id_member:
+            for obj_id, tpl_obj in self.dct_tbl.get("tbl_membre"):
+                if tpl_obj[0] == id_member:
+                    return obj_id, tpl_obj
+            print(f"Error, cannot find member {id_member}")
+        return None, None
 
     def _get_titre(self, id_titre: int = None):
         if id_titre:
@@ -1107,6 +1196,7 @@ class MigrationAccorderie:
                 if tpl_obj[0] == id_titre:
                     return obj_id_titre, tpl_obj
             print(f"Error, cannot find product titre {id_titre}")
+        return None, None
 
     def _get_type_fichier(self, id_type_fichier: int = None):
         if id_type_fichier:
@@ -1114,6 +1204,7 @@ class MigrationAccorderie:
                 if tpl_obj[0] == id_type_fichier:
                     return obj_id_titre, tpl_obj
             print(f"Error, cannot find type file {id_type_fichier}")
+        return None, None
 
     def _get_ville(self, id_ville: int = None):
         if id_ville:
@@ -1121,6 +1212,7 @@ class MigrationAccorderie:
                 if tpl_obj[0] == id_ville:
                     return tpl_obj[1]
             print(f"Error, cannot find city {id_ville}")
+        return None, None
 
     def _get_categorie(self, id_categorie: int = None):
         if id_categorie:
@@ -1128,6 +1220,7 @@ class MigrationAccorderie:
                 if tpl_obj[0] == id_categorie:
                     return obj_id_titre, tpl_obj
             print(f"Error, cannot find categorie {id_categorie}")
+        return None, None
 
     def _get_sous_categorie(self, id_categorie: int = None, id_sous_categorie: int = None):
         if id_categorie and id_sous_categorie:
@@ -1135,12 +1228,13 @@ class MigrationAccorderie:
                 if tpl_obj[1] == id_categorie and tpl_obj[0] == id_sous_categorie:
                     return obj_id_titre, tpl_obj
             print(f"Error, cannot find categorie {id_categorie} and sous_categorie {id_sous_categorie}")
+        return None, None
 
     def _get_storage(self, id_accorderie: int = None):
         if id_accorderie:
             return self.dct_tbl.get("storage").get(id_accorderie)
 
-    def _check_duplicate(self, tpl_result, index):
+    def _check_duplicate(self, tpl_result, index, verbose=True):
         # Ignore duplicate since enable multi-company with different contact, not sharing
         # Debug duplicate data, need unique name
         dct_debug = collections.defaultdict(list)
@@ -1149,7 +1243,8 @@ class MigrationAccorderie:
         lst_to_remove = []
         for key, value in dct_debug.items():
             if len(value) > 1:
-                print(f"Duplicate name ({len(value)}) {key}: {value}\n")
+                if verbose:
+                    print(f"Duplicate name ({len(value)}) {key}: {value}\n")
             else:
                 lst_to_remove.append(key)
         for key in lst_to_remove:
