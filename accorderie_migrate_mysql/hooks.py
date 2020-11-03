@@ -32,28 +32,39 @@ def post_init_hook(cr, e):
     migration.setup_configuration(dry_run=False)
 
     # Create company
-    migration.migrate_tbl_ville(dry_run=False)
-    migration.migrate_tbl_accorderie(dry_run=False)
+    migration.migrate_company(dry_run=False)
 
-    # Create document database per company
-    migration.setup_document(dry_run=False)
-
-    # Create supplier, member, services and product
-    migration.migrate_tbl_fournisseur(dry_run=False)
-    migration.migrate_tbl_membre(dry_run=False)
-    migration.migrate_tbl_pointservice(dry_run=False)
-    migration.migrate_tbl_titre(dry_run=False)
-    migration.migrate_tbl_produit(dry_run=False)
-    migration.migrate_tbl_categorie(dry_run=False)
-    migration.migrate_tbl_sous_categorie(dry_run=False)
-    migration.migrate_tbl_categorie_sous_categorie(dry_run=False)
-
-    # Create files
-    migration.migrate_tbl_type_fichier(dry_run=False)
-    migration.migrate_tbl_fichier(dry_run=False)
-
+    # migration.migrate_tbl_ville(dry_run=False)
+    # migration.migrate_tbl_accorderie(dry_run=False)
+    #
+    # # Create document database per company
+    # migration.setup_document(dry_run=False)
+    #
+    # # Create supplier, member, services
+    # migration.migrate_tbl_membre(dry_run=False)
+    # migration.migrate_tbl_pointservice_fournisseur(dry_run=False)
+    # migration.migrate_tbl_pointservice(dry_run=False)
+    # migration.migrate_tbl_fournisseur(dry_run=False)
+    #
+    # # Create product
+    # migration.migrate_tbl_titre(dry_run=False)
+    # migration.migrate_tbl_produit(dry_run=False)
+    # migration.migrate_tbl_categorie(dry_run=False)
+    # migration.migrate_tbl_sous_categorie(dry_run=False)
+    # migration.migrate_tbl_categorie_sous_categorie(dry_run=False)
+    #
+    # # Create files
+    # migration.migrate_tbl_type_fichier(dry_run=False)
+    # migration.migrate_tbl_fichier(dry_run=False)
+    #
     # Update user configuration
     migration.update_user(dry_run=False)
+    # raise Exception("not finish")
+
+
+class Struct(object):
+    def __init__(self, **entries):
+        self.__dict__.update(entries)
 
 
 class MigrationAccorderie:
@@ -71,6 +82,67 @@ class MigrationAccorderie:
         self.cr = cr
 
         self.dct_tbl = {}
+        self.dct_accorderie = {}
+        self.dct_accorderie_by_email = {}
+        self.dct_pointservice = {}
+
+        self._fill_tbl()
+
+    def _fill_tbl(self):
+        cur = self.conn.cursor()
+        # Get all tables
+        str_query = f"""SHOW tables;"""
+        cur.nextset()
+        cur.execute(str_query)
+        tpl_result = cur.fetchall()
+
+        lst_ignore_table = ["tbl_log_acces",
+                            "tbl_commande_membre_produit",
+                            "tbl_echange_service",
+                            "tbl_fournisseur_produit_commande"]
+
+        dct_tbl = {a[0]: [] for a in tpl_result if "tbl" in a[0]}
+
+        for table, lst_column in dct_tbl.items():
+            if table in lst_ignore_table:
+                print(f"Skip table '{table}'")
+                continue
+
+            print(f"Import in cache table '{table}'")
+            str_query = f"""SHOW COLUMNS FROM {table};"""
+            cur.nextset()
+            cur.execute(str_query)
+            tpl_result = cur.fetchall()
+            lst_column_name = [a[0] for a in tpl_result]
+
+            if table == "tbl_membre":
+                str_query = f"""SELECT *,DECODE(MotDePasse,'{SECRET_PASSWORD}') AS MotDePasseRaw FROM tbl_membre;"""
+                lst_column_name.append("MotDePasseRaw")
+            else:
+                str_query = f"""SELECT * FROM {table};"""
+            cur.nextset()
+            cur.execute(str_query)
+            tpl_result = cur.fetchall()
+
+            for lst_result in tpl_result:
+                i = -1
+                dct_value = {}
+                for result in lst_result:
+                    i += 1
+                    dct_value[lst_column_name[i]] = result
+                lst_column.append(Struct(**dct_value))
+
+        self.dct_tbl = Struct(**dct_tbl)
+
+    def _get_ville(self, no_ville: int):
+        for ville in self.dct_tbl.tbl_ville:
+            if ville.NoVille == no_ville:
+                return ville
+
+    def _get_membre(self, no_membre: int):
+        for membre in self.dct_tbl.tbl_membre:
+            if membre.NoMembre == no_membre:
+                return membre
 
     def setup_configuration(self, dry_run=False):
         print("Setup configuration")
@@ -129,6 +201,154 @@ class MigrationAccorderie:
                 event_config = env['res.config.settings'].sudo().create(values)
                 event_config.execute()
 
+    def update_user(self, dry_run=False):
+        print("Update user preference")
+        with api.Environment.manage():
+            env = api.Environment(self.cr, SUPERUSER_ID, {})
+
+            administrator = env['res.users'].browse(2)
+            # administrator.email = "admin@nuagelibre.ca"
+            # Add all society to administrator
+            administrator.company_ids = env['res.company'].search([]).ids
+
+    def migrate_company(self, dry_run=False):
+        print("Migrate company")
+        # tbl_accorderie + tbl_pointservice
+
+        head_quarter = None
+        lst_child_company = []
+
+        with api.Environment.manage():
+            env = api.Environment(self.cr, SUPERUSER_ID, {})
+
+            i = 0
+            for accorderie in self.dct_tbl.tbl_accorderie:
+                i += 1
+                pos_id = f"{i}/{len(self.dct_tbl.tbl_accorderie)}"
+
+                if accorderie.Nom == "Réseau Accorderie (du Qc)":
+                    # Update main company
+                    name = accorderie.Nom.strip()
+                    head_quarter = env['res.company'].browse(1)
+                    head_quarter.name = name
+                    head_quarter.street = accorderie.AdresseAccorderie.strip()
+                    head_quarter.zip = accorderie.CodePostalAccorderie.strip()
+                    head_quarter.phone = accorderie.TelAccorderie.strip()
+                    head_quarter.partner_id.fax = accorderie.TelecopieurAccorderie.strip()
+                    head_quarter.email = accorderie.CourrielAccorderie.strip()
+                    head_quarter.website = "www.accorderie.ca"
+                    head_quarter.state_id = 543  # Quebec
+                    head_quarter.country_id = 38  # Canada
+                    head_quarter.tz = "America/Montreal"
+                    head_quarter.create_date = accorderie.DateMAJ_Accorderie
+
+                    # City
+                    ville = self._get_ville(accorderie.NoVille)
+                    head_quarter.city = ville.Ville
+
+                    if accorderie.URL_LogoAccorderie:
+                        data = open(f"{self.logo_path}/{accorderie.URL_LogoAccorderie}", "rb").read()
+                        head_quarter.logo = base64.b64encode(data)
+                    else:
+                        # obj.logo = base64.b64encode(env.ref("accorderie_migrate_mysql.logo_blanc_accorderie").datas),
+                        _path = os.path.dirname(__file__)
+                        data = open(f"{_path}/static/img/logonoiblancaccorderie.jpg", "rb").read()
+                        head_quarter.logo = base64.b64encode(data)
+                    obj = head_quarter
+                else:
+                    name = f"Accorderie {accorderie.Nom.strip()}"
+                    ville = self._get_ville(accorderie.NoVille)
+                    value = {
+                        'name': name,
+                        'city': ville.Ville,
+                        'street': accorderie.AdresseAccorderie.strip(),
+                        'zip': accorderie.CodePostalAccorderie.strip(),
+                        'phone': accorderie.TelAccorderie.strip(),
+                        'email': accorderie.CourrielAccorderie.strip(),
+                        'state_id': 543,  # Quebec
+                        'country_id': 38,  # Canada
+                        'create_date': accorderie.DateMAJ_Accorderie,
+                        # 'website': result[14].strip(),
+                    }
+
+                    if accorderie.URL_LogoAccorderie:
+                        data = open(f"{self.logo_path}/{accorderie.URL_LogoAccorderie}", "rb").read()
+                        value["logo"] = base64.b64encode(data)
+
+                    obj = env['res.company'].create(value)
+                    lst_child_company.append(obj)
+                    obj.tz = "America/Montreal"
+                    obj.partner_id.active = accorderie.NonVisible == 0
+                    obj.partner_id.fax = accorderie.TelecopieurAccorderie.strip()
+                    obj.partner_id.customer = False
+                    obj.partner_id.supplier = False
+
+                self.dct_accorderie[accorderie.NoAccorderie] = obj
+                self.dct_accorderie_by_email[obj.email] = obj
+                print(f"{pos_id} - res.company - tbl_accorderie - ADDED '{name}' id {accorderie.NoAccorderie}")
+
+            if head_quarter:
+                for child in lst_child_company:
+                    child.parent_id = head_quarter.id
+
+            # TODO Merge Point de service dans Accorderie, il semble avoir des doublons. Use email
+            i = 0
+            for pointservice in self.dct_tbl.tbl_pointservice:
+                i += 1
+                pos_id = f"{i}/{len(self.dct_tbl.tbl_pointservice)}"
+
+                tbl_membre = self._get_membre(pointservice.NoMembre)
+                accorderie_email_obj = self.dct_accorderie_by_email.get(tbl_membre.Courriel.strip())
+                name = f"Point de service {pointservice.NomPointService.strip()}"
+                if not accorderie_email_obj:
+                    accorderie_obj = self.dct_accorderie.get(pointservice.NoAccorderie)
+
+                    # TODO missing Telephone2 if exist, tpl_result[23]
+                    value = {
+                        'name': name,
+                        'email': tbl_membre.Courriel.strip(),
+                        'street': tbl_membre.Adresse.strip(),
+                        'zip': tbl_membre.CodePostal.strip(),
+                        'phone': tbl_membre.Telephone1,
+                        'state_id': 543,  # Quebec
+                        'country_id': 38,  # Canada
+                        'create_date': pointservice.DateMAJ_PointService,
+                        'parent_id': accorderie_obj.id,
+                        # 'website': result[14].strip(),
+                    }
+
+                    obj = env['res.company'].create(value)
+                    obj.tz = "America/Montreal"
+                    obj.partner_id.active = tbl_membre.MembreActif == -1
+                    obj.partner_id.customer = False
+                    obj.partner_id.supplier = False
+                    # obj.partner_id.fax = accorderie.TelecopieurAccorderie.strip()
+                    print(
+                        f"{pos_id} - res.company - tbl_pointservice - ADDED '{name}' id {pointservice.NoPointService}")
+                else:
+                    obj = accorderie_email_obj
+                    print(f"{pos_id} - res.company - tbl_pointservice - "
+                          f"DUPLICATED '{name}' id {pointservice.NoPointService}")
+                self.dct_pointservice[pointservice.NoPointService] = obj
+
+
+class MigrationAccorderieCopy:
+    def __init__(self, cr):
+        print("Start migration of Accorderie of Quebec.")
+        assert MySQLdb
+        self.host = "localhost"
+        self.user = "accorderie"
+        self.passwd = "accorderie"
+        self.db_name = "accorderie_log_2019_2"
+        self.conn = MySQLdb.connect(host=self.host, user=self.user, passwd=self.passwd, db=self.db_name)
+        # Path of the backup
+        self.source_code_path = BACKUP_PATH
+        self.logo_path = f"{self.source_code_path}/images/logo"
+        self.cr = cr
+
+        self.dct_tbl = {}
+
+
     def setup_document(self, dry_run=False):
         print("Setup document")
 
@@ -177,139 +397,6 @@ class MigrationAccorderie:
                 print(f"{pos_id} - muk_dms.storage - tbl_accorderie - "
                       f"ADDED '{name}' id {storage_id.id if storage_id else ''}")
 
-    def migrate_tbl_ville(self, dry_run=False):
-        print("Begin migrate tbl_ville")
-        cur = self.conn.cursor()
-        # Get all ville
-        str_query = f"""SELECT * FROM tbl_ville;"""
-        cur.nextset()
-        cur.execute(str_query)
-        tpl_result = cur.fetchall()
-
-        # 0 `NoVille` int(10) UNSIGNED NOT NULL,
-        # 1 `Ville` varchar(60) DEFAULT NULL,
-        # 2 `NoRegion` int(10) UNSIGNED DEFAULT NULL
-
-        lst_result = list(tpl_result)
-        self.dct_tbl["tbl_ville"] = lst_result
-
-    def migrate_tbl_accorderie(self, dry_run=False):
-        print("Begin migrate tbl_accorderie")
-        cur = self.conn.cursor()
-        # Get all Accorderie
-        str_query = f"""SELECT * FROM tbl_accorderie;"""
-        cur.nextset()
-        cur.execute(str_query)
-        tpl_result = cur.fetchall()
-
-        lst_result = []
-        self.dct_tbl["tbl_accorderie"] = lst_result
-
-        # 0 `NoAccorderie` int(10) UNSIGNED NOT NULL,
-        # 1 `NoRegion` int(10) UNSIGNED NOT NULL,
-        # 2 `NoVille` int(10) UNSIGNED NOT NULL,
-        # 3 `NoArrondissement` int(10) UNSIGNED DEFAULT NULL,
-        # 4 `NoCartier` int(10) UNSIGNED DEFAULT NULL,
-        # 5 `Nom` varchar(45) CHARACTER SET latin1 DEFAULT NULL,
-        # 6 `NomComplet` varchar(255) COLLATE latin1_general_ci NOT NULL,
-        # 7 `AdresseAccorderie` varchar(255) CHARACTER SET latin1 DEFAULT NULL,
-        # 8 `CodePostalAccorderie` varchar(7) CHARACTER SET latin1 DEFAULT NULL,
-        # 9 `TelAccorderie` varchar(10) CHARACTER SET latin1 DEFAULT NULL,
-        # 10 `TelecopieurAccorderie` varchar(10) CHARACTER SET latin1 DEFAULT NULL,
-        # 11 `CourrielAccorderie` varchar(255) CHARACTER SET latin1 DEFAULT NULL,
-        # 12 `MessageGrpAchat` text COLLATE latin1_general_ci,
-        # 13 `MessageAccueil` text COLLATE latin1_general_ci,
-        # 14 `URL_Public_Accorderie` varchar(255) COLLATE latin1_general_ci DEFAULT NULL,
-        # 15 `URL_Transac_Accorderie` varchar(255) COLLATE latin1_general_ci DEFAULT NULL,
-        # 16 `URL_LogoAccorderie` varchar(255) COLLATE latin1_general_ci DEFAULT NULL,
-        # 17 `GrpAchat_Admin` tinyint(4) DEFAULT '0',
-        # 18 `GrpAchat_Accordeur` tinyint(4) DEFAULT '0',
-        # 19 `NonVisible` int(11) NOT NULL DEFAULT '0',
-        # 20 `DateMAJ_Accorderie` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-
-        with api.Environment.manage():
-            env = api.Environment(self.cr, SUPERUSER_ID, {})
-            head_quarter = None
-            lst_child_company = []
-            i = 0
-            for result in tpl_result:
-                i += 1
-                pos_id = f"{i}/{len(tpl_result)}"
-
-                if DEBUG_LIMIT and i >= LIMIT:
-                    print(f"REACH LIMIT {LIMIT}")
-                    break
-
-                if result[5].strip() == "Réseau Accorderie (du Qc)":
-                    # Update main company
-                    name = result[5].strip()
-                    obj = env['res.company'].browse(1)
-                    head_quarter = obj
-                    obj.name = name
-                    obj.street = result[7].strip()
-                    obj.zip = result[8].strip()
-                    obj.phone = result[9].strip()
-                    obj.partner_id.fax = result[10].strip()
-                    obj.email = result[11].strip()
-                    obj.website = "www.accorderie.ca"
-                    obj.state_id = 543  # Quebec
-                    obj.country_id = 38  # Canada
-                    obj.tz = "America/Montreal"
-                    obj.create_date = result[20]
-
-                    # City
-                    city_name = self._get_ville(result[2])
-                    if city_name:
-                        obj.city = city_name
-
-                    if result[16]:
-                        data = open(f"{self.logo_path}/{result[16]}", "rb").read()
-                        obj.logo = base64.b64encode(data)
-                    else:
-                        # obj.logo = base64.b64encode(env.ref("accorderie_migrate_mysql.logo_blanc_accorderie").datas),
-                        _path = os.path.dirname(__file__)
-                        data = open(f"{_path}/static/img/logonoiblancaccorderie.jpg", "rb").read()
-                        obj.logo = base64.b64encode(data)
-                    print(f"{pos_id} - res.partner - tbl_accorderie - UPDATED '{name}' id {result[0]}")
-                else:
-                    # Create new accorderie
-                    name = f"Accorderie {result[6].strip()}"
-                    value = {
-                        'name': name,
-                        'street': result[7].strip(),
-                        'zip': result[8].strip(),
-                        'phone': result[9].strip(),
-                        'email': result[11].strip(),
-                        'state_id': 543,  # Quebec
-                        'country_id': 38,  # Canada
-                        'create_date': result[20],
-                        # 'website': result[14].strip(),
-                    }
-
-                    if result[16]:
-                        data = open(f"{self.logo_path}/{result[16]}", "rb").read()
-                        value["logo"] = base64.b64encode(data)
-
-                    # City
-                    city_name = self._get_ville(result[2])
-                    if city_name:
-                        value["city"] = city_name
-
-                    if not dry_run:
-                        obj = env['res.company'].create(value)
-                        lst_child_company.append(obj)
-                        obj.tz = "America/Montreal"
-                        obj.partner_id.active = result[19] == 0
-                        obj.partner_id.fax = result[10].strip()
-                    else:
-                        obj = None
-
-                    print(f"{pos_id} - res.company - tbl_accorderie - ADDED '{name}' id {result[0]}")
-                lst_result.append((obj, result))
-
-                if head_quarter:
-                    for child in lst_child_company:
-                        child.parent_id = head_quarter.id
 
     def migrate_tbl_fournisseur(self, dry_run=False):
         print("Begin migrate tbl_fournisseur")
@@ -633,6 +720,22 @@ class MigrationAccorderie:
                 lst_result.append((obj_user, result))
                 print(f"{pos_id} - res.partner - tbl_membre - ADDED '{name}' id {result[0]}")
 
+    def migrate_tbl_pointservice_fournisseur(self, dry_run=False):
+        print("Begin migrate tbl_pointservice_fournisseur")
+        cur = self.conn.cursor()
+        str_query = f"""SELECT * FROM tbl_pointservice_fournisseur;"""
+        cur.nextset()
+        cur.execute(str_query)
+        tpl_result = cur.fetchall()
+
+        self.dct_tbl["tbl_pointservice_fournisseur"] = list(tpl_result)
+
+        # 0 `NoPointServiceFournisseur` int(10) UNSIGNED NOT NULL,
+        # 1 `NoPointService` int(10) UNSIGNED NOT NULL,
+        # 2 `NoFournisseur` int(10) UNSIGNED NOT NULL,
+        # 3 `DateMAJ_PointServiceFournisseur` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        pass
+
     def migrate_tbl_pointservice(self, dry_run=False):
         print("Begin migrate tbl_pointservice")
         cur = self.conn.cursor()
@@ -666,7 +769,7 @@ class MigrationAccorderie:
                 if not dry_run:
                     company_id, _ = self._get_accorderie(id_accorderie=result[1])
                     member_id, tpl_member = self._get_member(id_member=result[2])
-                    if not(not member_id and tpl_member):
+                    if not (not member_id and tpl_member):
                         print("Error, member not suppose to be create.")
                         continue
 
