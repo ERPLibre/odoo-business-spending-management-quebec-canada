@@ -32,13 +32,13 @@ def post_init_hook(cr, e):
     migration = MigrationAccorderie(cr)
 
     # General configuration
-    migration.setup_configuration(dry_run=False)
+    migration.setup_configuration()
 
     # Create company
-    migration.migrate_company(dry_run=False)
+    migration.migrate_company()
 
     # Create file
-    # migration.migrate_muk_dms(dry_run=False)
+    migration.migrate_muk_dms()
 
     # migration.migrate_tbl_ville(dry_run=False)
     # migration.migrate_tbl_accorderie(dry_run=False)
@@ -89,6 +89,7 @@ class MigrationAccorderie:
         self.dct_accorderie = {}
         self.dct_accorderie_by_email = {}
         self.dct_pointservice = {}
+        self.dct_fichier = {}
 
         self._fill_cache_obj()
 
@@ -98,6 +99,8 @@ class MigrationAccorderie:
         """Read cache"""
 
         def get_obj(name, model, field_search=None):
+            if name not in db:
+                return {}
             # Get all obj with browse id
             with api.Environment.manage():
                 env = api.Environment(self.cr, SUPERUSER_ID, {})
@@ -114,6 +117,7 @@ class MigrationAccorderie:
             # self.dct_accorderie_by_email = get_obj("dct_accorderie_by_email", "res.company", field_search="email")
             self.dct_accorderie_by_email = get_obj("dct_accorderie_by_email", "res.company")
             self.dct_pointservice = get_obj("dct_pointservice", "res.company")
+            self.dct_fichier = get_obj("dct_fichier", "muk_dms.file")
         db_file.close()
 
     def _update_cache_obj(self):
@@ -123,6 +127,7 @@ class MigrationAccorderie:
         db['dct_accorderie'] = {a: b.id for a, b in self.dct_accorderie.items()}
         db['dct_accorderie_by_email'] = {a: b.id for a, b in self.dct_accorderie_by_email.items()}
         db['dct_pointservice'] = {a: b.id for a, b in self.dct_pointservice.items()}
+        db['dct_fichier'] = {a: b.id for a, b in self.dct_fichier.items()}
 
         # Its important to use binary mode
         db_file = open(CACHE_FILE, 'ab')
@@ -176,6 +181,9 @@ class MigrationAccorderie:
                 dct_value = {}
                 for result in lst_result:
                     i += 1
+                    # Exception fix database
+                    if table == "tbl_membre" and lst_column_name[i] == "Courriel" and lst_result[0] == 927:
+                        result = "mercier-hochelaga-maisonneuve@accorderie.ca"
                     dct_value[lst_column_name[i]] = result
                 lst_column.append(Struct(**dct_value))
 
@@ -264,11 +272,13 @@ class MigrationAccorderie:
 
         head_quarter = None
         lst_child_company = []
+        is_updated = False
 
         with api.Environment.manage():
             env = api.Environment(self.cr, SUPERUSER_ID, {})
 
             if not self.dct_accorderie:
+                is_updated = True
                 # Accorderie
                 i = 0
                 for accorderie in self.dct_tbl.tbl_accorderie:
@@ -342,144 +352,184 @@ class MigrationAccorderie:
 
             # Point Service
             if not self.dct_pointservice:
+                is_updated = True
                 i = 0
                 for pointservice in self.dct_tbl.tbl_pointservice:
                     i += 1
                     pos_id = f"{i}/{len(self.dct_tbl.tbl_pointservice)}"
 
                     tbl_membre = self._get_membre(pointservice.NoMembre)
-                    accorderie_email_obj = self.dct_accorderie_by_email.get(tbl_membre.Courriel.strip())
                     name = f"Point de service {pointservice.NomPointService.strip()}"
-                    if not accorderie_email_obj:
-                        accorderie_obj = self.dct_accorderie.get(pointservice.NoAccorderie)
+                    accorderie_obj = self.dct_accorderie.get(pointservice.NoAccorderie)
 
-                        # TODO missing Telephone2 if exist, tpl_result[23]
-                        value = {
-                            'name': name,
-                            'email': tbl_membre.Courriel.strip(),
-                            'street': tbl_membre.Adresse.strip(),
-                            'zip': tbl_membre.CodePostal.strip(),
-                            'phone': tbl_membre.Telephone1,
-                            'state_id': 543,  # Quebec
-                            'country_id': 38,  # Canada
-                            'create_date': pointservice.DateMAJ_PointService,
-                            'parent_id': accorderie_obj.id,
-                            # 'website': result[14].strip(),
-                        }
+                    # TODO missing Telephone2 if exist, tpl_result[23]
+                    value = {
+                        'name': name,
+                        'email': tbl_membre.Courriel.strip(),
+                        'street': tbl_membre.Adresse.strip(),
+                        'zip': tbl_membre.CodePostal.strip(),
+                        'phone': tbl_membre.Telephone1,
+                        'state_id': 543,  # Quebec
+                        'country_id': 38,  # Canada
+                        'create_date': pointservice.DateMAJ_PointService,
+                        'parent_id': accorderie_obj.id,
+                        # 'website': result[14].strip(),
+                    }
 
-                        obj = env['res.company'].create(value)
-                        obj.tz = "America/Montreal"
-                        obj.partner_id.active = tbl_membre.MembreActif == -1
-                        obj.partner_id.customer = False
-                        obj.partner_id.supplier = False
-                        # obj.partner_id.fax = accorderie.TelecopieurAccorderie.strip()
-                        print(f"{pos_id} - res.company - tbl_pointservice - "
-                              f"ADDED '{name}' id {pointservice.NoPointService}")
-                    else:
-                        obj = accorderie_email_obj
-                        print(f"{pos_id} - res.company - tbl_pointservice - "
-                              f"DUPLICATED '{name}' id {pointservice.NoPointService}")
+                    obj = env['res.company'].create(value)
+                    obj.tz = "America/Montreal"
+                    obj.partner_id.active = tbl_membre.MembreActif == -1
+                    obj.partner_id.customer = False
+                    obj.partner_id.supplier = False
+                    # obj.partner_id.fax = accorderie.TelecopieurAccorderie.strip()
+                    print(f"{pos_id} - res.company - tbl_pointservice - "
+                          f"ADDED '{name}' id {pointservice.NoPointService}")
+                    # accorderie_email_obj = self.dct_accorderie_by_email.get(tbl_membre.Courriel.strip())
+                    # name = f"Point de service {pointservice.NomPointService.strip()}"
+                    # if not accorderie_email_obj:
+                    #     accorderie_obj = self.dct_accorderie.get(pointservice.NoAccorderie)
+                    #
+                    #     # TODO missing Telephone2 if exist, tpl_result[23]
+                    #     value = {
+                    #         'name': name,
+                    #         'email': tbl_membre.Courriel.strip(),
+                    #         'street': tbl_membre.Adresse.strip(),
+                    #         'zip': tbl_membre.CodePostal.strip(),
+                    #         'phone': tbl_membre.Telephone1,
+                    #         'state_id': 543,  # Quebec
+                    #         'country_id': 38,  # Canada
+                    #         'create_date': pointservice.DateMAJ_PointService,
+                    #         'parent_id': accorderie_obj.id,
+                    #         # 'website': result[14].strip(),
+                    #     }
+                    #
+                    #     obj = env['res.company'].create(value)
+                    #     obj.tz = "America/Montreal"
+                    #     obj.partner_id.active = tbl_membre.MembreActif == -1
+                    #     obj.partner_id.customer = False
+                    #     obj.partner_id.supplier = False
+                    #     # obj.partner_id.fax = accorderie.TelecopieurAccorderie.strip()
+                    #     print(f"{pos_id} - res.company - tbl_pointservice - "
+                    #           f"ADDED '{name}' id {pointservice.NoPointService}")
+                    # else:
+                    #     obj = accorderie_email_obj
+                    #     print(f"{pos_id} - res.company - tbl_pointservice - "
+                    #           f"DUPLICATED '{name}' id {pointservice.NoPointService} "
+                    #           f"obj_id {obj.id}")
                     self.dct_pointservice[pointservice.NoPointService] = obj
 
-        self._update_cache_obj()
+        if is_updated:
+            self._update_cache_obj()
 
-    def migrate_muk_dms(self, dry_run=False):
+    def migrate_muk_dms(self):
         """
         Depend on company.
-        :param dry_run:
         :return:
         """
         print("Migrate files")
         # tbl_type_fichier and tbl_fichier
 
-        # Setup type fichier
-        dct_type_fichier = {}
-        with api.Environment.manage():
-            env = api.Environment(self.cr, SUPERUSER_ID, {})
+        if not self.dct_fichier:
+            # Setup type fichier
+            dct_type_fichier = {}
+            with api.Environment.manage():
+                env = api.Environment(self.cr, SUPERUSER_ID, {})
 
-            i = 0
-            for fichier in self.dct_tbl.tbl_type_fichier:
-                i += 1
-                pos_id = f"{i}/{len(self.dct_tbl.tbl_type_fichier)}"
-                name = fichier.TypeFichier
-                value = {
-                    'name': name,
-                    'create_date': fichier.DateMAJ_TypeFichier,
-                }
+                i = 0
+                for fichier in self.dct_tbl.tbl_type_fichier:
+                    i += 1
+                    pos_id = f"{i}/{len(self.dct_tbl.tbl_type_fichier)}"
+                    name = fichier.TypeFichier
+                    value = {
+                        'name': name,
+                        'create_date': fichier.DateMAJ_TypeFichier,
+                    }
 
-                category_id = env['muk_dms.category'].create(value)
-                dct_type_fichier[fichier.Id_TypeFichier] = category_id
-                print(f"{pos_id} - muk_dms.category - tbl_type_fichier - ADDED '{name}' "
-                      f"id {fichier.Id_TypeFichier}")
+                    category_id = env['muk_dms.category'].create(value)
+                    dct_type_fichier[fichier.Id_TypeFichier] = category_id
+                    print(f"{pos_id} - muk_dms.category - tbl_type_fichier - ADDED '{name}' "
+                          f"id {fichier.Id_TypeFichier}")
 
-            # Setup directory
-            dct_storage = {}
-            i = 0
-            for accorderie_id, accorderie in self.dct_pointservice.items():
-                i += 1
-                pos_id = f"{i}/{len(self.dct_tbl.tbl_accorderie)}"
-                name = accorderie.name
+                # Setup directory
+                dct_storage = {}
+                i = 0
 
-                value = {
-                    'name': name,
-                    'company': accorderie_id,
-                }
+                # for accorderie in list(self.dct_pointservice.values()) + list(self.dct_accorderie.values()):
+                for accorderie in list(self.dct_accorderie.values()):
+                    i += 1
+                    pos_id = f"{i}/{len(self.dct_accorderie.values())}"
+                    name = accorderie.name
 
-                storage_id = env["muk_dms.storage"].create(value)
+                    value = {
+                        'name': name,
+                        'company': accorderie.id,
+                    }
 
-                value = {
-                    'name': name,
-                    'root_storage': storage_id.id,
-                    'is_root_directory': True,
-                }
+                    storage_id = env["muk_dms.storage"].create(value)
 
-                directory_id = env["muk_dms.directory"].create(value)
-                dct_storage[accorderie_id] = directory_id
-                print(f"{pos_id} - muk_dms.storage - tbl_pointservice - "
-                      f"ADDED '{name}' id {storage_id.id if storage_id else ''}")
+                    if "/" in name:
+                        name = name.replace("/", "_")
+                    value = {
+                        'name': name,
+                        'root_storage': storage_id.id,
+                        'is_root_directory': True,
+                    }
 
-            i = 0
-            for fichier in self.dct_tbl.tbl_fichier:
-                i += 1
-                pos_id = f"{i}/{len(self.dct_tbl.tbl_fichier)}"
+                    directory_id = env["muk_dms.directory"].create(value)
+                    if accorderie.id in dct_storage:
+                        raise Exception(f"Duplicate {accorderie} : {dct_storage}")
 
-                name = fichier.NomFichierOriginal
+                    dct_storage[accorderie.id] = directory_id
+                    print(f"{pos_id} - muk_dms.storage - tbl_accorderie - "
+                          f"ADDED '{name}' id {storage_id.id if storage_id else ''}")
 
-                data = open(f"{FILE_PATH}/{fichier.NomFichierStokage}", "rb").read()
-                content = base64.b64encode(data)
+                i = 0
+                for fichier in self.dct_tbl.tbl_fichier:
+                    i += 1
+                    pos_id = f"{i}/{len(self.dct_tbl.tbl_fichier)}"
 
-                # _, directory_id = self._get_storage(id_accorderie=result[2])
+                    name = fichier.NomFichierOriginal
 
-                # type_fichier_id, _ = self._get_type_fichier(id_type_fichier=result[1])
+                    data = open(f"{FILE_PATH}/{fichier.NomFichierStokage}", "rb").read()
+                    content = base64.b64encode(data)
 
-                category = dct_type_fichier.get(fichier.Id_TypeFichier).id
+                    # _, directory_id = self._get_storage(id_accorderie=result[2])
 
-                value = {
-                    'name': name,
-                    'category': category,
-                    'active': fichier.Si_Disponible == 1,
-                    'directory': dct_storage[fichier.NoAccorderie].id,
-                    'content': content,
-                    'create_date': fichier.DateMAJ_Fichier,
-                }
+                    # type_fichier_id, _ = self._get_type_fichier(id_type_fichier=result[1])
 
-                file_id = env['muk_dms.file'].create(value)
-                # # Validate not duplicate
-                # files_id = env['muk_dms.file'].search([('name', '=', name), ('directory', '=', directory_id.id)])
-                # if not files_id:
-                #     file_id = env['muk_dms.file'].create(value)
-                # else:
-                #     if len(files_id) > 1:
-                #         raise Exception(f"ERROR, duplicate file id {i}")
-                #     if files_id[0].content == content:
-                #         print(f"{pos_id} - muk_dms.file - tbl_fichier - SKIPPED DUPLICATED SAME CONTENT '{name}' "
-                #               f"on storage '{directory_id.name}' id {result[0]}")
-                #     else:
-                #         raise Exception(
-                #             f"ERROR, duplicate file id {i}, content is different, but same name '{name}'")
+                    category = dct_type_fichier.get(fichier.Id_TypeFichier).id
 
-                print(f"{pos_id} - muk_dms.file - tbl_fichier - ADDED '{name}' "
-                      f"on storage '{directory_id.name if directory_id else ''}' id {result[0]}")
+                    value = {
+                        'name': name,
+                        'category': category,
+                        'active': fichier.Si_Disponible == 1,
+                        'directory': dct_storage[self.dct_accorderie.get(fichier.NoAccorderie).id].id,
+                        'content': content,
+                        'create_date': fichier.DateMAJ_Fichier,
+                    }
+
+                    try:
+                        file_id = env['muk_dms.file'].create(value)
+                    except Exception as e:
+                        continue
+                    # Validate not duplicate
+                    # files_id = env['muk_dms.file'].search([('name', '=', name), ('directory', '=', directory_id.id)])
+                    # if not files_id:
+                    #     file_id = env['muk_dms.file'].create(value)
+                    # else:
+                    #     if len(files_id) > 1:
+                    #         raise Exception(f"ERROR, duplicate file id {i}")
+                    #     if files_id[0].content == content:
+                    #         print(f"{pos_id} - muk_dms.file - tbl_fichier - SKIPPED DUPLICATED SAME CONTENT '{name}' "
+                    #               f"on storage '{directory_id.name}' id {fichier.Id_Fichier}")
+                    #     else:
+                    #         raise Exception(
+                    #             f"ERROR, duplicate file id {i}, content is different, but same name '{name}'")
+
+                    self.dct_fichier[fichier.Id_Fichier] = file_id
+                    print(f"{pos_id} - muk_dms.file - tbl_fichier - ADDED '{name}' "
+                          f"on storage '{directory_id.name if directory_id else ''}' id {fichier.Id_Fichier}")
+            self._update_cache_obj()
 
 
 class MigrationAccorderieCopy:
