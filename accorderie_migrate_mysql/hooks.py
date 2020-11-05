@@ -45,13 +45,13 @@ def post_init_hook(cr, e):
 
     # Create user
     migration.migrate_member()
+
     # Create HR
     migration.migrate_skills()
 
-    # migration.migrate_tbl_categorie(dry_run=False)
-    # migration.migrate_tbl_sous_categorie(dry_run=False)
-    # migration.migrate_tbl_categorie_sous_categorie(dry_run=False)
-    #
+    # Create fournisseur
+    migration.migrate_fournisseur()
+
     # Update user configuration
     migration.update_user(dry_run=False)
 
@@ -81,6 +81,7 @@ class MigrationAccorderie:
         self.dct_produit = {}
         self.dct_membre = {}
         self.dct_categorie_sous_categorie = {}
+        self.dct_fournisseur = {}
 
         self._fill_cache_obj()
 
@@ -112,6 +113,7 @@ class MigrationAccorderie:
             self.dct_produit = get_obj("dct_produit", "product.template")
             self.dct_membre = get_obj("dct_membre", "res.users")
             self.dct_categorie_sous_categorie = get_obj("dct_categorie_sous_categorie", "hr.skill")
+            self.dct_fournisseur = get_obj("dct_fournisseur", "res.partner")
         db_file.close()
 
     def _update_cache_obj(self):
@@ -125,6 +127,7 @@ class MigrationAccorderie:
         db['dct_produit'] = {a: b.id for a, b in self.dct_produit.items()}
         db['dct_membre'] = {a: b.id for a, b in self.dct_membre.items()}
         db['dct_categorie_sous_categorie'] = {a: b.id for a, b in self.dct_categorie_sous_categorie.items()}
+        db['dct_fournisseur'] = {a: b.id for a, b in self.dct_fournisseur.items()}
 
         # Its important to use binary mode
         if os.path.exists(CACHE_FILE):
@@ -776,7 +779,7 @@ class MigrationAccorderie:
                         value['comment'] = membre.Memo.strip()
 
                     if city_name:
-                        value['city'] = city_name
+                        value['city'] = city_name.Ville
 
                     self._set_phone(membre, value)
 
@@ -880,6 +883,87 @@ class MigrationAccorderie:
                 self.dct_categorie_sous_categorie = dct_categorie_sous_categorie
                 self._update_cache_obj()
 
+    def migrate_fournisseur(self):
+        """
+        :return:
+        """
+        print("Migrate fournisseur")
+
+        with api.Environment.manage():
+            env = api.Environment(self.cr, SUPERUSER_ID, {})
+            if not self.dct_fournisseur:
+                dct_fournisseur = {}
+
+                i = 0
+                for fournisseur in self.dct_tbl.tbl_fournisseur:
+                    i += 1
+                    pos_id = f"{i}/{len(self.dct_tbl.tbl_fournisseur)}"
+
+                    name = fournisseur.NomFournisseur
+
+                    accorderie_obj = self.dct_accorderie.get(fournisseur.NoAccorderie)
+                    if "Accorderie" in name:
+                        accorderie_obj.partner_id.supplier = True
+                        new_comment = ""
+                        if accorderie_obj.partner_id.comment:
+                            new_comment = f"{accorderie_obj.partner_id.comment}\n"
+                        accorderie_obj.partner_id.comment = f"{new_comment}Fournisseur : " \
+                                                            f"{fournisseur.NoteFournisseur.strip()}"
+                        # accorderie_obj.create_date = fournisseur.DateMAJ_Fournisseur
+
+                        dct_fournisseur[fournisseur.NoFournisseur] = accorderie_obj.partner_id
+
+                        print(f"{pos_id} - res.partner - tbl_fournisseur - "
+                              f"UPDATED '{name}/{accorderie_obj.partner_id.name}' id {fournisseur.NoFournisseur}")
+                        continue
+                    # elif name in dct_debug.keys():
+                    #     lst_duplicated = dct_debug.get(name)
+                    #     print(f"{pos_id} - res.partner - tbl_fournisseur - SKIPPED '{name}' id {result[0]}")
+                    #     continue
+
+                    city_name = self._get_ville(fournisseur.NoVille)
+
+                    value = {
+                        'name': name,
+                        'street': fournisseur.Adresse.strip(),
+                        'zip': fournisseur.CodePostalFournisseur.strip(),
+                        'phone': fournisseur.TelFournisseur.strip(),
+                        'fax': fournisseur.FaxFounisseur.strip(),
+                        'email': fournisseur.CourrielFournisseur.strip(),
+                        'supplier': True,
+                        'customer': False,
+                        'state_id': 543,  # Quebec
+                        'country_id': 38,  # Canada
+                        'company_type': 'company',
+                        'comment': fournisseur.NoteFournisseur.strip(),
+                        'tz': "America/Montreal",
+                        'active': fournisseur.Visible_Fournisseur == 1,
+                        'company_id': accorderie_obj.id,
+                        'create_date': fournisseur.DateMAJ_Fournisseur,
+                    }
+
+                    if city_name:
+                        value['city'] = city_name.Ville
+
+                    obj = env['res.partner'].create(value)
+
+                    value_contact = {
+                        'name': fournisseur.NomContact.strip(),
+                        'function': fournisseur.PosteContact.strip(),
+                        'email': fournisseur.CourrielContact.strip(),
+                        'parent_id': obj.id,
+                        'company_id': accorderie_obj.id,
+                        'create_date': fournisseur.DateMAJ_Fournisseur,
+                    }
+
+                    obj_contact = env['res.partner'].create(value_contact)
+
+                    dct_fournisseur[fournisseur.NoFournisseur] = obj
+                    print(f"{pos_id} - res.partner - tbl_fournisseur - ADDED '{name}' id {fournisseur.NoFournisseur}")
+
+                self.dct_fournisseur = dct_fournisseur
+                self._update_cache_obj()
+
 
 class MigrationAccorderieCopy:
     def __init__(self, cr):
@@ -896,126 +980,6 @@ class MigrationAccorderieCopy:
         self.cr = cr
 
         self.dct_tbl = {}
-
-    def migrate_tbl_fournisseur(self, dry_run=False):
-        print("Begin migrate tbl_fournisseur")
-        cur = self.conn.cursor()
-        # Get all fournisseur
-        str_query = f"""SELECT * FROM tbl_fournisseur;"""
-        cur.nextset()
-        cur.execute(str_query)
-        tpl_result = cur.fetchall()
-
-        self.dct_tbl["tbl_fournisseur"] = tpl_result
-
-        # Ignore duplicate since enable multi-company with different contact, not sharing
-        # Debug duplicate data, need unique name
-        # dct_debug = collections.defaultdict(list)
-        # for result in tpl_result:
-        #     dct_debug[result[4]].append(result)
-        # lst_to_remove = []
-        # for key, value in dct_debug.items():
-        #     if len(value) > 1:
-        #         print(f"Duplicate name ({len(value)}) {key}: {value}\n")
-        #     else:
-        #         lst_to_remove.append(key)
-        # for key in lst_to_remove:
-        #     del dct_debug[key]
-        #
-        # self.dct_tbl["tbl_fournisseur|conflict"] = dct_debug
-
-        # 0 `NoFournisseur` int(10) UNSIGNED NOT NULL,
-        # 1 `NoAccorderie` int(10) UNSIGNED NOT NULL,
-        # 2 `NoRegion` int(10) UNSIGNED NOT NULL,
-        # 3 `NoVille` int(10) UNSIGNED NOT NULL,
-        # 4 `NomFournisseur` varchar(80) CHARACTER SET latin1 DEFAULT NULL,
-        # 5 `Adresse` varchar(80) CHARACTER SET latin1 DEFAULT NULL,
-        # 6 `CodePostalFournisseur` varchar(7) CHARACTER SET latin1 DEFAULT NULL,
-        # 7 `TelFournisseur` varchar(14) CHARACTER SET latin1 DEFAULT NULL,
-        # 8 `FaxFounisseur` varchar(40) CHARACTER SET latin1 DEFAULT NULL,
-        # 9 `CourrielFournisseur` varchar(255) CHARACTER SET latin1 DEFAULT NULL,
-        # 10 `NomContact` varchar(100) CHARACTER SET latin1 DEFAULT NULL,
-        # 11 `PosteContact` varchar(8) CHARACTER SET latin1 DEFAULT NULL,
-        # 12 `CourrielContact` varchar(255) CHARACTER SET latin1 DEFAULT NULL,
-        # 13 `NoteFournisseur` text CHARACTER SET latin1,
-        # 14 `Visible_Fournisseur` tinyint(1) UNSIGNED DEFAULT '1',
-        # 15 `DateMAJ_Fournisseur` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-
-        with api.Environment.manage():
-            env = api.Environment(self.cr, SUPERUSER_ID, {})
-
-            i = 0
-            for result in tpl_result:
-                i += 1
-                pos_id = f"{i}/{len(tpl_result)}"
-
-                if DEBUG_LIMIT and i >= LIMIT:
-                    print(f"REACH LIMIT {LIMIT}")
-                    break
-
-                name = result[4].strip()
-                if not dry_run:
-                    if "Accorderie" in name:
-                        accorderie_id, _ = self._get_accorderie(result[1])
-                        if not accorderie_id:
-                            raise Exception(f"Cannot find associated accorderie {result}")
-                        accorderie_id.partner_id.supplier = True
-                        new_comment = ""
-                        if accorderie_id.partner_id.comment:
-                            new_comment = f"{accorderie_id.partner_id.comment}\n"
-                        accorderie_id.partner_id.comment = f"{new_comment}Fournisseur : {result[13].strip()}"
-                        accorderie_id.create_date = result[15]
-
-                        print(f"{pos_id} - res.partner - tbl_fournisseur - "
-                              f"UPDATED '{name}/{accorderie_id.partner_id.name}' id {result[0]}")
-                        continue
-                    # elif name in dct_debug.keys():
-                    #     lst_duplicated = dct_debug.get(name)
-                    #     print(f"{pos_id} - res.partner - tbl_fournisseur - SKIPPED '{name}' id {result[0]}")
-                    #     continue
-
-                    company_id, _ = self._get_accorderie(id_accorderie=result[1])
-                    if not company_id:
-                        raise Exception(f"Cannot find associated accorderie {result}")
-
-                    city_name = self._get_ville(result[3])
-
-                    value = {
-                        'name': name,
-                        'street': result[5].strip(),
-                        'zip': result[6].strip(),
-                        'phone': result[7].strip(),
-                        'fax': result[8].strip(),
-                        'email': result[9].strip(),
-                        'supplier': True,
-                        'customer': False,
-                        'state_id': 543,  # Quebec
-                        'country_id': 38,  # Canada
-                        'company_type': 'company',
-                        'comment': result[13].strip(),
-                        'tz': "America/Montreal",
-                        'active': result[14] == 1,
-                        'company_id': company_id.id,
-                        'create_date': result[15],
-                    }
-
-                    if city_name:
-                        value['city'] = city_name
-
-                    obj = env['res.partner'].create(value)
-
-                    value_contact = {
-                        'name': result[10].strip(),
-                        'function': result[11].strip(),
-                        'email': result[12].strip(),
-                        'parent_id': obj.id,
-                        'company_id': company_id.id,
-                        'create_date': result[15],
-                    }
-
-                    obj_contact = env['res.partner'].create(value_contact)
-
-                print(f"{pos_id} - res.partner - tbl_fournisseur - ADDED '{name}' id {result[0]}")
 
     def migrate_tbl_membre(self, dry_run=False):
         print("Begin migrate tbl_membre")
@@ -1194,7 +1158,7 @@ class MigrationAccorderieCopy:
                         value['comment'] = result[40].strip()
 
                     if city_name:
-                        value['city'] = city_name
+                        value['city'] = city_name.Ville
 
                     self._set_phone(result, value)
 
