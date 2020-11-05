@@ -44,12 +44,8 @@ def post_init_hook(cr, e):
     migration.migrate_product()
 
     # Create user
-    # migration.migrate_member()
+    migration.migrate_member()
 
-    # # Create supplier, member, services
-    # migration.migrate_tbl_membre(dry_run=False)
-    #
-    # # Create product
     # migration.migrate_tbl_categorie(dry_run=False)
     # migration.migrate_tbl_sous_categorie(dry_run=False)
     # migration.migrate_tbl_categorie_sous_categorie(dry_run=False)
@@ -81,6 +77,7 @@ class MigrationAccorderie:
         self.dct_pointservice = {}
         self.dct_fichier = {}
         self.dct_produit = {}
+        self.dct_membre = {}
 
         self._fill_cache_obj()
 
@@ -110,6 +107,7 @@ class MigrationAccorderie:
             self.dct_pointservice = get_obj("dct_pointservice", "res.company")
             self.dct_fichier = get_obj("dct_fichier", "muk_dms.file")
             self.dct_produit = get_obj("dct_produit", "product.template")
+            self.dct_membre = get_obj("dct_membre", "res.users")
         db_file.close()
 
     def _update_cache_obj(self):
@@ -121,6 +119,7 @@ class MigrationAccorderie:
         db['dct_pointservice'] = {a: b.id for a, b in self.dct_pointservice.items()}
         db['dct_fichier'] = {a: b.id for a, b in self.dct_fichier.items()}
         db['dct_produit'] = {a: b.id for a, b in self.dct_produit.items()}
+        db['dct_membre'] = {a: b.id for a, b in self.dct_membre.items()}
 
         # Its important to use binary mode
         if os.path.exists(CACHE_FILE):
@@ -193,6 +192,87 @@ class MigrationAccorderie:
         for membre in self.dct_tbl.tbl_membre:
             if membre.NoMembre == no_membre:
                 return membre
+
+    def _set_phone(self, membre, value):
+        # Manage phone
+        # result 22, 25, 28 is type
+        # Type: 1 choose (empty)
+        # Type: 2 domicile Phone
+        # Type: 3 Travail À SUPPORTÉ
+        # Type: 4 Cellulaire MOBILE
+        # Type: 5 Téléavertisseur (pagette) NON SUPPORTÉ
+
+        # Pagette
+        if membre.NoTypeTel1 == 5 or membre.NoTypeTel2 == 5 or membre.NoTypeTel3 == 5:
+            print("WARNING, le pagette n'est pas supporté.")
+
+        # Travail
+        if membre.NoTypeTel1 == 3 or membre.NoTypeTel2 == 3 or membre.NoTypeTel3 == 3:
+            print("WARNING, le téléphone travail n'est pas supporté.")
+
+        # MOBILE
+        has_mobile = False
+        if membre.NoTypeTel1 == 4 and membre.Telephone1 and membre.Telephone1.strip():
+            has_mobile = True
+            value['mobile'] = membre.Telephone1.strip()
+            if membre.PosteTel1 and membre.PosteTel1.strip():
+                print("WARNING, le numéro de poste du mobile n'est pas supporté.")
+        if membre.NoTypeTel2 == 4 and membre.Telephone2 and membre.Telephone2.strip():
+            if has_mobile:
+                print("WARNING, duplicat du cellulaire.")
+            else:
+                has_mobile = True
+                value['mobile'] = membre.Telephone2.strip()
+                if membre.PosteTel2 and membre.PosteTel2.strip():
+                    print("WARNING, le numéro de poste du mobile n'est pas supporté.")
+        if membre.NoTypeTel3 == 4 and membre.Telephone3 and membre.Telephone3.strip():
+            if has_mobile:
+                print("WARNING, duplicat du cellulaire.")
+            else:
+                has_mobile = True
+                value['mobile'] = membre.Telephone3.strip()
+                if membre.PosteTel3 and membre.PosteTel3.strip():
+                    print("WARNING, le numéro de poste du mobile n'est pas supporté.")
+
+        has_domicile = False
+        if membre.NoTypeTel1 == 2 and membre.Telephone1 and membre.Telephone1.strip():
+            has_domicile = True
+            value['phone'] = membre.Telephone1.strip()
+            if membre.PosteTel1 and membre.PosteTel1 and membre.PosteTel1.strip():
+                print("WARNING, le numéro de poste du domicile n'est pas supporté.")
+        if membre.NoTypeTel2 == 2 and membre.Telephone2 and membre.Telephone2.strip():
+            if has_domicile:
+                print("WARNING, duplicat du cellulaire.")
+            else:
+                has_domicile = True
+                value['phone'] = membre.Telephone2.strip()
+                if membre.PosteTel2 and membre.PosteTel2.strip():
+                    print("WARNING, le numéro de poste du domicile n'est pas supporté.")
+        if membre.NoTypeTel3 == 2 and membre.Telephone3 and membre.Telephone3.strip():
+            if has_domicile:
+                print("WARNING, duplicat du cellulaire.")
+            else:
+                has_domicile = True
+                value['phone'] = membre.Telephone3.strip()
+                if membre.PosteTel3 and membre.PosteTel3.strip():
+                    print("WARNING, le numéro de poste du domicile n'est pas supporté.")
+
+    def _check_duplicate(self, tbl_membre, key, verbose=True):
+        # Ignore duplicate since enable multi-company with different contact, not sharing
+        # Debug duplicate data, need unique name
+        dct_debug = collections.defaultdict(list)
+        for result in tbl_membre:
+            dct_debug[result.__dict__.get(key)].append(result)
+        lst_to_remove = []
+        for key, value in dct_debug.items():
+            if len(value) > 1:
+                if verbose:
+                    print(f"Duplicate name ({len(value)}) {key}: {value}\n")
+            else:
+                lst_to_remove.append(key)
+        for key in lst_to_remove:
+            del dct_debug[key]
+        return dct_debug
 
     def setup_configuration(self, dry_run=False):
         print("Setup configuration")
@@ -580,6 +660,144 @@ class MigrationAccorderie:
                 self.dct_produit = dct_produit
                 self._update_cache_obj()
 
+    def migrate_member(self):
+        """
+        :return:
+        """
+        print("Migrate member")
+        # tbl_membre
+
+        dct_debug_login = self._check_duplicate(self.dct_tbl.tbl_membre, "NomUtilisateur", verbose=False)
+        dct_debug_email = self._check_duplicate(self.dct_tbl.tbl_membre, "Courriel", verbose=False)
+        # self.dct_tbl["tbl_membre|conflict"] = dct_debug
+        # print("profile")
+        # print(dct_debug_login)
+        # print("email")
+        # print(dct_debug_email)
+
+        with api.Environment.manage():
+            env = api.Environment(self.cr, SUPERUSER_ID, {})
+            if not self.dct_membre:
+                dct_membre = {}
+
+                i = 0
+                for membre in self.dct_tbl.tbl_membre:
+                    i += 1
+                    pos_id = f"{i}/{len(self.dct_tbl.tbl_membre)}"
+
+                    login = membre.NomUtilisateur
+                    # Get the name in 1 field
+                    if membre.Prenom and membre.Nom:
+                        name = f"{membre.Prenom.strip()} {membre.Nom.strip()}"
+                    elif membre.Prenom:
+                        name = f"{membre.Prenom.strip()}"
+                    elif membre.Nom:
+                        name = f"{membre.Nom.strip()}"
+                    else:
+                        name = ""
+
+                    if not login or not name:
+                        print(f"{pos_id} - res.partner - tbl_membre - SKIPPED EMPTY LOGIN '{name}' "
+                              f"id {membre.NoMembre}")
+                        # lst_result .append((None, result))
+                        continue
+
+                    # Ignore test user
+                    if ("test" in name or "test" in login) and login not in ["claudettestlaur"]:
+                        print(f"{pos_id} - res.partner - tbl_membre - SKIPPED TEST LOGIN "
+                              f"name '{name}' login '{login}' id {membre.NoMembre}")
+                        continue
+
+                    email = membre.Courriel.strip()
+                    if not email:
+                        if login in dct_debug_login.keys():
+                            # TODO Need to merge it
+                            print(f"{pos_id} - res.partner - tbl_membre - SKIPPED DUPLICATED LOGIN "
+                                  f"name '{name}' login '{login}' email '{email}' id {membre.NoMembre}")
+                            continue
+                        # Need an email for login, force create it
+                        # TODO coder un séquenceur dans Odoo pour la création de courriel générique
+                        # email = GENERIC_EMAIL % i
+                        email = GENERIC_EMAIL % login
+                    elif email in dct_debug_email.keys():
+                        # TODO merge user
+                        print(f"{pos_id} - res.partner - tbl_membre - SKIPPED DUPLICATED EMAIL "
+                              f"name '{name}' login '{login}' email '{email}' id {membre.NoMembre}")
+                        continue
+
+                    # Show duplicate profile
+                    # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_login.items())[:15] for a in va[1] if a[37] == -1])
+                    # Show duplicate email
+                    # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1]])
+                    # Show duplicate not empty email
+                    # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1] if a[29].strip() != ""])
+                    # Show duplicate not empty email actif
+                    # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1] if a[29].strip() != "" and a[37] == -1])
+                    # Show duplicate email active user
+                    # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1] if a[37] == -1])
+                    # duplicate email and duplicate user and active
+                    # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1] if a[37] == -1 and a[44] in dct_debug_login])
+
+                    # Technique remplacé par l'utilisation du courriel
+                    # if login in dct_debug_login.keys():
+                    #     # Validate unique email
+                    #     print(f"{pos_id} - res.partner - tbl_membre - SKIPPED DUPLICATED "
+                    #           f"name '{name}' login '{login}' id {result[0]}")
+                    #
+                    #     if email in dct_debug_email:
+                    #         print(dct_debug_email[email])
+                    #     continue
+
+                    company_id = self.dct_accorderie.get(membre.NoAccorderie)
+                    city_name = self._get_ville(membre.NoVille)
+
+                    value = {
+                        'name': name,
+                        'street': membre.Adresse.strip(),
+                        'zip': membre.CodePostal.strip(),
+                        'email': email,
+                        'supplier': False,
+                        'customer': True,
+                        'state_id': 543,  # Quebec
+                        'country_id': 38,  # Canada
+                        'tz': "America/Montreal",
+                        'active': membre.MembreActif == 0,
+                        'company_id': company_id.id,
+                        'create_date': membre.Date_MAJ_Membre,
+                        'free_member': True,
+                    }
+
+                    if membre.Memo:
+                        value['comment'] = membre.Memo.strip()
+
+                    if city_name:
+                        value['city'] = city_name
+
+                    self._set_phone(membre, value)
+
+                    obj_partner = env['res.partner'].create(value)
+
+                    value = {
+                        'name': name,
+                        'active': membre.MembreActif == 0,
+                        'login': email,
+                        'password': membre.MotDePasseRaw,
+                        'email': email,
+                        'groups_id': [(4, env.ref('base.group_user').id)],
+                        'company_id': company_id.id,
+                        'company_ids': [(4, company_id.id)],
+                        'partner_id': obj_partner.id,
+                    }
+
+                    obj_user = env['res.users'].with_context({'no_reset_password': True}).create(value)
+
+                    dct_membre[membre.NoMembre] = obj_user
+                    print(f"{pos_id} - res.users - tbl_membre - ADDED '{name}' login '{login}' email '{email}' "
+                          f"id {membre.NoMembre}")
+
+                self.dct_membre = dct_membre
+                self._update_cache_obj()
+
 
 class MigrationAccorderieCopy:
     def __init__(self, cr):
@@ -919,22 +1137,6 @@ class MigrationAccorderieCopy:
                 lst_result.append((obj_user, result))
                 print(f"{pos_id} - res.partner - tbl_membre - ADDED '{name}' id {result[0]}")
 
-    def migrate_tbl_pointservice_fournisseur(self, dry_run=False):
-        print("Begin migrate tbl_pointservice_fournisseur")
-        cur = self.conn.cursor()
-        str_query = f"""SELECT * FROM tbl_pointservice_fournisseur;"""
-        cur.nextset()
-        cur.execute(str_query)
-        tpl_result = cur.fetchall()
-
-        self.dct_tbl["tbl_pointservice_fournisseur"] = list(tpl_result)
-
-        # 0 `NoPointServiceFournisseur` int(10) UNSIGNED NOT NULL,
-        # 1 `NoPointService` int(10) UNSIGNED NOT NULL,
-        # 2 `NoFournisseur` int(10) UNSIGNED NOT NULL,
-        # 3 `DateMAJ_PointServiceFournisseur` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        pass
-
     def migrate_tbl_pointservice(self, dry_run=False):
         print("Begin migrate tbl_pointservice")
         cur = self.conn.cursor()
@@ -1171,198 +1373,6 @@ class MigrationAccorderieCopy:
 
                 print(f"{pos_id} - hr.skill - tbl_categorie_sous_categorie - ADDED '{name}' id {result[0]}")
 
-    def migrate_tbl_fichier(self, dry_run=False):
-        print("Begin migrate tbl_fichier")
-        cur = self.conn.cursor()
-        str_query = f"""SELECT * FROM tbl_fichier;"""
-        cur.nextset()
-        cur.execute(str_query)
-        tpl_result = cur.fetchall()
-
-        lst_result = []
-        self.dct_tbl["tbl_fichier"] = lst_result
-
-        # 0 `Id_Fichier` int(10) UNSIGNED NOT NULL,
-        # 1 `Id_TypeFichier` int(10) UNSIGNED NOT NULL,
-        # 2 `NoAccorderie` int(10) UNSIGNED NOT NULL,
-        # 3 `NomFichierStokage` varchar(255) COLLATE latin1_general_ci NOT NULL,
-        # 4 `NomFichierOriginal` varchar(255) COLLATE latin1_general_ci NOT NULL,
-        # 5 `Si_Admin` tinyint(3) UNSIGNED DEFAULT '1',
-        # 6 `Si_AccorderieLocalSeulement` tinyint(3) UNSIGNED DEFAULT '1',
-        # 7 `Si_Disponible` tinyint(3) UNSIGNED DEFAULT '0',
-        # 8 `DateMAJ_Fichier` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-
-        with api.Environment.manage():
-            env = api.Environment(self.cr, SUPERUSER_ID, {})
-
-            i = 0
-            for result in tpl_result:
-                i += 1
-
-                if DEBUG_LIMIT and i >= LIMIT:
-                    print(f"REACH LIMIT {LIMIT}")
-                    break
-
-                pos_id = f"{i}/{len(tpl_result)}"
-
-                if not dry_run:
-                    name = result[4]
-
-                    data = open(f"{FILE_PATH}/{result[3]}", "rb").read()
-                    content = base64.b64encode(data)
-
-                    _, directory_id = self._get_storage(id_accorderie=result[2])
-
-                    type_fichier_id, _ = self._get_type_fichier(id_type_fichier=result[1])
-
-                    value = {
-                        'name': name,
-                        'category': type_fichier_id.id,
-                        'active': result[7] == 1,
-                        'directory': directory_id.id,
-                        'content': content,
-                        'create_date': result[8],
-                    }
-
-                    # Validate not duplicate
-                    files_id = env['muk_dms.file'].search([('name', '=', name), ('directory', '=', directory_id.id)])
-                    if not files_id:
-                        if not dry_run:
-                            file_id = env['muk_dms.file'].create(value)
-                    else:
-                        if len(files_id) > 1:
-                            raise Exception(f"ERROR, duplicate file id {i}")
-                        if files_id[0].content == content:
-                            print(f"{pos_id} - muk_dms.file - tbl_fichier - SKIPPED DUPLICATED SAME CONTENT '{name}' "
-                                  f"on storage '{directory_id.name}' id {result[0]}")
-                        else:
-                            raise Exception(
-                                f"ERROR, duplicate file id {i}, content is different, but same name '{name}'")
-                else:
-                    file_id = None
-                    directory_id = None
-                    name = ""
-                    pos_id = ""
-
-                lst_result.append((file_id, result))
-
-                print(f"{pos_id} - muk_dms.file - tbl_fichier - ADDED '{name}' "
-                      f"on storage '{directory_id.name if directory_id else ''}' id {result[0]}")
-
-    def update_user(self, dry_run=False):
-        print("Update user preference")
-        with api.Environment.manage():
-            env = api.Environment(self.cr, SUPERUSER_ID, {})
-
-            administrator = env['res.users'].browse(2)
-            # administrator.email = "admin@nuagelibre.ca"
-            # Add all society to administrator
-            administrator.company_ids = env['res.company'].search([]).ids
-
-    def _set_phone(self, result, value):
-        # Manage phone
-        # result 22, 25, 28 is type
-        # Type: 1 choose (empty)
-        # Type: 2 domicile Phone
-        # Type: 3 Travail À SUPPORTÉ
-        # Type: 4 Cellulaire MOBILE
-        # Type: 5 Téléavertisseur (pagette) NON SUPPORTÉ
-
-        # Pagette
-        if result[22] == 5 or result[25] == 5 or result[28] == 5:
-            print("WARNING, le pagette n'est pas supporté.")
-
-        # Travail
-        if result[22] == 3 or result[25] == 3 or result[28] == 3:
-            print("WARNING, le téléphone travail n'est pas supporté.")
-
-        # MOBILE
-        has_mobile = False
-        if result[22] == 4 and result[20] and result[20].strip():
-            has_mobile = True
-            value['mobile'] = result[20].strip()
-            if result[21] and result[21].strip():
-                print("WARNING, le numéro de poste du mobile n'est pas supporté.")
-        if result[25] == 4 and result[23] and result[23].strip():
-            if has_mobile:
-                print("WARNING, duplicat du cellulaire.")
-            else:
-                has_mobile = True
-                value['mobile'] = result[23].strip()
-                if result[24] and result[24].strip():
-                    print("WARNING, le numéro de poste du mobile n'est pas supporté.")
-        if result[28] == 4 and result[26] and result[26].strip():
-            if has_mobile:
-                print("WARNING, duplicat du cellulaire.")
-            else:
-                has_mobile = True
-                value['mobile'] = result[26].strip()
-                if result[27] and result[27].strip():
-                    print("WARNING, le numéro de poste du mobile n'est pas supporté.")
-
-        has_domicile = False
-        if result[22] == 2 and result[20] and result[20].strip():
-            has_domicile = True
-            value['phone'] = result[20].strip()
-            if result[21] and result[21] and result[21].strip():
-                print("WARNING, le numéro de poste du domicile n'est pas supporté.")
-        if result[25] == 2 and result[23] and result[23].strip():
-            if has_domicile:
-                print("WARNING, duplicat du cellulaire.")
-            else:
-                has_domicile = True
-                value['phone'] = result[23].strip()
-                if result[24] and result[24].strip():
-                    print("WARNING, le numéro de poste du domicile n'est pas supporté.")
-        if result[28] == 2 and result[26] and result[26].strip():
-            if has_domicile:
-                print("WARNING, duplicat du cellulaire.")
-            else:
-                has_domicile = True
-                value['phone'] = result[26].strip()
-                if result[27] and result[27].strip():
-                    print("WARNING, le numéro de poste du domicile n'est pas supporté.")
-
-    def _get_accorderie(self, id_accorderie: int = None):
-        if id_accorderie:
-            for obj_id_accorderie, tpl_obj in self.dct_tbl.get("tbl_accorderie"):
-                if tpl_obj[0] == id_accorderie:
-                    return obj_id_accorderie, tpl_obj
-            print(f"Error, cannot find accorderie {id_accorderie}")
-        return None, None
-
-    def _get_member(self, id_member: int = None):
-        if id_member:
-            for obj_id, tpl_obj in self.dct_tbl.get("tbl_membre"):
-                if tpl_obj[0] == id_member:
-                    return obj_id, tpl_obj
-            print(f"Error, cannot find member {id_member}")
-        return None, None
-
-    def _get_titre(self, id_titre: int = None):
-        if id_titre:
-            for obj_id_titre, tpl_obj in self.dct_tbl.get("tbl_titre"):
-                if tpl_obj[0] == id_titre:
-                    return obj_id_titre, tpl_obj
-            print(f"Error, cannot find product titre {id_titre}")
-        return None, None
-
-    def _get_type_fichier(self, id_type_fichier: int = None):
-        if id_type_fichier:
-            for obj_id_titre, tpl_obj in self.dct_tbl.get("tbl_type_fichier"):
-                if tpl_obj[0] == id_type_fichier:
-                    return obj_id_titre, tpl_obj
-            print(f"Error, cannot find type file {id_type_fichier}")
-        return None, None
-
-    def _get_ville(self, id_ville: int = None):
-        if id_ville:
-            for tpl_obj in self.dct_tbl.get("tbl_ville"):
-                if tpl_obj[0] == id_ville:
-                    return tpl_obj[1]
-            print(f"Error, cannot find city {id_ville}")
-        return None, None
-
     def _get_categorie(self, id_categorie: int = None):
         if id_categorie:
             for obj_id_titre, tpl_obj in self.dct_tbl.get("tbl_categorie"):
@@ -1378,24 +1388,3 @@ class MigrationAccorderieCopy:
                     return obj_id_titre, tpl_obj
             print(f"Error, cannot find categorie {id_categorie} and sous_categorie {id_sous_categorie}")
         return None, None
-
-    def _get_storage(self, id_accorderie: int = None):
-        if id_accorderie:
-            return self.dct_tbl.get("storage").get(id_accorderie)
-
-    def _check_duplicate(self, tpl_result, index, verbose=True):
-        # Ignore duplicate since enable multi-company with different contact, not sharing
-        # Debug duplicate data, need unique name
-        dct_debug = collections.defaultdict(list)
-        for result in tpl_result:
-            dct_debug[result[index]].append(result)
-        lst_to_remove = []
-        for key, value in dct_debug.items():
-            if len(value) > 1:
-                if verbose:
-                    print(f"Duplicate name ({len(value)}) {key}: {value}\n")
-            else:
-                lst_to_remove.append(key)
-        for key in lst_to_remove:
-            del dct_debug[key]
-        return dct_debug
