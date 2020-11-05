@@ -59,13 +59,8 @@ def post_init_hook(cr, e):
     # migration.migrate_tbl_sous_categorie(dry_run=False)
     # migration.migrate_tbl_categorie_sous_categorie(dry_run=False)
     #
-    # # Create files
-    # migration.migrate_tbl_type_fichier(dry_run=False)
-    # migration.migrate_tbl_fichier(dry_run=False)
-    #
     # Update user configuration
     migration.update_user(dry_run=False)
-    # raise Exception("not finish")
 
 
 class Struct(object):
@@ -87,7 +82,7 @@ class MigrationAccorderie:
         self.cr = cr
 
         self.dct_accorderie = {}
-        self.dct_accorderie_by_email = {}
+        # self.dct_accorderie_by_email = {}
         self.dct_pointservice = {}
         self.dct_fichier = {}
 
@@ -115,7 +110,7 @@ class MigrationAccorderie:
         if db:
             self.dct_accorderie = get_obj("dct_accorderie", "res.company")
             # self.dct_accorderie_by_email = get_obj("dct_accorderie_by_email", "res.company", field_search="email")
-            self.dct_accorderie_by_email = get_obj("dct_accorderie_by_email", "res.company")
+            # self.dct_accorderie_by_email = get_obj("dct_accorderie_by_email", "res.company")
             self.dct_pointservice = get_obj("dct_pointservice", "res.company")
             self.dct_fichier = get_obj("dct_fichier", "muk_dms.file")
         db_file.close()
@@ -125,11 +120,13 @@ class MigrationAccorderie:
         # database
         db = {}
         db['dct_accorderie'] = {a: b.id for a, b in self.dct_accorderie.items()}
-        db['dct_accorderie_by_email'] = {a: b.id for a, b in self.dct_accorderie_by_email.items()}
+        # db['dct_accorderie_by_email'] = {a: b.id for a, b in self.dct_accorderie_by_email.items()}
         db['dct_pointservice'] = {a: b.id for a, b in self.dct_pointservice.items()}
         db['dct_fichier'] = {a: b.id for a, b in self.dct_fichier.items()}
 
         # Its important to use binary mode
+        if os.path.exists(CACHE_FILE):
+            os.remove(CACHE_FILE)
         db_file = open(CACHE_FILE, 'ab')
 
         # source, destination
@@ -327,6 +324,7 @@ class MigrationAccorderie:
                             'state_id': 543,  # Quebec
                             'country_id': 38,  # Canada
                             'create_date': accorderie.DateMAJ_Accorderie,
+                            'background_image': env.ref("accorderie_migrate_mysql.theme_background_image").datas,
                             # 'website': result[14].strip(),
                         }
 
@@ -343,7 +341,7 @@ class MigrationAccorderie:
                         obj.partner_id.supplier = False
 
                     self.dct_accorderie[accorderie.NoAccorderie] = obj
-                    self.dct_accorderie_by_email[obj.email] = obj
+                    # self.dct_accorderie_by_email[obj.email] = obj
                     print(f"{pos_id} - res.company - tbl_accorderie - ADDED '{name}' id {accorderie.NoAccorderie}")
 
                 if head_quarter:
@@ -373,6 +371,7 @@ class MigrationAccorderie:
                         'country_id': 38,  # Canada
                         'create_date': pointservice.DateMAJ_PointService,
                         'parent_id': accorderie_obj.id,
+                        'background_image': env.ref("accorderie_migrate_mysql.theme_background_image").datas,
                         # 'website': result[14].strip(),
                     }
 
