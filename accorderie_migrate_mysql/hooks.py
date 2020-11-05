@@ -45,6 +45,8 @@ def post_init_hook(cr, e):
 
     # Create user
     migration.migrate_member()
+    # Create HR
+    migration.migrate_skills()
 
     # migration.migrate_tbl_categorie(dry_run=False)
     # migration.migrate_tbl_sous_categorie(dry_run=False)
@@ -78,6 +80,7 @@ class MigrationAccorderie:
         self.dct_fichier = {}
         self.dct_produit = {}
         self.dct_membre = {}
+        self.dct_categorie_sous_categorie = {}
 
         self._fill_cache_obj()
 
@@ -108,6 +111,7 @@ class MigrationAccorderie:
             self.dct_fichier = get_obj("dct_fichier", "muk_dms.file")
             self.dct_produit = get_obj("dct_produit", "product.template")
             self.dct_membre = get_obj("dct_membre", "res.users")
+            self.dct_categorie_sous_categorie = get_obj("dct_categorie_sous_categorie", "hr.skill")
         db_file.close()
 
     def _update_cache_obj(self):
@@ -120,6 +124,7 @@ class MigrationAccorderie:
         db['dct_fichier'] = {a: b.id for a, b in self.dct_fichier.items()}
         db['dct_produit'] = {a: b.id for a, b in self.dct_produit.items()}
         db['dct_membre'] = {a: b.id for a, b in self.dct_membre.items()}
+        db['dct_categorie_sous_categorie'] = {a: b.id for a, b in self.dct_categorie_sous_categorie.items()}
 
         # Its important to use binary mode
         if os.path.exists(CACHE_FILE):
@@ -798,6 +803,83 @@ class MigrationAccorderie:
                 self.dct_membre = dct_membre
                 self._update_cache_obj()
 
+    def migrate_skills(self):
+        """
+        :return:
+        """
+        print("Migrate skills")
+
+        with api.Environment.manage():
+            env = api.Environment(self.cr, SUPERUSER_ID, {})
+            if not self.dct_categorie_sous_categorie:
+                dct_categorie = {}
+                dct_sous_categorie = {}
+                dct_categorie_sous_categorie = {}
+
+                i = 0
+                for categorie in self.dct_tbl.tbl_categorie:
+                    i += 1
+                    pos_id = f"{i}/{len(self.dct_tbl.tbl_categorie)}"
+
+                    name = categorie.TitreCategorie
+                    value = {
+                        'name': name,
+                        'active': categorie.Supprimer == 0,
+                    }
+
+                    categorie_id = env['hr.skill'].create(value)
+                    dct_categorie[categorie.NoCategorie] = categorie_id
+                    print(f"{pos_id} - hr.skill - tbl_categorie - ADDED '{name}' id {categorie.NoCategorie}")
+
+                i = 0
+                for categorie in self.dct_tbl.tbl_sous_categorie:
+                    i += 1
+                    pos_id = f"{i}/{len(self.dct_tbl.tbl_sous_categorie)}"
+
+                    pre_name = f"{categorie.NoSousCategorie}-{categorie.NoCategorie}"
+                    name = f"{pre_name} - {categorie.TitreSousCategorie}"
+                    parent_id = dct_categorie.get(categorie.NoCategorie)
+
+                    value = {
+                        'name': name,
+                        'parent_id': parent_id.id,
+                        'active': categorie.Supprimer == 0,
+                    }
+
+                    categorie_id = env['hr.skill'].create(value)
+                    dct_sous_categorie[pre_name] = categorie_id
+                    print(f"{pos_id} - hr.skill - tbl_sous_categorie - ADDED '{name}' id {categorie.NoCategorie}")
+
+                i = 0
+                for categorie in self.dct_tbl.tbl_categorie_sous_categorie:
+                    i += 1
+                    pos_id = f"{i}/{len(self.dct_tbl.tbl_categorie_sous_categorie)}"
+
+                    if categorie.NoOffre > 900:
+                        print(f"{pos_id} - hr.skill - tbl_categorie_sous_categorie - SKIPPED "
+                              f"result '{categorie.NoOffre}' because > 900 and id {categorie.NoCategorieSousCategorie}")
+                        continue
+
+                    pre_name = f"{categorie.NoSousCategorie}-{categorie.NoCategorie}"
+                    name = f"{pre_name}-{categorie.NoOffre} - {categorie.TitreOffre}"
+
+                    parent_id = dct_sous_categorie.get(pre_name)
+
+                    value = {
+                        'name': name,
+                        'parent_id': parent_id.id,
+                        'active': categorie.Supprimer == 0,
+                        'description': categorie.Description.strip(),
+                    }
+
+                    categorie_id = env['hr.skill'].create(value)
+                    dct_categorie_sous_categorie[categorie.NoCategorie] = categorie_id
+                    print(f"{pos_id} - hr.skill - tbl_categorie_sous_categorie - ADDED '{name}' "
+                          f"id {categorie.NoCategorie}")
+
+                self.dct_categorie_sous_categorie = dct_categorie_sous_categorie
+                self._update_cache_obj()
+
 
 class MigrationAccorderieCopy:
     def __init__(self, cr):
@@ -1136,255 +1218,3 @@ class MigrationAccorderieCopy:
                     name = ""
                 lst_result.append((obj_user, result))
                 print(f"{pos_id} - res.partner - tbl_membre - ADDED '{name}' id {result[0]}")
-
-    def migrate_tbl_pointservice(self, dry_run=False):
-        print("Begin migrate tbl_pointservice")
-        cur = self.conn.cursor()
-        str_query = f"""SELECT * FROM tbl_pointservice;"""
-        cur.nextset()
-        cur.execute(str_query)
-        tpl_result = cur.fetchall()
-
-        lst_result = []
-        self.dct_tbl["tbl_pointservice"] = lst_result
-
-        # 0 `NoPointService` int(10) UNSIGNED NOT NULL,
-        # 1 `NoAccorderie` int(10) UNSIGNED NOT NULL,
-        # 2 `NoMembre` int(10) UNSIGNED DEFAULT NULL,
-        # 3 `NomPointService` varchar(255) CHARACTER SET latin1 DEFAULT NULL,
-        # 4 `OrdrePointService` tinyint(3) UNSIGNED DEFAULT '0',
-        # 5 `NoteGrpAchatPageClient` text COLLATE latin1_general_ci,
-        # 6 `DateMAJ_PointService` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-
-        with api.Environment.manage():
-            env = api.Environment(self.cr, SUPERUSER_ID, {})
-            i = 0
-            for result in tpl_result:
-                i += 1
-                pos_id = f"{i}/{len(tpl_result)}"
-
-                if DEBUG_LIMIT and i >= LIMIT:
-                    print(f"REACH LIMIT {LIMIT}")
-                    break
-
-                if not dry_run:
-                    company_id, _ = self._get_accorderie(id_accorderie=result[1])
-                    member_id, tpl_member = self._get_member(id_member=result[2])
-                    if not (not member_id and tpl_member):
-                        print("Error, member not suppose to be create.")
-                        continue
-
-                    email = tpl_member[29].strip()
-
-                    # TODO missing Telephone2 if exist, tpl_result[23]
-                    name = f"Point de service {result[3].strip()}"
-                    value = {
-                        'name': name,
-                        'email': email,
-                        'street': tpl_member[19].strip(),
-                        'zip': tpl_member[15].strip(),
-                        'customer': False,
-                        'supplier': False,
-                        'phone': tpl_member[20],
-                        'state_id': 543,  # Quebec
-                        'country_id': 38,  # Canada
-                        'create_date': result[6],
-                        'parent_id': company_id.id,
-                        # 'website': result[14].strip(),
-                    }
-
-                    # City
-                    city_name = self._get_ville(tpl_member[11])
-                    if city_name:
-                        value["city"] = city_name
-
-                    obj = env['res.company'].create(value)
-                    obj.tz = "America/Montreal"
-
-                    # TODO set res.partner update member with self._set_member(id_member=result[2], member)
-
-                    # if member_id:
-                    #     member_id.parent_id = obj.partner_id.id
-                    # else:
-                    #     print(f"ERROR, missing member id {result[2]}.")
-                else:
-                    obj = None
-
-                print(f"{pos_id} - res.company - tbl_pointservice - ADDED '{name}' id {result[0]}")
-                lst_result.append((obj, result))
-
-    def migrate_tbl_categorie(self, dry_run=False):
-        print("Begin migrate tbl_categorie")
-        cur = self.conn.cursor()
-        str_query = f"""SELECT * FROM tbl_categorie;"""
-        cur.nextset()
-        cur.execute(str_query)
-        tpl_result = cur.fetchall()
-
-        lst_result = []
-        self.dct_tbl["tbl_categorie"] = lst_result
-
-        # 0 `NoCategorie` int(10) UNSIGNED NOT NULL,
-        # 1 `TitreCategorie` varchar(255) CHARACTER SET latin1 DEFAULT NULL,
-        # 2 `Supprimer` int(1) DEFAULT NULL,
-        # 3 `Approuver` int(1) DEFAULT NULL
-
-        with api.Environment.manage():
-            env = api.Environment(self.cr, SUPERUSER_ID, {})
-
-            i = 0
-            for result in tpl_result:
-                i += 1
-                pos_id = f"{i}/{len(tpl_result)}"
-
-                if DEBUG_LIMIT and i >= LIMIT:
-                    print(f"REACH LIMIT {LIMIT}")
-                    break
-
-                if not dry_run:
-                    # TODO create new field instead put that information in name
-                    name = f"{result[0]} - {result[1]}"
-
-                    value = {
-                        'name': name,
-                        'active': result[2] == 0,
-                    }
-
-                    skill_id = env['hr.skill'].create(value)
-                else:
-                    skill_id = None
-                    name = ""
-
-                lst_result.append((skill_id, result))
-
-                print(f"{pos_id} - hr.skill - tbl_categorie - ADDED '{name}' id {result[0]}")
-
-    def migrate_tbl_sous_categorie(self, dry_run=False):
-        print("Begin migrate tbl_sous_categorie")
-        cur = self.conn.cursor()
-        str_query = f"""SELECT * FROM tbl_sous_categorie;"""
-        cur.nextset()
-        cur.execute(str_query)
-        tpl_result = cur.fetchall()
-
-        lst_result = []
-        self.dct_tbl["tbl_sous_categorie"] = lst_result
-
-        # 0 `NoSousCategorie` char(2) NOT NULL DEFAULT '',
-        # 1 `NoCategorie` int(10) UNSIGNED NOT NULL DEFAULT '0',
-        # 2 `TitreSousCategorie` varchar(255) DEFAULT NULL,
-        # 3 `Supprimer` int(1) DEFAULT NULL,
-        # 4 `Approuver` int(1) DEFAULT NULL
-
-        with api.Environment.manage():
-            env = api.Environment(self.cr, SUPERUSER_ID, {})
-
-            i = 0
-            for result in tpl_result:
-                i += 1
-                pos_id = f"{i}/{len(tpl_result)}"
-
-                if DEBUG_LIMIT and i >= LIMIT:
-                    print(f"REACH LIMIT {LIMIT}")
-                    break
-
-                if not dry_run:
-                    # TODO create new field instead put that information in name
-                    name = f"{result[0]}-{result[1]} - {result[2]}"
-
-                    parent_id, _ = self._get_categorie(id_categorie=result[1])
-
-                    value = {
-                        'name': name,
-                        'parent_id': parent_id.id,
-                        'active': result[3] == 0,
-                    }
-
-                    skill_id = env['hr.skill'].create(value)
-                else:
-                    skill_id = None
-                    name = ""
-
-                lst_result.append((skill_id, result))
-
-                print(f"{pos_id} - hr.skill - tbl_sous_categorie - ADDED '{name}' id {result[0]}")
-
-    def migrate_tbl_categorie_sous_categorie(self, dry_run=False):
-        print("Begin migrate tbl_categorie_sous_categorie")
-        cur = self.conn.cursor()
-        str_query = f"""SELECT * FROM tbl_categorie_sous_categorie;"""
-        cur.nextset()
-        cur.execute(str_query)
-        tpl_result = cur.fetchall()
-
-        lst_result = []
-        self.dct_tbl["tbl_categorie_sous_categorie"] = lst_result
-        # dct_parent_key = collections.defaultdict(list)
-
-        # 0 `NoCategorieSousCategorie` int(10) UNSIGNED NOT NULL,
-        # 1 `NoSousCategorie` char(2) CHARACTER SET latin1 DEFAULT NULL,
-        # 2 `NoCategorie` int(10) UNSIGNED DEFAULT NULL,
-        # 3 `TitreOffre` varchar(255) CHARACTER SET latin1 DEFAULT NULL,
-        # 4 `Supprimer` int(1) DEFAULT NULL,
-        # 5 `Approuver` int(1) DEFAULT NULL,
-        # 6 `Description` varchar(255) CHARACTER SET latin1 DEFAULT NULL,
-        # 7 `NoOffre` int(10) UNSIGNED DEFAULT NULL
-
-        with api.Environment.manage():
-            env = api.Environment(self.cr, SUPERUSER_ID, {})
-
-            i = 0
-            for result in tpl_result:
-                i += 1
-                pos_id = f"{i}/{len(tpl_result)}"
-
-                if DEBUG_LIMIT and i >= LIMIT:
-                    print(f"REACH LIMIT {LIMIT}")
-                    break
-
-                if result[7] > 900:
-                    print(f"{pos_id} - hr.skill - tbl_categorie_sous_categorie - SKIPPED "
-                          f"result '{result[7]}' because > 900 and id {result[0]}")
-                    continue
-
-                if not dry_run:
-                    # parent_key = f"{result[2]}-{result[1]}"
-                    # dct_parent_key[parent_key].append(True)
-
-                    # TODO create new field instead put that information in name
-                    # name = f"{parent_key}-{len(dct_parent_key[parent_key])} - {result[3]}"
-                    name = f"{result[2]}-{result[1]}-{result[7]} - {result[3]}"
-
-                    parent_id, _ = self._get_sous_categorie(id_categorie=result[2], id_sous_categorie=result[1])
-
-                    value = {
-                        'name': name,
-                        'parent_id': parent_id.id,
-                        'active': result[4] == 0,
-                        'description': result[6].strip(),
-                    }
-
-                    product_id = env['hr.skill'].create(value)
-                else:
-                    product_id = None
-                    name = ""
-
-                lst_result.append((product_id, result))
-
-                print(f"{pos_id} - hr.skill - tbl_categorie_sous_categorie - ADDED '{name}' id {result[0]}")
-
-    def _get_categorie(self, id_categorie: int = None):
-        if id_categorie:
-            for obj_id_titre, tpl_obj in self.dct_tbl.get("tbl_categorie"):
-                if tpl_obj[0] == id_categorie:
-                    return obj_id_titre, tpl_obj
-            print(f"Error, cannot find categorie {id_categorie}")
-        return None, None
-
-    def _get_sous_categorie(self, id_categorie: int = None, id_sous_categorie: int = None):
-        if id_categorie and id_sous_categorie:
-            for obj_id_titre, tpl_obj in self.dct_tbl.get("tbl_sous_categorie"):
-                if tpl_obj[1] == id_categorie and tpl_obj[0] == id_sous_categorie:
-                    return obj_id_titre, tpl_obj
-            print(f"Error, cannot find categorie {id_categorie} and sous_categorie {id_sous_categorie}")
-        return None, None
