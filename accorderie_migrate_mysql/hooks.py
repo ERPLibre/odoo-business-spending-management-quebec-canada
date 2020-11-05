@@ -40,21 +40,16 @@ def post_init_hook(cr, e):
     # Create file
     migration.migrate_muk_dms()
 
-    # migration.migrate_tbl_ville(dry_run=False)
-    # migration.migrate_tbl_accorderie(dry_run=False)
-    #
-    # # Create document database per company
-    # migration.setup_document(dry_run=False)
-    #
+    # Create product
+    migration.migrate_product()
+
+    # Create user
+    # migration.migrate_member()
+
     # # Create supplier, member, services
     # migration.migrate_tbl_membre(dry_run=False)
-    # migration.migrate_tbl_pointservice_fournisseur(dry_run=False)
-    # migration.migrate_tbl_pointservice(dry_run=False)
-    # migration.migrate_tbl_fournisseur(dry_run=False)
     #
     # # Create product
-    # migration.migrate_tbl_titre(dry_run=False)
-    # migration.migrate_tbl_produit(dry_run=False)
     # migration.migrate_tbl_categorie(dry_run=False)
     # migration.migrate_tbl_sous_categorie(dry_run=False)
     # migration.migrate_tbl_categorie_sous_categorie(dry_run=False)
@@ -85,6 +80,7 @@ class MigrationAccorderie:
         # self.dct_accorderie_by_email = {}
         self.dct_pointservice = {}
         self.dct_fichier = {}
+        self.dct_produit = {}
 
         self._fill_cache_obj()
 
@@ -113,6 +109,7 @@ class MigrationAccorderie:
             # self.dct_accorderie_by_email = get_obj("dct_accorderie_by_email", "res.company")
             self.dct_pointservice = get_obj("dct_pointservice", "res.company")
             self.dct_fichier = get_obj("dct_fichier", "muk_dms.file")
+            self.dct_produit = get_obj("dct_produit", "product.template")
         db_file.close()
 
     def _update_cache_obj(self):
@@ -123,6 +120,7 @@ class MigrationAccorderie:
         # db['dct_accorderie_by_email'] = {a: b.id for a, b in self.dct_accorderie_by_email.items()}
         db['dct_pointservice'] = {a: b.id for a, b in self.dct_pointservice.items()}
         db['dct_fichier'] = {a: b.id for a, b in self.dct_fichier.items()}
+        db['dct_produit'] = {a: b.id for a, b in self.dct_produit.items()}
 
         # Its important to use binary mode
         if os.path.exists(CACHE_FILE):
@@ -530,6 +528,58 @@ class MigrationAccorderie:
                           f"on storage '{directory_id.name if directory_id else ''}' id {fichier.Id_Fichier}")
             self._update_cache_obj()
 
+    def migrate_product(self):
+        """
+        :return:
+        """
+        print("Migrate products")
+        # tbl_titre, tbl_produit
+
+        with api.Environment.manage():
+            env = api.Environment(self.cr, SUPERUSER_ID, {})
+            if not self.dct_produit:
+                dct_titre = {}
+
+                product_cat_root_id = env['product.category'].create({'name': 'Aliment'})
+
+                i = 0
+                for titre in self.dct_tbl.tbl_titre:
+                    i += 1
+                    pos_id = f"{i}/{len(self.dct_tbl.tbl_titre)}"
+                    name = titre.Titre
+                    value = {
+                        'name': name,
+                        'parent_id': product_cat_root_id.id,
+                        'create_date': titre.DateMAJ_Titre,
+                    }
+
+                    product_cat_id = env['product.category'].create(value)
+                    dct_titre[titre.NoTitre] = product_cat_id
+                    print(f"{pos_id} - product.category - tbl_titre - ADDED '{name}' id {titre.NoTitre}")
+
+                dct_produit = {}
+                i = 0
+                for produit in self.dct_tbl.tbl_produit:
+                    i += 1
+                    pos_id = f"{i}/{len(self.dct_tbl.tbl_produit)}"
+                    titre_id = dct_titre.get(produit.NoTitre)
+                    accorderie_obj = self.dct_accorderie.get(produit.NoAccorderie)
+                    name = produit.NomProduit
+                    value = {
+                        'name': name,
+                        'categ_id': titre_id.id,
+                        'active': produit.Visible_Produit == 1,
+                        'company_id': accorderie_obj.id,
+                        'create_date': produit.DateMAJ_Produit,
+                    }
+
+                    product_id = env['product.template'].create(value)
+                    dct_produit[produit.NoProduit] = product_id
+                    print(f"{pos_id} - product.category - tbl_produit - ADDED '{name}' id {produit.NoProduit}")
+
+                self.dct_produit = dct_produit
+                self._update_cache_obj()
+
 
 class MigrationAccorderieCopy:
     def __init__(self, cr):
@@ -546,54 +596,6 @@ class MigrationAccorderieCopy:
         self.cr = cr
 
         self.dct_tbl = {}
-
-    def setup_document(self, dry_run=False):
-        print("Setup document")
-
-        dct_storage = {}
-        self.dct_tbl["storage"] = dct_storage
-
-        with api.Environment.manage():
-            env = api.Environment(self.cr, SUPERUSER_ID, {})
-
-            lst_result = self.dct_tbl["tbl_accorderie"]
-
-            i = 0
-            for result in lst_result:
-                i += 1
-                pos_id = f"{i}/{len(lst_result)}"
-
-                if DEBUG_LIMIT and i >= LIMIT:
-                    print(f"REACH LIMIT {LIMIT}")
-                    break
-
-                if not dry_run:
-                    name = result[0].name
-
-                    value = {
-                        'name': name,
-                        'company': result[0].id
-                    }
-
-                    storage_id = env["muk_dms.storage"].create(value)
-
-                    value = {
-                        'name': name,
-                        'root_storage': storage_id.id,
-                        'is_root_directory': True,
-                    }
-
-                    directory_id = env["muk_dms.directory"].create(value)
-                else:
-                    storage_id = None
-                    directory_id = None
-                    name = ""
-
-                # Key is original id of tbl_accorderie
-                dct_storage[result[1][0]] = storage_id, directory_id
-
-                print(f"{pos_id} - muk_dms.storage - tbl_accorderie - "
-                      f"ADDED '{name}' id {storage_id.id if storage_id else ''}")
 
     def migrate_tbl_fournisseur(self, dry_run=False):
         print("Begin migrate tbl_fournisseur")
@@ -1008,115 +1010,6 @@ class MigrationAccorderieCopy:
 
                 print(f"{pos_id} - res.company - tbl_pointservice - ADDED '{name}' id {result[0]}")
                 lst_result.append((obj, result))
-
-    def migrate_tbl_titre(self, dry_run=False):
-        print("Begin migrate tbl_titre")
-        cur = self.conn.cursor()
-        str_query = f"""SELECT * FROM tbl_titre;"""
-        cur.nextset()
-        cur.execute(str_query)
-        tpl_result = cur.fetchall()
-
-        lst_result = []
-        self.dct_tbl["tbl_titre"] = lst_result
-
-        # 0 `NoTitre` int(10) UNSIGNED NOT NULL,
-        # 1 `Titre` varchar(50) CHARACTER SET latin1 DEFAULT NULL,
-        # 2 `Visible_Titre` tinyint(1) UNSIGNED DEFAULT NULL,
-        # 3 `DateMAJ_Titre` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-
-        with api.Environment.manage():
-            env = api.Environment(self.cr, SUPERUSER_ID, {})
-
-            value = {
-                'name': "Aliment",
-            }
-
-            if not dry_run:
-                product_cat_root_id = env['product.category'].create(value)
-
-            i = 0
-            for result in tpl_result:
-                i += 1
-                pos_id = f"{i}/{len(tpl_result)}"
-
-                if DEBUG_LIMIT and i >= LIMIT:
-                    print(f"REACH LIMIT {LIMIT}")
-                    break
-
-                name = result[1]
-                if not dry_run:
-                    value = {
-                        'name': name,
-                        'parent_id': product_cat_root_id.id,
-                        'create_date': result[3],
-                    }
-
-                    product_cat_id = env['product.category'].create(value)
-                else:
-                    product_cat_id = None
-
-                lst_result.append((product_cat_id, result))
-
-                print(f"{pos_id} - product.category - tbl_titre - ADDED '{name}' id {result[0]}")
-
-    def migrate_tbl_produit(self, dry_run=False):
-        print("Begin migrate tbl_produit")
-        cur = self.conn.cursor()
-        str_query = f"""SELECT * FROM tbl_produit;"""
-        cur.nextset()
-        cur.execute(str_query)
-        tpl_result = cur.fetchall()
-
-        lst_result = []
-        self.dct_tbl["tbl_produit"] = lst_result
-
-        # 0 `NoProduit` int(10) UNSIGNED NOT NULL,
-        # 1 `NoTitre` int(10) UNSIGNED NOT NULL,
-        # 2 `NoAccorderie` int(10) UNSIGNED NOT NULL,
-        # 3 `NomProduit` varchar(80) CHARACTER SET latin1 DEFAULT NULL,
-        # 4 `TaxableF` tinyint(1) UNSIGNED DEFAULT '0',
-        # 5 `TaxableP` tinyint(1) UNSIGNED DEFAULT '0',
-        # 6 `Visible_Produit` tinyint(1) UNSIGNED DEFAULT '0',
-        # 7 `DateMAJ_Produit` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-
-        with api.Environment.manage():
-            env = api.Environment(self.cr, SUPERUSER_ID, {})
-
-            i = 0
-            for result in tpl_result:
-                i += 1
-                pos_id = f"{i}/{len(tpl_result)}"
-
-                if DEBUG_LIMIT and i >= LIMIT:
-                    print(f"REACH LIMIT {LIMIT}")
-                    break
-
-                if not dry_run:
-                    name = result[3]
-
-                    company_id, _ = self._get_accorderie(id_accorderie=result[2])
-                    if not company_id:
-                        raise Exception(f"Cannot find associated accorderie {result}")
-
-                    titre_id, _ = self._get_titre(id_titre=result[1])
-
-                    value = {
-                        'name': name,
-                        'categ_id': titre_id.id,
-                        'active': result[6] == 1,
-                        'company_id': company_id.id,
-                        'create_date': result[7],
-                    }
-
-                    skill_id = env['product.template'].create(value)
-                else:
-                    skill_id = None
-                    name = ""
-
-                lst_result.append((skill_id, result))
-
-                print(f"{pos_id} - product.template - tbl_produit - ADDED '{name}' id {result[0]}")
 
     def migrate_tbl_categorie(self, dry_run=False):
         print("Begin migrate tbl_categorie")
