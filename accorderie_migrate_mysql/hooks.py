@@ -97,6 +97,7 @@ class MigrationAccorderie:
         self.dct_echange_service = {}
         self.dct_project_service = {}
         self.dct_employee = {}
+        self.dct_fsm_employee = {}
 
         self._fill_cache_obj()
 
@@ -139,6 +140,7 @@ class MigrationAccorderie:
             self.dct_echange_service = get_obj("dct_echange_service", "account.analytic.line")
             self.dct_project_service = get_obj("dct_project_service", "project.project")
             self.dct_employee = get_obj("dct_employee", "hr.employee")
+            self.dct_fsm_employee = get_obj("dct_fsm_employee", "fsm.person")
         db_file.close()
 
     def _update_cache_obj(self):
@@ -158,6 +160,7 @@ class MigrationAccorderie:
         db['dct_echange_service'] = {a: b.id for a, b in self.dct_echange_service.items()}
         db['dct_project_service'] = {a: b.id for a, b in self.dct_project_service.items()}
         db['dct_employee'] = {a: b.id for a, b in self.dct_employee.items()}
+        db['dct_fsm_employee'] = {a: b.id for a, b in self.dct_fsm_employee.items()}
 
         # Its important to use binary mode
         if os.path.exists(CACHE_FILE):
@@ -960,12 +963,29 @@ class MigrationAccorderie:
 
             if not self.dct_offre_service:
                 dct_offre_service = {}
+                dct_fsm_employee = {}
 
+                # Create default fsm location
                 value = {
                     "name": "AUCUNE",
                     "owner_id": self.head_quarter.id
                 }
                 location_id = env['fsm.location'].create(value)
+
+                # Create fsm employee
+                i = 0
+                for key, membre in self.dct_membre.items():
+                    i += 1
+                    pos_id = f"{i}/{len(self.dct_membre)}"
+
+                    value = {
+                        'partner_id': membre.partner_id.id,
+                    }
+
+                    obj_fsm_employee = env['fsm.person'].create(value)
+                    dct_fsm_employee[key] = obj_fsm_employee
+                    print(f"{pos_id} - fsm.person - tbl_demande_service - ADDED '{membre.name}' "
+                          f"id {key}")
 
                 i = 0
                 for offre_service in self.dct_tbl.tbl_offre_service_membre:
@@ -976,7 +996,7 @@ class MigrationAccorderie:
 
                     accorderie_obj = self.dct_accorderie.get(offre_service.NoAccorderie)
 
-                    membre_obj = self.dct_membre.get(offre_service.NoMembre)
+                    membre_obj = self.dct_fsm_employee.get(offre_service.NoMembre)
 
                     stage_id = env.ref("fieldservice.fsm_stage_completed").id if offre_service.Fait else env.ref(
                         "fieldservice.fsm_stage_new").id
@@ -993,7 +1013,7 @@ class MigrationAccorderie:
                     }
 
                     if membre_obj:
-                        value['person_id'] = membre_obj.partner_id.id
+                        value['person_id'] = membre_obj.id
 
                     obj = env['fsm.order'].create(value)
 
@@ -1002,6 +1022,7 @@ class MigrationAccorderie:
                           f"id {offre_service.NoOffreServiceMembre}")
 
                 self.dct_offre_service = dct_offre_service
+                self.dct_fsm_employee = dct_fsm_employee
                 self._update_cache_obj()
 
     def migration_timesheet(self):
