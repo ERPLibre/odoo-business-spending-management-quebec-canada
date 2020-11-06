@@ -34,6 +34,8 @@ def post_init_hook(cr, e):
     # General configuration
     migration.setup_configuration()
 
+    migration.set_head_quarter()
+
     # Create company
     migration.migrate_company()
 
@@ -51,6 +53,9 @@ def post_init_hook(cr, e):
 
     # Create fournisseur
     migration.migrate_fournisseur()
+
+    # Create offre service
+    migration.migration_service()
 
     # Update user configuration
     migration.update_user(dry_run=False)
@@ -74,6 +79,8 @@ class MigrationAccorderie:
         self.logo_path = f"{self.source_code_path}/images/logo"
         self.cr = cr
 
+        self.head_quarter = None
+
         self.dct_accorderie = {}
         # self.dct_accorderie_by_email = {}
         self.dct_pointservice = {}
@@ -82,10 +89,18 @@ class MigrationAccorderie:
         self.dct_membre = {}
         self.dct_categorie_sous_categorie = {}
         self.dct_fournisseur = {}
+        self.dct_demande_service = {}
+        self.dct_offre_service = {}
 
         self._fill_cache_obj()
 
+        self.dct_demande_service = {}
         self.dct_tbl = self._fill_tbl()
+
+    def set_head_quarter(self):
+        with api.Environment.manage():
+            env = api.Environment(self.cr, SUPERUSER_ID, {})
+            self.head_quarter = env['res.company'].browse(1)
 
     def _fill_cache_obj(self):
         """Read cache"""
@@ -114,6 +129,8 @@ class MigrationAccorderie:
             self.dct_membre = get_obj("dct_membre", "res.users")
             self.dct_categorie_sous_categorie = get_obj("dct_categorie_sous_categorie", "hr.skill")
             self.dct_fournisseur = get_obj("dct_fournisseur", "res.partner")
+            self.dct_demande_service = get_obj("dct_demande_service", "helpdesk.ticket")
+            self.dct_offre_service = get_obj("dct_offre_service", "fsm.order")
         db_file.close()
 
     def _update_cache_obj(self):
@@ -128,6 +145,8 @@ class MigrationAccorderie:
         db['dct_membre'] = {a: b.id for a, b in self.dct_membre.items()}
         db['dct_categorie_sous_categorie'] = {a: b.id for a, b in self.dct_categorie_sous_categorie.items()}
         db['dct_fournisseur'] = {a: b.id for a, b in self.dct_fournisseur.items()}
+        db['dct_demande_service'] = {a: b.id for a, b in self.dct_demande_service.items()}
+        db['dct_offre_service'] = {a: b.id for a, b in self.dct_offre_service.items()}
 
         # Its important to use binary mode
         if os.path.exists(CACHE_FILE):
@@ -190,97 +209,6 @@ class MigrationAccorderie:
                 lst_column.append(Struct(**dct_value))
 
         return Struct(**dct_tbl)
-
-    def _get_ville(self, no_ville: int):
-        for ville in self.dct_tbl.tbl_ville:
-            if ville.NoVille == no_ville:
-                return ville
-
-    def _get_membre(self, no_membre: int):
-        for membre in self.dct_tbl.tbl_membre:
-            if membre.NoMembre == no_membre:
-                return membre
-
-    def _set_phone(self, membre, value):
-        # Manage phone
-        # result 22, 25, 28 is type
-        # Type: 1 choose (empty)
-        # Type: 2 domicile Phone
-        # Type: 3 Travail À SUPPORTÉ
-        # Type: 4 Cellulaire MOBILE
-        # Type: 5 Téléavertisseur (pagette) NON SUPPORTÉ
-
-        # Pagette
-        if membre.NoTypeTel1 == 5 or membre.NoTypeTel2 == 5 or membre.NoTypeTel3 == 5:
-            print("WARNING, le pagette n'est pas supporté.")
-
-        # Travail
-        if membre.NoTypeTel1 == 3 or membre.NoTypeTel2 == 3 or membre.NoTypeTel3 == 3:
-            print("WARNING, le téléphone travail n'est pas supporté.")
-
-        # MOBILE
-        has_mobile = False
-        if membre.NoTypeTel1 == 4 and membre.Telephone1 and membre.Telephone1.strip():
-            has_mobile = True
-            value['mobile'] = membre.Telephone1.strip()
-            if membre.PosteTel1 and membre.PosteTel1.strip():
-                print("WARNING, le numéro de poste du mobile n'est pas supporté.")
-        if membre.NoTypeTel2 == 4 and membre.Telephone2 and membre.Telephone2.strip():
-            if has_mobile:
-                print("WARNING, duplicat du cellulaire.")
-            else:
-                has_mobile = True
-                value['mobile'] = membre.Telephone2.strip()
-                if membre.PosteTel2 and membre.PosteTel2.strip():
-                    print("WARNING, le numéro de poste du mobile n'est pas supporté.")
-        if membre.NoTypeTel3 == 4 and membre.Telephone3 and membre.Telephone3.strip():
-            if has_mobile:
-                print("WARNING, duplicat du cellulaire.")
-            else:
-                has_mobile = True
-                value['mobile'] = membre.Telephone3.strip()
-                if membre.PosteTel3 and membre.PosteTel3.strip():
-                    print("WARNING, le numéro de poste du mobile n'est pas supporté.")
-
-        has_domicile = False
-        if membre.NoTypeTel1 == 2 and membre.Telephone1 and membre.Telephone1.strip():
-            has_domicile = True
-            value['phone'] = membre.Telephone1.strip()
-            if membre.PosteTel1 and membre.PosteTel1 and membre.PosteTel1.strip():
-                print("WARNING, le numéro de poste du domicile n'est pas supporté.")
-        if membre.NoTypeTel2 == 2 and membre.Telephone2 and membre.Telephone2.strip():
-            if has_domicile:
-                print("WARNING, duplicat du cellulaire.")
-            else:
-                has_domicile = True
-                value['phone'] = membre.Telephone2.strip()
-                if membre.PosteTel2 and membre.PosteTel2.strip():
-                    print("WARNING, le numéro de poste du domicile n'est pas supporté.")
-        if membre.NoTypeTel3 == 2 and membre.Telephone3 and membre.Telephone3.strip():
-            if has_domicile:
-                print("WARNING, duplicat du cellulaire.")
-            else:
-                has_domicile = True
-                value['phone'] = membre.Telephone3.strip()
-                if membre.PosteTel3 and membre.PosteTel3.strip():
-                    print("WARNING, le numéro de poste du domicile n'est pas supporté.")
-
-    def _check_duplicate(self, tbl_membre, key, verbose=True):
-        # Ignore duplicate since enable multi-company with different contact, not sharing
-        # Debug duplicate data, need unique name
-        dct_debug = collections.defaultdict(list)
-        for result in tbl_membre:
-            dct_debug[result.__dict__.get(key)].append(result)
-        lst_to_remove = []
-        for key, value in dct_debug.items():
-            if len(value) > 1:
-                if verbose:
-                    print(f"Duplicate name ({len(value)}) {key}: {value}\n")
-            else:
-                lst_to_remove.append(key)
-        for key in lst_to_remove:
-            del dct_debug[key]
-        return dct_debug
 
     def setup_configuration(self, dry_run=False):
         print("Setup configuration")
@@ -964,221 +892,195 @@ class MigrationAccorderie:
                 self.dct_fournisseur = dct_fournisseur
                 self._update_cache_obj()
 
-
-class MigrationAccorderieCopy:
-    def __init__(self, cr):
-        print("Start migration of Accorderie of Quebec.")
-        assert MySQLdb
-        self.host = "localhost"
-        self.user = "accorderie"
-        self.passwd = "accorderie"
-        self.db_name = "accorderie_log_2019_2"
-        self.conn = MySQLdb.connect(host=self.host, user=self.user, passwd=self.passwd, db=self.db_name)
-        # Path of the backup
-        self.source_code_path = BACKUP_PATH
-        self.logo_path = f"{self.source_code_path}/images/logo"
-        self.cr = cr
-
-        self.dct_tbl = {}
-
-    def migrate_tbl_membre(self, dry_run=False):
-        print("Begin migrate tbl_membre")
-        cur = self.conn.cursor()
-        str_query = f"""SELECT *,DECODE(MotDePasse,'{SECRET_PASSWORD}') AS MotDePasse FROM tbl_membre;"""
-        cur.nextset()
-        cur.execute(str_query)
-        tpl_result = cur.fetchall()
-
-        lst_result = []
-        self.dct_tbl["tbl_membre"] = lst_result
-
-        dct_debug_login = self._check_duplicate(tpl_result, 44, verbose=False)
-        dct_debug_email = self._check_duplicate(tpl_result, 29, verbose=False)
-        # self.dct_tbl["tbl_membre|conflict"] = dct_debug
-        # print("profile")
-        # print(dct_debug_login)
-        # print("email")
-        # print(dct_debug_email)
-
-        # 0 `NoMembre` int(10) UNSIGNED NOT NULL,
-        # 1 `NoCartier` int(10) UNSIGNED DEFAULT '0',
-        # 2 `NoAccorderie` int(10) UNSIGNED NOT NULL,
-        # 3 `NoPointService` int(10) UNSIGNED DEFAULT NULL,
-        # 4 `NoTypeCommunication` int(10) UNSIGNED NOT NULL,
-        # 5 `NoOccupation` int(10) UNSIGNED NOT NULL,
-        # 6 `NoOrigine` int(10) UNSIGNED NOT NULL,
-        # 7 `NoSituationMaison` int(10) UNSIGNED NOT NULL,
-        # 8 `NoProvenance` int(10) UNSIGNED NOT NULL,
-        # 9 `NoRevenuFamilial` int(10) UNSIGNED NOT NULL,
-        # 10 `NoArrondissement` int(10) UNSIGNED DEFAULT NULL,
-        # 11 `NoVille` int(10) UNSIGNED NOT NULL,
-        # 12 `NoRegion` int(10) UNSIGNED NOT NULL,
-        # 13 `MembreCA` tinyint(4) DEFAULT '0',
-        # 14 `PartSocialPaye` tinyint(4) DEFAULT '0',
-        # 15 `CodePostal` varchar(7) DEFAULT NULL,
-        # 16 `DateAdhesion` date DEFAULT NULL,
-        # 17 `Nom` varchar(45) DEFAULT NULL,
-        # 18 `Prenom` varchar(45) DEFAULT NULL,
-        # 19 `Adresse` varchar(255) DEFAULT NULL,
-        # 20 `Telephone1` varchar(10) DEFAULT NULL,
-        # 21 `PosteTel1` varchar(10) DEFAULT NULL,
-        # 22 `NoTypeTel1` int(10) UNSIGNED DEFAULT NULL,
-        # 23 `Telephone2` varchar(10) DEFAULT NULL,
-        # 24 `PosteTel2` varchar(10) DEFAULT NULL,
-        # 25 `NoTypeTel2` int(10) UNSIGNED DEFAULT NULL,
-        # 26 `Telephone3` varchar(10) DEFAULT NULL,
-        # 27 `PosteTel3` varchar(10) DEFAULT NULL,
-        # 28 `NoTypeTel3` int(10) UNSIGNED DEFAULT NULL,
-        # 29 `Courriel` varchar(255) DEFAULT NULL,
-        # 30 `AchatRegrouper` tinyint(1) DEFAULT NULL,
-        # 31 `PretActif` tinyint(1) DEFAULT NULL,
-        # 32 `PretRadier` tinyint(1) DEFAULT NULL,
-        # 33 `PretPayer` tinyint(1) DEFAULT NULL,
-        # 34 `EtatCompteCourriel` tinyint(1) DEFAULT NULL,
-        # 35 `BottinTel` tinyint(1) DEFAULT NULL,
-        # 36 `BottinCourriel` tinyint(1) DEFAULT NULL,
-        # 37 `MembreActif` tinyint(1) DEFAULT '-1',
-        # 38 `MembreConjoint` tinyint(1) DEFAULT NULL,
-        # 39 `NoMembreConjoint` int(10) UNSIGNED DEFAULT NULL,
-        # 40 `Memo` text,
-        # 41 `Sexe` tinyint(1) DEFAULT NULL,
-        # 42 `AnneeNaissance` int(4) DEFAULT NULL,
-        # 43 `PrecisezOrigine` varchar(45) DEFAULT NULL,
-        # 44 `NomUtilisateur` varchar(15) DEFAULT NULL,
-        # 45 `MotDePasse` varchar(15) DEFAULT NULL,
-        # 46 `ProfilApprouver` tinyint(1) DEFAULT '-1',
-        # 47 `MembrePrinc` tinyint(1) DEFAULT NULL,
-        # 48 `NomAccorderie` varchar(90) DEFAULT NULL,
-        # 49 `RecevoirCourrielGRP` tinyint(1) DEFAULT NULL,
-        # 50 `PasCommunication` tinyint(1) DEFAULT NULL,
-        # 51 `DescriptionAccordeur` varchar(255) DEFAULT NULL,
-        # 52 `Date_MAJ_Membre` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        # 53 `TransfereDe` int(10) DEFAULT NULL
-        # 54 PASSWORD
+    def migration_service(self):
+        """
+        :return:
+        """
+        print("Migrate tbl_demande_service")
 
         with api.Environment.manage():
             env = api.Environment(self.cr, SUPERUSER_ID, {})
+            if not self.dct_demande_service:
+                dct_demande_service = {}
 
-            i = 0
-            for result in tpl_result:
-                i += 1
-                pos_id = f"{i}/{len(tpl_result)}"
+                # Create stage and move New
+                obj_stage_new = env['helpdesk.ticket.stage'].browse(1)
+                obj_stage_new.sequence = 0
 
-                if DEBUG_LIMIT and i >= LIMIT:
-                    print(f"REACH LIMIT {LIMIT}")
-                    break
-                obj_user = None
-                if not dry_run:
-                    login = result[44]
+                value = {
+                    'name': "Approuvé",
+                    'sequence': 1,
+                }
 
-                    # Get the name in 1 field
-                    if result[18] and result[17]:
-                        name = f"{result[18].strip()} {result[17].strip()}"
-                    elif result[18]:
-                        name = f"{result[18].strip()}"
-                    elif result[17]:
-                        name = f"{result[17].strip()}"
-                    else:
-                        name = ""
+                obj_stage_accept = env['helpdesk.ticket.stage'].create(value)
 
-                    if not login or not name:
-                        print(f"{pos_id} - res.partner - tbl_membre - SKIPPED EMPTY LOGIN '{name}' id {result[0]}")
-                        lst_result.append((None, result))
-                        continue
+                i = 0
+                for demande_service in self.dct_tbl.tbl_demande_service:
+                    i += 1
+                    pos_id = f"{i}/{len(self.dct_tbl.tbl_demande_service)}"
 
-                    # Ignore test user
-                    if "test" in name or "test" in login:
-                        print(f"{pos_id} - res.partner - tbl_membre - SKIPPED TEST LOGIN "
-                              f"name '{name}' login '{login}' id {result[0]}")
-                        continue
+                    name = demande_service.TitreDemande
 
-                    email = result[29].strip()
-                    if not email:
-                        if login in dct_debug_login.keys():
-                            # TODO Need to merge it
-                            print(f"{pos_id} - res.partner - tbl_membre - SKIPPED DUPPLICATED LOGIN "
-                                  f"name '{name}' login '{login}' email '{email}' id {result[0]}")
-                            continue
-                        # Need an email for login, force create it
-                        # TODO coder un séquenceur dans Odoo pour la création de courriel générique
-                        # email = GENERIC_EMAIL % i
-                        email = GENERIC_EMAIL % login
-                    elif email in dct_debug_email.keys():
-                        # TODO merge user
-                        print(f"{pos_id} - res.partner - tbl_membre - SKIPPED DUPLICATED EMAIL "
-                              f"name '{name}' login '{login}' email '{email}' id {result[0]}")
-                        continue
+                    accorderie_obj = self.dct_accorderie.get(demande_service.NoAccorderie)
 
-                    # Show duplicate profile
-                    # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_login.items())[:15] for a in va[1] if a[37] == -1])
-                    # Show duplicate email
-                    # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1]])
-                    # Show duplicate not empty email
-                    # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1] if a[29].strip() != ""])
-                    # Show duplicate not empty email actif
-                    # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1] if a[29].strip() != "" and a[37] == -1])
-                    # Show duplicate email active user
-                    # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1] if a[37] == -1])
-                    # duplicate email and duplicate user and active
-                    # '\n'.join([str([f"user '{a[44]}'", f"actif '{a[37]}'", f"acc '{a[2]}'", f"id '{a[0]}'", f"mail '{a[29]}'"]) for va in list(dct_debug_email.items())[:15] for a in va[1] if a[37] == -1 and a[44] in dct_debug_login])
-
-                    # Technique remplacé par l'utilisation du courriel
-                    # if login in dct_debug_login.keys():
-                    #     # Validate unique email
-                    #     print(f"{pos_id} - res.partner - tbl_membre - SKIPPED DUPLICATED "
-                    #           f"name '{name}' login '{login}' id {result[0]}")
-                    #
-                    #     if email in dct_debug_email:
-                    #         print(dct_debug_email[email])
-                    #     continue
-
-                    company_id, _ = self._get_accorderie(id_accorderie=result[2])
-                    if not company_id:
-                        raise Exception(f"Cannot find associated accorderie {result}")
-
-                    city_name = self._get_ville(result[11])
-
-                    # TODO ajouter l'ancien login en description
-                    value = {
-                        'name': name,
-                        'street': result[19].strip(),
-                        'zip': result[15].strip(),
-                        'email': email,
-                        'supplier': False,
-                        'customer': True,
-                        'state_id': 543,  # Quebec
-                        'country_id': 38,  # Canada
-                        'tz': "America/Montreal",
-                        'active': result[37] == 0,
-                        'company_id': company_id.id,
-                        'create_date': result[52],
-                    }
-
-                    if result[40]:
-                        value['comment'] = result[40].strip()
-
-                    if city_name:
-                        value['city'] = city_name.Ville
-
-                    self._set_phone(result, value)
-
-                    obj_partner = env['res.partner'].create(value)
+                    membre_obj = self.dct_membre.get(demande_service.NoMembre)
 
                     value = {
                         'name': name,
-                        'active': result[37] == 0,
-                        'login': email,
-                        'password': result[54],
-                        'email': email,
-                        'groups_id': [(4, env.ref('base.group_user').id)],
-                        'company_id': company_id.id,
-                        'company_ids': [(4, company_id.id)],
-                        'partner_id': obj_partner.id,
-                        'free_member': True,
+                        'description': demande_service.Description,
+                        'company_id': accorderie_obj.id,
+                        'active': demande_service.Supprimer == -1,
+                        'stage_id': obj_stage_accept.id if demande_service.Approuve == -1 else obj_stage_new.id,
                     }
 
-                    obj_user = env['res.users'].with_context({'no_reset_password': True}).create(value)
-                else:
-                    name = ""
-                lst_result.append((obj_user, result))
-                print(f"{pos_id} - res.partner - tbl_membre - ADDED '{name}' id {result[0]}")
+                    if membre_obj:
+                        value['partner_id'] = membre_obj.id
+
+                    if membre_obj:
+                        value['partner_id'] = membre_obj.id
+
+                    obj = env['helpdesk.ticket'].create(value)
+
+                    dct_demande_service[demande_service.NoDemandeService] = obj
+                    print(f"{pos_id} - helpdesk.ticket - tbl_demande_service - ADDED '{name}' "
+                          f"id {demande_service.NoDemandeService}")
+
+                self.dct_demande_service = dct_demande_service
+                self._update_cache_obj()
+
+            if not self.dct_offre_service:
+                dct_offre_service = {}
+
+                value = {
+                    "name": "AUCUNE",
+                    "owner_id": self.head_quarter.id
+                }
+                location_id = env['fsm.location'].create(value)
+
+                i = 0
+                for offre_service in self.dct_tbl.tbl_offre_service_membre:
+                    i += 1
+                    pos_id = f"{i}/{len(self.dct_tbl.tbl_offre_service_membre)}"
+
+                    name = offre_service.TitreOffreSpecial
+
+                    accorderie_obj = self.dct_accorderie.get(offre_service.NoAccorderie)
+
+                    membre_obj = self.dct_membre.get(offre_service.NoMembre)
+
+                    stage_id = env.ref("fieldservice.fsm_stage_completed").id if offre_service.Fait else env.ref(
+                        "fieldservice.fsm_stage_new").id
+
+                    value = {
+                        'name': name,
+                        'description': offre_service.Description,
+                        'company_id': accorderie_obj.id,
+                        'location_id': location_id.id,
+                        'resolution': offre_service.Tarif,
+                        'skill_ids': self.dct_categorie_sous_categorie.get(offre_service.NoCategorieSousCategorie),
+                        'stage_id': stage_id,
+                        'create_date': offre_service.DateMAJ_ServiceMembre,
+                    }
+
+                    if membre_obj:
+                        value['person_id'] = membre_obj.id
+
+                    obj = env['fsm.order'].create(value)
+
+                    dct_offre_service[offre_service.NoOffreServiceMembre] = obj
+                    print(f"{pos_id} - fsm.order - tbl_offre_service_membre - ADDED '{name}' "
+                          f"id {offre_service.NoOffreServiceMembre}")
+
+                self.dct_demande_service = dct_demande_service
+                self._update_cache_obj()
+
+    def _get_ville(self, no_ville: int):
+        for ville in self.dct_tbl.tbl_ville:
+            if ville.NoVille == no_ville:
+                return ville
+
+    def _get_membre(self, no_membre: int):
+        for membre in self.dct_tbl.tbl_membre:
+            if membre.NoMembre == no_membre:
+                return membre
+
+    def _set_phone(self, membre, value):
+        # Manage phone
+        # result 22, 25, 28 is type
+        # Type: 1 choose (empty)
+        # Type: 2 domicile Phone
+        # Type: 3 Travail À SUPPORTÉ
+        # Type: 4 Cellulaire MOBILE
+        # Type: 5 Téléavertisseur (pagette) NON SUPPORTÉ
+
+        # Pagette
+        if membre.NoTypeTel1 == 5 or membre.NoTypeTel2 == 5 or membre.NoTypeTel3 == 5:
+            print("WARNING, le pagette n'est pas supporté.")
+
+        # Travail
+        if membre.NoTypeTel1 == 3 or membre.NoTypeTel2 == 3 or membre.NoTypeTel3 == 3:
+            print("WARNING, le téléphone travail n'est pas supporté.")
+
+        # MOBILE
+        has_mobile = False
+        if membre.NoTypeTel1 == 4 and membre.Telephone1 and membre.Telephone1.strip():
+            has_mobile = True
+            value['mobile'] = membre.Telephone1.strip()
+            if membre.PosteTel1 and membre.PosteTel1.strip():
+                print("WARNING, le numéro de poste du mobile n'est pas supporté.")
+        if membre.NoTypeTel2 == 4 and membre.Telephone2 and membre.Telephone2.strip():
+            if has_mobile:
+                print("WARNING, duplicat du cellulaire.")
+            else:
+                has_mobile = True
+                value['mobile'] = membre.Telephone2.strip()
+                if membre.PosteTel2 and membre.PosteTel2.strip():
+                    print("WARNING, le numéro de poste du mobile n'est pas supporté.")
+        if membre.NoTypeTel3 == 4 and membre.Telephone3 and membre.Telephone3.strip():
+            if has_mobile:
+                print("WARNING, duplicat du cellulaire.")
+            else:
+                has_mobile = True
+                value['mobile'] = membre.Telephone3.strip()
+                if membre.PosteTel3 and membre.PosteTel3.strip():
+                    print("WARNING, le numéro de poste du mobile n'est pas supporté.")
+
+        has_domicile = False
+        if membre.NoTypeTel1 == 2 and membre.Telephone1 and membre.Telephone1.strip():
+            has_domicile = True
+            value['phone'] = membre.Telephone1.strip()
+            if membre.PosteTel1 and membre.PosteTel1 and membre.PosteTel1.strip():
+                print("WARNING, le numéro de poste du domicile n'est pas supporté.")
+        if membre.NoTypeTel2 == 2 and membre.Telephone2 and membre.Telephone2.strip():
+            if has_domicile:
+                print("WARNING, duplicat du cellulaire.")
+            else:
+                has_domicile = True
+                value['phone'] = membre.Telephone2.strip()
+                if membre.PosteTel2 and membre.PosteTel2.strip():
+                    print("WARNING, le numéro de poste du domicile n'est pas supporté.")
+        if membre.NoTypeTel3 == 2 and membre.Telephone3 and membre.Telephone3.strip():
+            if has_domicile:
+                print("WARNING, duplicat du cellulaire.")
+            else:
+                has_domicile = True
+                value['phone'] = membre.Telephone3.strip()
+                if membre.PosteTel3 and membre.PosteTel3.strip():
+                    print("WARNING, le numéro de poste du domicile n'est pas supporté.")
+
+    def _check_duplicate(self, tbl_membre, key, verbose=True):
+        # Ignore duplicate since enable multi-company with different contact, not sharing
+        # Debug duplicate data, need unique name
+        dct_debug = collections.defaultdict(list)
+        for result in tbl_membre:
+            dct_debug[result.__dict__.get(key)].append(result)
+        lst_to_remove = []
+        for key, value in dct_debug.items():
+            if len(value) > 1:
+                if verbose:
+                    print(f"Duplicate name ({len(value)}) {key}: {value}\n")
+            else:
+                lst_to_remove.append(key)
+        for key in lst_to_remove:
+            del dct_debug[key]
+        return dct_debug

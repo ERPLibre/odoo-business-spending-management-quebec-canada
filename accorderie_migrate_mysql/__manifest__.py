@@ -12,6 +12,7 @@
 accorderie migrate mysql
 ========================
 
+Be sure .cache is deleted before installed.
 """,
     'depends': [
         # 'l10n_ca_qc',
@@ -35,6 +36,7 @@ accorderie migrate mysql
         'membership_extension',
         'fieldservice',
         'fieldservice_skill',
+        'helpdesk_mgmt',
     ],
     'external_dependencies': {
         'python': [
