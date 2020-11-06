@@ -37,6 +37,7 @@ Be sure .cache is deleted before installed.
         'fieldservice',
         'fieldservice_skill',
         'helpdesk_mgmt',
+        'hr_timesheet',
     ],
     'external_dependencies': {
         'python': [

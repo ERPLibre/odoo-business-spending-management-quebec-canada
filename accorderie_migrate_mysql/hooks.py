@@ -57,6 +57,9 @@ def post_init_hook(cr, e):
     # Create offre service
     migration.migration_service()
 
+    # Create hr timesheet
+    migration.migration_timesheet()
+
     # Update user configuration
     migration.update_user(dry_run=False)
 
@@ -91,10 +94,12 @@ class MigrationAccorderie:
         self.dct_fournisseur = {}
         self.dct_demande_service = {}
         self.dct_offre_service = {}
+        self.dct_echange_service = {}
+        self.dct_project_service = {}
+        self.dct_employee = {}
 
         self._fill_cache_obj()
 
-        self.dct_demande_service = {}
         self.dct_tbl = self._fill_tbl()
 
     def set_head_quarter(self):
@@ -131,6 +136,9 @@ class MigrationAccorderie:
             self.dct_fournisseur = get_obj("dct_fournisseur", "res.partner")
             self.dct_demande_service = get_obj("dct_demande_service", "helpdesk.ticket")
             self.dct_offre_service = get_obj("dct_offre_service", "fsm.order")
+            self.dct_echange_service = get_obj("dct_echange_service", "account.analytic.line")
+            self.dct_project_service = get_obj("dct_project_service", "project.project")
+            self.dct_employee = get_obj("dct_employee", "hr.employee")
         db_file.close()
 
     def _update_cache_obj(self):
@@ -147,6 +155,9 @@ class MigrationAccorderie:
         db['dct_fournisseur'] = {a: b.id for a, b in self.dct_fournisseur.items()}
         db['dct_demande_service'] = {a: b.id for a, b in self.dct_demande_service.items()}
         db['dct_offre_service'] = {a: b.id for a, b in self.dct_offre_service.items()}
+        db['dct_echange_service'] = {a: b.id for a, b in self.dct_echange_service.items()}
+        db['dct_project_service'] = {a: b.id for a, b in self.dct_project_service.items()}
+        db['dct_employee'] = {a: b.id for a, b in self.dct_employee.items()}
 
         # Its important to use binary mode
         if os.path.exists(CACHE_FILE):
@@ -171,7 +182,6 @@ class MigrationAccorderie:
 
         lst_ignore_table = ["tbl_log_acces",
                             "tbl_commande_membre_produit",
-                            "tbl_echange_service",
                             "tbl_fournisseur_produit_commande"]
 
         dct_tbl = {a[0]: [] for a in tpl_result if "tbl" in a[0]}
@@ -621,6 +631,9 @@ class MigrationAccorderie:
                     i += 1
                     pos_id = f"{i}/{len(self.dct_tbl.tbl_membre)}"
 
+                    if DEBUG_LIMIT and i > LIMIT:
+                        break
+
                     login = membre.NomUtilisateur
                     # Get the name in 1 field
                     if membre.Prenom and membre.Nom:
@@ -934,10 +947,7 @@ class MigrationAccorderie:
                     }
 
                     if membre_obj:
-                        value['partner_id'] = membre_obj.id
-
-                    if membre_obj:
-                        value['partner_id'] = membre_obj.id
+                        value['partner_id'] = membre_obj.partner_id.id
 
                     obj = env['helpdesk.ticket'].create(value)
 
@@ -983,7 +993,7 @@ class MigrationAccorderie:
                     }
 
                     if membre_obj:
-                        value['person_id'] = membre_obj.id
+                        value['person_id'] = membre_obj.partner_id.id
 
                     obj = env['fsm.order'].create(value)
 
@@ -991,7 +1001,102 @@ class MigrationAccorderie:
                     print(f"{pos_id} - fsm.order - tbl_offre_service_membre - ADDED '{name}' "
                           f"id {offre_service.NoOffreServiceMembre}")
 
-                self.dct_demande_service = dct_demande_service
+                self.dct_offre_service = dct_offre_service
+                self._update_cache_obj()
+
+    def migration_timesheet(self):
+        """
+        :return:
+        """
+        print("Migrate tbl_echange_service")
+
+        with api.Environment.manage():
+            env = api.Environment(self.cr, SUPERUSER_ID, {})
+            if not self.dct_echange_service:
+                dct_echange_service = {}
+                dct_employee = {}
+                dct_project_service = {}
+
+                # Create project per pointservice
+                i = 0
+                for key, accorderie in self.dct_pointservice.items():
+                    i += 1
+                    pos_id = f"{i}/{len(self.dct_pointservice)}"
+
+                    value = {
+                        'name': accorderie.name,
+                        'company_id': accorderie.id,
+                    }
+
+                    obj_project = env['project.project'].create(value)
+                    dct_project_service[key] = obj_project
+                    print(f"{pos_id} - project.project - tbl_echange_service - ADDED '{accorderie.name}' id {key}")
+
+                # Create employee
+                i = 0
+                for key, membre in self.dct_membre.items():
+                    i += 1
+                    pos_id = f"{i}/{len(self.dct_membre)}"
+
+                    value = {
+                        'user_id': membre.id,
+                    }
+
+                    obj_employee = env['hr.employee'].create(value)
+                    dct_employee[key] = obj_employee
+                    print(f"{pos_id} - hr.employee - tbl_echange_service - ADDED '{membre.name}' "
+                          f"id {key}")
+
+                # Create hr.timesheet
+                i = 0
+                for echange_service in self.dct_tbl.tbl_echange_service:
+                    i += 1
+                    pos_id = f"{i}/{len(self.dct_tbl.tbl_echange_service)}"
+
+                    if DEBUG_LIMIT and i > LIMIT:
+                        break
+
+                    name = ""
+                    if echange_service.Commentaire:
+                        name += echange_service.Commentaire.strip()
+                    if echange_service.Remarque:
+                        if name:
+                            name += f" {echange_service.Remarque.strip()}"
+                        else:
+                            name = echange_service.Remarque.strip()
+
+                    accorderie_obj = self.dct_pointservice.get(echange_service.NoPointService)
+
+                    value = {
+                        'name': name,
+                        'date': echange_service.DateEchange,
+                        'project_id': dct_project_service.get(echange_service.NoPointService).id,
+                        'company_id': accorderie_obj.id,
+                        'unit_amount': echange_service.NbHeure.seconds / 3600,
+                    }
+
+                    if echange_service.NoMembreVendeur:
+                        employee_id = self.dct_employee.get(echange_service.NoMembreVendeur)
+                    else:
+                        employee_id = None
+                    if employee_id:
+                        value['employee_id'] = employee_id.id
+                    else:
+                        # print(f"{pos_id} - helpdesk.ticket - tbl_demande_service - ADDED '{name}' "
+                        #       f"id {echange_service.NoDemandeService}")
+                        # continue
+                        # TODO update me
+                        value['employee_id'] = 1
+
+                    obj = env['account.analytic.line'].create(value)
+
+                    dct_echange_service[echange_service.NoEchangeService] = obj
+                    print(f"{pos_id} - account.analytic.line - tbl_echange_service - ADDED '{name}' "
+                          f"id {echange_service.NoEchangeService}")
+
+                self.dct_employee = dct_employee
+                self.dct_echange_service = dct_echange_service
+                self.dct_project_service = dct_project_service
                 self._update_cache_obj()
 
     def _get_ville(self, no_ville: int):
