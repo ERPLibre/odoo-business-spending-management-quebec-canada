@@ -652,6 +652,8 @@ class MigrationAccorderie:
             env = api.Environment(self.cr, SUPERUSER_ID, {})
             if not self.dct_membre:
                 dct_membre = {}
+                dct_fsm_employee = {}
+                dct_employee = {}
 
                 i = 0
                 for membre in self.dct_tbl.tbl_membre:
@@ -771,6 +773,28 @@ class MigrationAccorderie:
                     print(f"{pos_id} - res.users - tbl_membre - ADDED '{name}' login '{login}' email '{email}' "
                           f"id {membre.NoMembre}")
 
+                    # Create employee
+                    value = {
+                        'user_id': obj_user.id,
+                    }
+
+                    obj_employee = env['hr.employee'].create(value)
+                    dct_employee[membre.NoMembre] = obj_employee
+                    print(f"{pos_id} - hr.employee - tbl_echange_service - ADDED '{name}' "
+                          f"id {membre.NoMembre}")
+
+                    value = {
+                        'partner_id': obj_user.partner_id.id,
+                    }
+
+                    # Create fsm employee
+                    obj_fsm_employee = env['fsm.person'].create(value)
+                    dct_fsm_employee[membre.NoMembre] = obj_fsm_employee
+                    print(f"{pos_id} - fsm.person - tbl_demande_service - ADDED '{name}' "
+                          f"id {membre.NoMembre}")
+
+                self.dct_employee = dct_employee
+                self.dct_fsm_employee = dct_fsm_employee
                 self.dct_membre = dct_membre
                 self._update_cache_obj()
 
@@ -1011,7 +1035,6 @@ class MigrationAccorderie:
 
             if not self.dct_offre_service:
                 dct_offre_service = {}
-                dct_fsm_employee = {}
 
                 # Create default fsm location
                 value = {
@@ -1019,25 +1042,6 @@ class MigrationAccorderie:
                     "owner_id": self.head_quarter.id
                 }
                 location_id = env['fsm.location'].create(value)
-
-                # Create fsm employee
-                i = 0
-                for key, membre in self.dct_membre.items():
-                    i += 1
-                    pos_id = f"{i}/{len(self.dct_membre)}"
-
-                    if DEBUG_LIMIT and i > LIMIT:
-                        break
-
-                    value = {
-                        'partner_id': membre.partner_id.id,
-                    }
-
-                    obj_fsm_employee = env['fsm.person'].create(value)
-                    dct_fsm_employee[key] = obj_fsm_employee
-                    print(f"{pos_id} - fsm.person - tbl_demande_service - ADDED '{membre.name}' "
-                          f"id {key}")
-                self.dct_fsm_employee = dct_fsm_employee
 
                 i = 0
                 for offre_service in self.dct_tbl.tbl_offre_service_membre:
@@ -1083,7 +1087,6 @@ class MigrationAccorderie:
                           f"id {offre_service.NoOffreServiceMembre}")
 
                 self.dct_offre_service = dct_offre_service
-                self.dct_fsm_employee = dct_fsm_employee
                 self._update_cache_obj()
 
     def migration_timesheet(self):
@@ -1096,7 +1099,6 @@ class MigrationAccorderie:
             env = api.Environment(self.cr, SUPERUSER_ID, {})
             if not self.dct_echange_service:
                 dct_echange_service = {}
-                dct_employee = {}
                 dct_project_service = {}
 
                 # Create project per pointservice
@@ -1117,25 +1119,6 @@ class MigrationAccorderie:
                     dct_project_service[key] = obj_project
                     print(f"{pos_id} - project.project - tbl_echange_service - ADDED '{accorderie.name}' id {key}")
 
-                # Create employee
-                i = 0
-                for key, membre in self.dct_membre.items():
-                    i += 1
-                    pos_id = f"{i}/{len(self.dct_membre)}"
-
-                    if DEBUG_LIMIT and i > LIMIT:
-                        break
-
-                    value = {
-                        'user_id': membre.id,
-                    }
-
-                    obj_employee = env['hr.employee'].create(value)
-                    dct_employee[key] = obj_employee
-                    print(f"{pos_id} - hr.employee - tbl_echange_service - ADDED '{membre.name}' "
-                          f"id {key}")
-                self.dct_employee = dct_employee
-
                 # Create hr.timesheet
                 i = 0
                 for echange_service in self.dct_tbl.tbl_echange_service:
@@ -1155,6 +1138,11 @@ class MigrationAccorderie:
                             name = echange_service.Remarque.strip()
 
                     accorderie_obj = self.dct_pointservice.get(echange_service.NoPointService)
+
+                    if not echange_service.DateEchange:
+                        print(f"{pos_id} - account.analytic.line - tbl_echange_service - SKIP MISSING DATE '{name}' "
+                              f"id {echange_service.NoEchangeService}")
+                        continue
 
                     value = {
                         'name': name,
