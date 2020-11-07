@@ -54,8 +54,11 @@ def post_init_hook(cr, e):
     # Create fournisseur
     migration.migrate_fournisseur()
 
+    # Create demande service
+    migration.migration_demande_service()
+
     # Create offre service
-    migration.migration_service()
+    migration.migration_offre_service()
 
     # Create hr timesheet
     migration.migration_timesheet()
@@ -309,6 +312,9 @@ class MigrationAccorderie:
                     i += 1
                     pos_id = f"{i}/{len(self.dct_tbl.tbl_accorderie)}"
 
+                    if DEBUG_LIMIT and i > LIMIT:
+                        break
+
                     if accorderie.Nom == "Réseau Accorderie (du Qc)":
                         # Update main company
                         name = accorderie.Nom.strip()
@@ -382,6 +388,9 @@ class MigrationAccorderie:
                 for pointservice in self.dct_tbl.tbl_pointservice:
                     i += 1
                     pos_id = f"{i}/{len(self.dct_tbl.tbl_pointservice)}"
+
+                    if DEBUG_LIMIT and i > LIMIT:
+                        break
 
                     tbl_membre = self._get_membre(pointservice.NoMembre)
                     name = f"Point de service {pointservice.NomPointService.strip()}"
@@ -465,6 +474,10 @@ class MigrationAccorderie:
                 for fichier in self.dct_tbl.tbl_type_fichier:
                     i += 1
                     pos_id = f"{i}/{len(self.dct_tbl.tbl_type_fichier)}"
+
+                    if DEBUG_LIMIT and i > LIMIT:
+                        break
+
                     name = fichier.TypeFichier
                     value = {
                         'name': name,
@@ -513,6 +526,9 @@ class MigrationAccorderie:
                 for fichier in self.dct_tbl.tbl_fichier:
                     i += 1
                     pos_id = f"{i}/{len(self.dct_tbl.tbl_fichier)}"
+
+                    if DEBUG_LIMIT and i > LIMIT:
+                        break
 
                     name = fichier.NomFichierOriginal
 
@@ -575,6 +591,10 @@ class MigrationAccorderie:
                 for titre in self.dct_tbl.tbl_titre:
                     i += 1
                     pos_id = f"{i}/{len(self.dct_tbl.tbl_titre)}"
+
+                    if DEBUG_LIMIT and i > LIMIT:
+                        break
+
                     name = titre.Titre
                     value = {
                         'name': name,
@@ -591,6 +611,10 @@ class MigrationAccorderie:
                 for produit in self.dct_tbl.tbl_produit:
                     i += 1
                     pos_id = f"{i}/{len(self.dct_tbl.tbl_produit)}"
+
+                    if DEBUG_LIMIT and i > LIMIT:
+                        break
+
                     titre_id = dct_titre.get(produit.NoTitre)
                     accorderie_obj = self.dct_accorderie.get(produit.NoAccorderie)
                     name = produit.NomProduit
@@ -768,6 +792,9 @@ class MigrationAccorderie:
                     i += 1
                     pos_id = f"{i}/{len(self.dct_tbl.tbl_categorie)}"
 
+                    if DEBUG_LIMIT and i > LIMIT:
+                        break
+
                     name = categorie.TitreCategorie
                     value = {
                         'name': name,
@@ -782,6 +809,9 @@ class MigrationAccorderie:
                 for categorie in self.dct_tbl.tbl_sous_categorie:
                     i += 1
                     pos_id = f"{i}/{len(self.dct_tbl.tbl_sous_categorie)}"
+
+                    if DEBUG_LIMIT and i > LIMIT:
+                        break
 
                     pre_name = f"{categorie.NoSousCategorie}-{categorie.NoCategorie}"
                     name = f"{pre_name} - {categorie.TitreSousCategorie}"
@@ -802,6 +832,9 @@ class MigrationAccorderie:
                     i += 1
                     pos_id = f"{i}/{len(self.dct_tbl.tbl_categorie_sous_categorie)}"
 
+                    if DEBUG_LIMIT and i > LIMIT:
+                        break
+
                     if categorie.NoOffre > 900:
                         print(f"{pos_id} - hr.skill - tbl_categorie_sous_categorie - SKIPPED "
                               f"result '{categorie.NoOffre}' because > 900 and id {categorie.NoCategorieSousCategorie}")
@@ -820,7 +853,7 @@ class MigrationAccorderie:
                     }
 
                     categorie_id = env['hr.skill'].create(value)
-                    dct_categorie_sous_categorie[categorie.NoCategorie] = categorie_id
+                    dct_categorie_sous_categorie[categorie.NoCategorieSousCategorie] = categorie_id
                     print(f"{pos_id} - hr.skill - tbl_categorie_sous_categorie - ADDED '{name}' "
                           f"id {categorie.NoCategorie}")
 
@@ -842,6 +875,9 @@ class MigrationAccorderie:
                 for fournisseur in self.dct_tbl.tbl_fournisseur:
                     i += 1
                     pos_id = f"{i}/{len(self.dct_tbl.tbl_fournisseur)}"
+
+                    if DEBUG_LIMIT and i > LIMIT:
+                        break
 
                     name = fournisseur.NomFournisseur
 
@@ -908,7 +944,7 @@ class MigrationAccorderie:
                 self.dct_fournisseur = dct_fournisseur
                 self._update_cache_obj()
 
-    def migration_service(self):
+    def migration_demande_service(self):
         """
         :return:
         """
@@ -934,6 +970,9 @@ class MigrationAccorderie:
                 for demande_service in self.dct_tbl.tbl_demande_service:
                     i += 1
                     pos_id = f"{i}/{len(self.dct_tbl.tbl_demande_service)}"
+
+                    if DEBUG_LIMIT and i > LIMIT:
+                        break
 
                     name = demande_service.TitreDemande
 
@@ -961,6 +1000,15 @@ class MigrationAccorderie:
                 self.dct_demande_service = dct_demande_service
                 self._update_cache_obj()
 
+    def migration_offre_service(self):
+        """
+        :return:
+        """
+        print("Migrate tbl_offre_service")
+
+        with api.Environment.manage():
+            env = api.Environment(self.cr, SUPERUSER_ID, {})
+
             if not self.dct_offre_service:
                 dct_offre_service = {}
                 dct_fsm_employee = {}
@@ -978,6 +1026,9 @@ class MigrationAccorderie:
                     i += 1
                     pos_id = f"{i}/{len(self.dct_membre)}"
 
+                    if DEBUG_LIMIT and i > LIMIT:
+                        break
+
                     value = {
                         'partner_id': membre.partner_id.id,
                     }
@@ -986,17 +1037,24 @@ class MigrationAccorderie:
                     dct_fsm_employee[key] = obj_fsm_employee
                     print(f"{pos_id} - fsm.person - tbl_demande_service - ADDED '{membre.name}' "
                           f"id {key}")
+                self.dct_fsm_employee = dct_fsm_employee
 
                 i = 0
                 for offre_service in self.dct_tbl.tbl_offre_service_membre:
                     i += 1
                     pos_id = f"{i}/{len(self.dct_tbl.tbl_offre_service_membre)}"
-
+                    membre_obj = self.dct_fsm_employee.get(offre_service.NoMembre)
                     name = offre_service.TitreOffreSpecial
 
-                    accorderie_obj = self.dct_accorderie.get(offre_service.NoAccorderie)
+                    if DEBUG_LIMIT and i > LIMIT:
+                        break
 
-                    membre_obj = self.dct_fsm_employee.get(offre_service.NoMembre)
+                    if not membre_obj:
+                        print(f"{pos_id} - fsm.order - tbl_offre_service_membre - ERROR MISSING MEMBER "
+                              f"'{offre_service.NoMembre}' ON '{name}' id {offre_service.NoOffreServiceMembre}")
+                        continue
+
+                    accorderie_obj = self.dct_accorderie.get(offre_service.NoAccorderie)
 
                     stage_id = env.ref("fieldservice.fsm_stage_completed").id if offre_service.Fait else env.ref(
                         "fieldservice.fsm_stage_new").id
@@ -1007,10 +1065,13 @@ class MigrationAccorderie:
                         'company_id': accorderie_obj.id,
                         'location_id': location_id.id,
                         'resolution': offre_service.Tarif,
-                        'skill_ids': self.dct_categorie_sous_categorie.get(offre_service.NoCategorieSousCategorie),
                         'stage_id': stage_id,
                         'create_date': offre_service.DateMAJ_ServiceMembre,
                     }
+
+                    skill_id = self.dct_categorie_sous_categorie.get(offre_service.NoCategorieSousCategorie)
+                    if skill_id:
+                        value["skill_ids"] = [(6, 0, [skill_id.id])]
 
                     if membre_obj:
                         value['person_id'] = membre_obj.id
@@ -1044,6 +1105,9 @@ class MigrationAccorderie:
                     i += 1
                     pos_id = f"{i}/{len(self.dct_pointservice)}"
 
+                    if DEBUG_LIMIT and i > LIMIT:
+                        break
+
                     value = {
                         'name': accorderie.name,
                         'company_id': accorderie.id,
@@ -1059,6 +1123,9 @@ class MigrationAccorderie:
                     i += 1
                     pos_id = f"{i}/{len(self.dct_membre)}"
 
+                    if DEBUG_LIMIT and i > LIMIT:
+                        break
+
                     value = {
                         'user_id': membre.id,
                     }
@@ -1067,6 +1134,7 @@ class MigrationAccorderie:
                     dct_employee[key] = obj_employee
                     print(f"{pos_id} - hr.employee - tbl_echange_service - ADDED '{membre.name}' "
                           f"id {key}")
+                self.dct_employee = dct_employee
 
                 # Create hr.timesheet
                 i = 0
@@ -1115,7 +1183,6 @@ class MigrationAccorderie:
                     print(f"{pos_id} - account.analytic.line - tbl_echange_service - ADDED '{name}' "
                           f"id {echange_service.NoEchangeService}")
 
-                self.dct_employee = dct_employee
                 self.dct_echange_service = dct_echange_service
                 self.dct_project_service = dct_project_service
                 self._update_cache_obj()
