@@ -214,7 +214,7 @@ def _get_odoo_ttype(data_type):
     elif data_type == 'character varying' or data_type == 'varchar':
         odoo_ttype = 'char'
 
-    elif data_type == 'timestamp with time zone' or data_type == 'timestamp':
+    elif data_type == 'timestamp with time zone' or data_type == 'timestamp' or data_type == 'time':
         odoo_ttype = 'datetime'
 
     return odoo_ttype

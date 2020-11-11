@@ -355,7 +355,11 @@ class CodeGeneratorBase(models.AbstractModel):
 
     @api.model_create_multi
     def create(self, vals_list):
-        result = super(CodeGeneratorBase, self).create(vals_list)
+        try:
+            result = super(CodeGeneratorBase, self).create(vals_list)
+        except Exception as e:
+            e.args = e.args + (vals_list,)
+            raise
 
         self._run_safe_eval(result)
 
@@ -363,7 +367,11 @@ class CodeGeneratorBase(models.AbstractModel):
 
     @api.multi
     def write(self, vals):
-        result = super(CodeGeneratorBase, self).write(vals)
+        try:
+            result = super(CodeGeneratorBase, self).write(vals)
+        except Exception as e:
+            e.args = e.args + (vals,)
+            raise
 
         self._run_safe_eval()
 
