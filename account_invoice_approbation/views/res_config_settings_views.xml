@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="res_config_settings_view_form" model="ir.ui.view">
+            <field name="name">res.config.settings.view.form.inherit.account</field>
+            <field name="model">res.config.settings</field>
+            <field name="priority" eval="40"/>
+            <field name="inherit_id" ref="account.res_config_settings_view_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='module_account_payment']/../.." position="inside">
+                    <div class="app_settings_block" data-string="Invoicing" string="Invoicing" data-key="account" groups="account.group_account_manager">
+                        <div class="o_setting_left_pane">
+                            <field name="module_account_invoice_approbation"/>
+                        </div>
+                        <div class="o_setting_right_pane">
+                            <label for="module_account_invoice_approbation"/>
+                            <div class="text-muted">
+                                Request an online signature to confirm invoices
+                            </div>
+                        </div>
+                    </div>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>
