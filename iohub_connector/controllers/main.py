@@ -1,15 +1,14 @@
-
-#This controller is taken from Terrabit Solutions module 'Access Control MQTT'
+# This controller is taken from Terrabit Solutions module 'Access Control MQTT'
 # https://www.odoo.com/apps/modules/11.0/terrabit_access_control_mqtt/
 
-import logging
-import time
 import json
-from threading import Thread, Lock
+import logging
 import threading
+import time
+from threading import Lock, Thread
 
 try:
-    from queue import Queue, Empty
+    from queue import Empty, Queue
 except ImportError:
     from Queue import Queue, Empty  # pylint: disable=deprecated-module
 
@@ -47,18 +46,18 @@ class MQTT(Thread):
         while True:
             try:
                 timestamp, task, topic, data = self.queue.get(True)
-                if task == 'connect':
+                if task == "connect":
                     self.connect(data)
                 elif task == "start":
                     self.start_mtqq()
                 elif task == "stop":
                     self.stop_mtqq()
-                elif task == 'subscribe':
+                elif task == "subscribe":
                     self.subscribe(topic)
-                elif task == 'publish':
+                elif task == "publish":
                     self.publish(topic, data)
             except Exception as e:
-                _logger.error('Error: %s' % str(e))
+                _logger.error("Error: %s" % str(e))
 
     # The callback for when the client receives a CONNACK response from the server.
     def on_connect(self, client, userdata, flags, rc):
@@ -70,24 +69,25 @@ class MQTT(Thread):
         _logger.info("Message: " + msg.topic + " " + str(msg.payload))
 
     def connect(self, data):
-        self.client.connect(data['host'], data['port'], data['ttl'])
+        self.client.connect(data["host"], data["port"], data["ttl"])
 
     def start_mtqq(self):
         self.client.loop_start()
-        _logger.info('MQTT Interface Started')
+        _logger.info("MQTT Interface Started")
 
     def stop_mtqq(self):
         self.client.loop_stop()
-        _logger.info('MQTT Interface Stop')
+        _logger.info("MQTT Interface Stop")
 
     def subscribe(self, topic):
 
-        _logger.info('MQTT subscribe %s' % topic)
+        _logger.info("MQTT subscribe %s" % topic)
         self.client.subscribe(topic)
 
-    def publish(self, topic,  data):
+    def publish(self, topic, data):
 
-        _logger.info('MQTT publish %s' % topic)
+        _logger.info("MQTT publish %s" % topic)
         self.client.publish(topic, str(json.dumps(data)).strip().strip('"'))
+
 
 interface = MQTT()

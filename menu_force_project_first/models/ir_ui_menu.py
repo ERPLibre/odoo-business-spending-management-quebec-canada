@@ -8,8 +8,10 @@ class IrUiMenu(models.Model):
 
     @api.multi
     def write(self, values):
-        if (values.get("parent_id") is False and values.get("name") == "Project") or (
-                self.name == _("Project") and self.parent_id.id is False):
+        if (
+            values.get("parent_id") is False
+            and values.get("name") == "Project"
+        ) or (self.name == _("Project") and self.parent_id.id is False):
             values["sequence"] = -10
 
         return super(IrUiMenu, self).write(values)

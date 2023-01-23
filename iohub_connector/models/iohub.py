@@ -2,11 +2,14 @@
 # Copyright 2021 Apulia Software s.r.l. (<info@apuliasoftware.it>)
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html).
 
-from odoo import _, api, fields, models
-from ..controllers.main import interface
-import logging, time
 import json
+import logging
+import time
+
+from odoo import _, api, fields, models
 from odoo.exceptions import Warning
+
+from ..controllers.main import interface
 
 _logger = logging.getLogger(__name__)
 
@@ -28,8 +31,8 @@ class IoHubBox(models.Model):
     iohub_topic_write = fields.Text(string="Topic from Write")
 
     company_ids = fields.Many2many(
-        comodel_name='res.company',
-        string="Allowed companies")
+        comodel_name="res.company", string="Allowed companies"
+    )
 
     @api.multi
     def action_start_mqtt(self, topic=None):
@@ -37,24 +40,23 @@ class IoHubBox(models.Model):
         #     topic = self.iohub_topic
         # self.action_stop_mqtt()
         if self.connect:
-            raise Warning(_('Already connect'))
-        
+            raise Warning(_("Already connect"))
+
         _logger.info("INFO: connecting to a mqtt broker!")
         data = {
-            'host': self.broker_url, 
-            'port': self.broker_port, 
-            'ttl': 30,
-            }
+            "host": self.broker_url,
+            "port": self.broker_port,
+            "ttl": 30,
+        }
         if self.auth_required:
             self.controller.client.username_pw_set(
-                username=self.iohub_username,
-                password=self.iohub_password
+                username=self.iohub_username, password=self.iohub_password
             )
         if not self.connect:
             self.connect = True
             self.controller.client.on_message = self.on_message
-            self.controller.push_task('connect', data=data)
-            self.controller.push_task('start')
+            self.controller.push_task("connect", data=data)
+            self.controller.push_task("start")
             _logger.info(">>>>>>>>>>>>{t}".format(t=self.iohub_topic_read))
             self.subscribe(self.iohub_topic_read)
         elif self.connect:
@@ -67,14 +69,17 @@ class IoHubBox(models.Model):
             new_self = self.with_env(self.env(cr=new_cr))
             try:
                 _logger.info("MESSAGE!!!")
-                _logger.info(">> MQTT Received '{a}' from '{b}' topic".format(
-                            a=msg.payload.decode(), b=msg.topic))
-                iohub_msg_obj = new_self.env['iohub.message.queue']
+                _logger.info(
+                    ">> MQTT Received '{a}' from '{b}' topic".format(
+                        a=msg.payload.decode(), b=msg.topic
+                    )
+                )
+                iohub_msg_obj = new_self.env["iohub.message.queue"]
                 payload = json.loads(msg.payload.decode())
                 vals = {
-                    'iohub_box_id': new_self.id,
-                    'id_topic': msg.topic,
-                    'payload': payload,
+                    "iohub_box_id": new_self.id,
+                    "id_topic": msg.topic,
+                    "payload": payload,
                 }
                 iohub_msg_obj.create(vals)
                 new_cr.commit()
@@ -87,20 +92,20 @@ class IoHubBox(models.Model):
 
     @api.multi
     def publish(self, topic, msg):
-        self.controller.push_task('publish', topic, msg)
+        self.controller.push_task("publish", topic, msg)
 
     # method to stop mqtt service
     @api.multi
     def action_stop_mqtt(self):
         self.connect = False
-        self.controller.push_task('stop')
+        self.controller.push_task("stop")
 
     # method for subscribe to a Mqtt topic
     @api.multi
-    def subscribe(self, topic='#'):
+    def subscribe(self, topic="#"):
         _logger.info("INFO: subscribing to: {t}".format(t=topic))
         time.sleep(2)
-        self.controller.push_task('subscribe', topic)
+        self.controller.push_task("subscribe", topic)
 
     def on_disconnect(self, client, userdata, rc):
         type(self).connect = False
@@ -109,10 +114,10 @@ class IoHubBox(models.Model):
 
 class IoHubMessageQueue(models.Model):
 
-    _name = 'iohub.message.queue'
-    _order = 'id desc'
+    _name = "iohub.message.queue"
+    _order = "id desc"
 
-    iohub_box_id = fields.Many2one('iohub.box')
+    iohub_box_id = fields.Many2one("iohub.box")
     payload = fields.Char()
     id_topic = fields.Char()
     datetime_msg = fields.Datetime()

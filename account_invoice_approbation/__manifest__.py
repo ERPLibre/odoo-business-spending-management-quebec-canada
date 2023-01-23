@@ -9,15 +9,12 @@
     # "website": "https://github.com/OCA/account-invoicing",
     "author": "TechnoLibre",
     "installable": True,
-    "depends": [
-        'account',
-        'portal'
-    ],
+    "depends": ["account", "portal"],
     "license": "AGPL-3",
     "data": [
-        'views/account_invoice_view.xml',
-        'views/account_portal_templates.xml',
-        'views/res_config_settings_views.xml',
-        'reports/report_invoice.xml',
+        "views/account_invoice_view.xml",
+        "views/account_portal_templates.xml",
+        "views/res_config_settings_views.xml",
+        "reports/report_invoice.xml",
     ],
 }

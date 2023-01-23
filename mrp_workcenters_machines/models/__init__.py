@@ -1,3 +1,5 @@
-from . import mrp_workcenter
-from . import mrp_workcenter_category
-from . import mrp_workcenter_machine_type
+from . import (
+    mrp_workcenter,
+    mrp_workcenter_category,
+    mrp_workcenter_machine_type,
+)

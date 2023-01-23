@@ -9,9 +9,9 @@
     "license": "AGPL-3",
     "installable": True,
     "depends": [
-        'sale_margin',
+        "sale_margin",
     ],
     "data": [
-        'views/sale_view.xml',
-    ]
+        "views/sale_view.xml",
+    ],
 }

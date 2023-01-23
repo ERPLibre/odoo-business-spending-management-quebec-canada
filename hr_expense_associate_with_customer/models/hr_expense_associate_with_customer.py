@@ -5,8 +5,16 @@ from odoo import fields, models
 
 
 class HrExpenseAssociateWithCustomer(models.Model):
-    _inherit = 'hr.expense'
+    _inherit = "hr.expense"
 
-    customer_ids = fields.Many2many('res.partner', string='Customers', readonly=True,
-                                    states={'draft': [('readonly', False)], 'reported': [('readonly', False)],
-                                            'refused': [('readonly', False)]}, domain=[('customer', '=', True)])
+    customer_ids = fields.Many2many(
+        "res.partner",
+        string="Customers",
+        readonly=True,
+        states={
+            "draft": [("readonly", False)],
+            "reported": [("readonly", False)],
+            "refused": [("readonly", False)],
+        },
+        domain=[("customer", "=", True)],
+    )

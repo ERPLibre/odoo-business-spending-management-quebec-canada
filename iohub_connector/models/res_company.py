@@ -6,10 +6,11 @@ from odoo import _, api, fields, models
 
 
 class ResCompany(models.Model):
-    
+
     _inherit = "res.company"
 
     iohub_box_ids = fields.Many2many(
-        comodel_name='iohub.box',
+        comodel_name="iohub.box",
         string="IOhub boxes",
-        help="Link boxes to the company")
+        help="Link boxes to the company",
+    )

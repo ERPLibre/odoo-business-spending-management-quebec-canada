@@ -1,24 +1,28 @@
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 
-from odoo import _, fields, api, models
+from odoo import _, api, fields, models
 
 
 class SaleOrder(models.Model):
-    _inherit = 'sale.order'
+    _inherit = "sale.order"
 
     automatic_group_sale_order_at_save = fields.Boolean(
-        'Group sales order automatically at save',
+        "Group sales order automatically at save",
         readonly=True,
-        states={'draft': [('readonly', False)],
-                'sent': [('readonly', False)]},
+        states={"draft": [("readonly", False)], "sent": [("readonly", False)]},
         default=lambda self: self._default_automatic_group_sale_order(),
-        help='Regroup automatically sales order lines at save.')
+        help="Regroup automatically sales order lines at save.",
+    )
 
     @api.model
     def create(self, values):
-        if values.get("automatic_group_sale_order_at_save",
-                      self.automatic_group_sale_order_at_save) and \
-                "order_line" in values.keys():
+        if (
+            values.get(
+                "automatic_group_sale_order_at_save",
+                self.automatic_group_sale_order_at_save,
+            )
+            and "order_line" in values.keys()
+        ):
             # regroup lines order, add section and ignore new section
             lst_order_line = self._write_list_ordered_by_service(values)
             values["order_line"] = lst_order_line
@@ -28,9 +32,13 @@ class SaleOrder(models.Model):
 
     @api.multi
     def write(self, values):
-        if values.get("automatic_group_sale_order_at_save",
-                      self.automatic_group_sale_order_at_save) and \
-                "order_line" in values.keys():
+        if (
+            values.get(
+                "automatic_group_sale_order_at_save",
+                self.automatic_group_sale_order_at_save,
+            )
+            and "order_line" in values.keys()
+        ):
             # regroup lines order, add section and ignore new section
             lst_order_line = self._write_list_ordered_by_service(values)
             values["order_line"] = lst_order_line
@@ -40,8 +48,13 @@ class SaleOrder(models.Model):
 
     @api.model
     def _default_automatic_group_sale_order(self):
-        return self.env['ir.config_parameter'].sudo().get_param(
-            'sale_custom_order_in_lines_and_regroup.automatic_group_sale_order_at_save')
+        return (
+            self.env["ir.config_parameter"]
+            .sudo()
+            .get_param(
+                "sale_custom_order_in_lines_and_regroup.automatic_group_sale_order_at_save"
+            )
+        )
 
     @staticmethod
     def get_material_name():
@@ -81,15 +94,21 @@ class SaleOrder(models.Model):
                 dct_note[j] = [line, order_line, i]
 
         def _add_line_product(i, line, product_id):
-            product = self.env['product.product'].browse(product_id)
-            if product.categ_id.name == self.env.ref(
-                    "product_lump_sum.cat_lump_sum").name:
+            product = self.env["product.product"].browse(product_id)
+            if (
+                product.categ_id.name
+                == self.env.ref("product_lump_sum.cat_lump_sum").name
+            ):
                 lst_lump_sum.append([line, product, i])
-            elif product.categ_id.name == self.env.ref(
-                    "product_lump_sum.cat_lump_sum_service").name:
+            elif (
+                product.categ_id.name
+                == self.env.ref("product_lump_sum.cat_lump_sum_service").name
+            ):
                 lst_lump_sum_service.append([line, product, i])
-            elif product.categ_id.name == self.env.ref(
-                    "product_lump_sum.cat_lump_sum_product").name:
+            elif (
+                product.categ_id.name
+                == self.env.ref("product_lump_sum.cat_lump_sum_product").name
+            ):
                 lst_lump_sum_product.append([line, product, i])
             elif product.type == "service":
                 lst_service.append([line, product, i])
@@ -107,7 +126,9 @@ class SaleOrder(models.Model):
             # adding a note
             while line[2] in dct_note.keys():
                 index += 1
-                item = self._prepare_sale_order_line_sequence(dct_note[line[2]], index)
+                item = self._prepare_sale_order_line_sequence(
+                    dct_note[line[2]], index
+                )
                 if item:
                     lst_order_line.append(item)
                 # good hack to support a note under a note with recursive line with note
@@ -129,7 +150,7 @@ class SaleOrder(models.Model):
             order_line = None
             if type(line[1]) is int and line[0] != 0:
                 # already recorded
-                order_line = self.env['sale.order.line'].browse(line[1])
+                order_line = self.env["sale.order.line"].browse(line[1])
                 if order_line.display_type:
                     if order_line.display_type == "line_section":
                         # support update
@@ -164,30 +185,49 @@ class SaleOrder(models.Model):
                     # detect if product has changed
                     product_id = line[2].get("product_id")
                     _add_line_product(i, line, product_id)
-                elif order_line.product_id.categ_id.name == self.env.ref(
-                        "product_lump_sum.cat_lump_sum").name:
+                elif (
+                    order_line.product_id.categ_id.name
+                    == self.env.ref("product_lump_sum.cat_lump_sum").name
+                ):
                     lst_lump_sum.append([line, order_line, i])
-                elif order_line.product_id.categ_id.name == self.env.ref(
-                        "product_lump_sum.cat_lump_sum_service").name:
+                elif (
+                    order_line.product_id.categ_id.name
+                    == self.env.ref(
+                        "product_lump_sum.cat_lump_sum_service"
+                    ).name
+                ):
                     lst_lump_sum_service.append([line, order_line, i])
-                elif order_line.product_id.categ_id.name == self.env.ref(
-                        "product_lump_sum.cat_lump_sum_product").name:
+                elif (
+                    order_line.product_id.categ_id.name
+                    == self.env.ref(
+                        "product_lump_sum.cat_lump_sum_product"
+                    ).name
+                ):
                     lst_lump_sum_product.append([line, order_line, i])
                 elif order_line.product_id.type == "service":
                     lst_service.append([line, order_line, i])
-                elif order_line.product_id.type == "consu" or \
-                        order_line.product_id.type == "product":
+                elif (
+                    order_line.product_id.type == "consu"
+                    or order_line.product_id.type == "product"
+                ):
                     lst_product.append([line, order_line, i])
                 else:
                     lst_other.append([line, order_line, i])
             else:
                 # new line order
                 info = line[2]
-                if info and "display_type" in info and not info.get("display_type"):
+                if (
+                    info
+                    and "display_type" in info
+                    and not info.get("display_type")
+                ):
                     product_id = info.get("product_id")
                     _add_line_product(i, line, product_id)
-                elif info and "display_type" in info and info.get(
-                        "display_type") == "line_note":
+                elif (
+                    info
+                    and "display_type" in info
+                    and info.get("display_type") == "line_note"
+                ):
                     _add_line_note(i)
                 else:
                     if line[2].get("name") == self.get_material_name():
@@ -214,79 +254,109 @@ class SaleOrder(models.Model):
             new_sequence_index = _add_order_line(line, new_sequence_index)
 
         has_lump_sum_product = bool(lst_lump_sum_product)
-        if not has_lump_sum_product and len(lst_product) == 1 and isinstance(
-                lst_product[0][1], type(self.env['sale.order.line'])) and \
-                lst_product[0][1].display_type == "line_section":
+        if (
+            not has_lump_sum_product
+            and len(lst_product) == 1
+            and isinstance(
+                lst_product[0][1], type(self.env["sale.order.line"])
+            )
+            and lst_product[0][1].display_type == "line_section"
+        ):
             # don't show when section is alone, delete it
             lst_product[0][1].unlink()
         else:
             # Material section
-            if not find_label_material and (lst_product or has_lump_sum_product):
+            if not find_label_material and (
+                lst_product or has_lump_sum_product
+            ):
                 new_sequence_index += 1
-                dct_line_section = {"name": self.get_material_name(),
-                                    "display_type": "line_section",
-                                    "sequence": new_sequence_index}
+                dct_line_section = {
+                    "name": self.get_material_name(),
+                    "display_type": "line_section",
+                    "sequence": new_sequence_index,
+                }
                 item_line_section = [0, "virtual_112", dct_line_section]
                 lst_order_line.append(item_line_section)
 
                 # adding a note
                 if -1 in dct_note.keys():
                     new_sequence_index += 1
-                    item = self._prepare_sale_order_line_sequence(dct_note[-1],
-                                                                  new_sequence_index)
+                    item = self._prepare_sale_order_line_sequence(
+                        dct_note[-1], new_sequence_index
+                    )
                     if item:
                         lst_order_line.append(item)
 
                 if has_lump_sum_product:
                     # Lump sump section product
                     for line in lst_lump_sum_product:
-                        new_sequence_index = _add_order_line(line, new_sequence_index)
+                        new_sequence_index = _add_order_line(
+                            line, new_sequence_index
+                        )
                     has_lump_sum_product = False
 
             for line in lst_product:
                 new_sequence_index = _add_order_line(line, new_sequence_index)
 
                 # if section already exist, only one can exist.
-                if has_lump_sum_product and line[1].display_type == "line_section":
+                if (
+                    has_lump_sum_product
+                    and line[1].display_type == "line_section"
+                ):
                     # Lump sump section product
                     for line_product in lst_lump_sum_product:
-                        new_sequence_index = _add_order_line(line_product,
-                                                             new_sequence_index)
+                        new_sequence_index = _add_order_line(
+                            line_product, new_sequence_index
+                        )
                     has_lump_sum_product = False
 
         # Ignore this section if no item
         has_lump_sum_service = bool(lst_lump_sum_service)
-        if not has_lump_sum_service and len(lst_service) == 1 and isinstance(
-                lst_service[0][1],
-                type(self.env['sale.order.line'])) and \
-                lst_service[0][1].display_type == "line_section":
+        if (
+            not has_lump_sum_service
+            and len(lst_service) == 1
+            and isinstance(
+                lst_service[0][1], type(self.env["sale.order.line"])
+            )
+            and lst_service[0][1].display_type == "line_section"
+        ):
             # don't show when section is alone, delete it
             lst_service[0][1].unlink()
         else:
             # Service section
-            if not find_label_service and (lst_service or has_lump_sum_service):
+            if not find_label_service and (
+                lst_service or has_lump_sum_service
+            ):
                 new_sequence_index += 1
-                dct_line_section = {"name": self.get_work_load_name(),
-                                    "display_type": "line_section",
-                                    "sequence": new_sequence_index}
+                dct_line_section = {
+                    "name": self.get_work_load_name(),
+                    "display_type": "line_section",
+                    "sequence": new_sequence_index,
+                }
                 item_line_section = [0, "virtual_113", dct_line_section]
                 lst_order_line.append(item_line_section)
 
                 if has_lump_sum_service:
                     # Lump sump section service
                     for line in lst_lump_sum_service:
-                        new_sequence_index = _add_order_line(line, new_sequence_index)
+                        new_sequence_index = _add_order_line(
+                            line, new_sequence_index
+                        )
                     has_lump_sum_service = False
 
             for line in lst_service:
                 new_sequence_index = _add_order_line(line, new_sequence_index)
 
                 # if section already exist, only one can exist.
-                if has_lump_sum_service and line[1].display_type == "line_section":
+                if (
+                    has_lump_sum_service
+                    and line[1].display_type == "line_section"
+                ):
                     # Lump sump section service
                     for line_service in lst_lump_sum_service:
-                        new_sequence_index = _add_order_line(line_service,
-                                                             new_sequence_index)
+                        new_sequence_index = _add_order_line(
+                            line_service, new_sequence_index
+                        )
                     has_lump_sum_service = False
 
         # Other section
@@ -309,7 +379,9 @@ class SaleOrder(models.Model):
             line[0][2] = {}
         line[0][2]["sequence"] = new_sequence_index
         # force write value if different sequence
-        if line[1] and isinstance(line[1], self.env["sale.order.line"].__class__):
+        if line[1] and isinstance(
+            line[1], self.env["sale.order.line"].__class__
+        ):
             if line[1].sequence != new_sequence_index:
                 line[0][0] = 1
         return line[0]

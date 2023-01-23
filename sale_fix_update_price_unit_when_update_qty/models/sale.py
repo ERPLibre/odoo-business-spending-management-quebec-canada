@@ -4,9 +4,9 @@ from odoo import api, models
 
 
 class SaleOrderLine(models.Model):
-    _inherit = 'sale.order.line'
+    _inherit = "sale.order.line"
 
-    @api.onchange('product_uom_qty')
+    @api.onchange("product_uom_qty")
     def product_uom_change(self):
         previous_price_unit = self.price_unit
         status = super(SaleOrderLine, self).product_uom_change()
