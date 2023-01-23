@@ -1,0 +1,2 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_pivot_by_hour_pivot_by_hour,pivot_by_hour.pivot_by_hour,model_pivot_by_hour_pivot_by_hour,,1,0,0,0
