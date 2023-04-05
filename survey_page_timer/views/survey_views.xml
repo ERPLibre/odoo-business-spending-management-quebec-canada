@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<!--        <template id="survey_assets_timer_assets">-->
+<!--            <script type="text/javascript" src="/survey_page_timer/static/src/js/survey.js" />-->
+<!--        </template>-->
+        <template id="assets_common" name="tour" inherit_id="web.assets_common">
+            <xpath expr="//script[last()]" position="after">
+                <script type="text/javascript" src="/survey_page_timer/static/src/js/survey.js" />
+            </xpath>
+        </template>
+<!--        <template inherit_id="survey.survey_assets" id="survey_assets_timer">-->
+<!--            <xpath expr="//script[@src='/survey/static/src/js/survey.js']" position="replace">-->
+<!--                <script type="text/javascript" src="/survey_page_timer/static/src/js/survey.js" />-->
+<!--            </xpath>-->
+<!--        </template>-->
+
+        <!-- PAGES -->
+<!--        <record model="ir.ui.view" id="survey_page_form_timer">-->
+<!--            <field name="name">Form view for survey page</field>-->
+<!--            <field name="model">survey.page</field>-->
+<!--            <field name="inherit_id" ref="survey.survey_page_form"/>-->
+<!--            <field name="arch" type="xml">-->
+<!--                <xpath expr="//field[@name='question_ids']" position="after">-->
+<!--                    <group>-->
+<!--                        <field name="enable_timer"/>-->
+<!--                        <field name="timer_duration" attrs="{'invisible':[('enable_timer','=',False)]}"/>-->
+<!--                    </group>-->
+<!--                </xpath>-->
+<!--            </field>-->
+<!--        </record>-->
+</odoo>
