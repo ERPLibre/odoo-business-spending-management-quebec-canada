@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="email_template_notify_create_survey_survey" model="mail.template">
+            <field name="name">Survey: Notify observer new result</field>
+            <field name="model_id" ref="survey.model_survey_survey" />
+            <field name="subject">${object.title}: Survey</field>
+            <field name="lang">${ctx.get('lang')}</field>
+            <field name="body_html" type="html">
+            <div style="margin: 0px; padding: 0px; font-size: 13px;">
+                <p style="margin: 0px; padding: 0px; font-size: 13px;">
+                    Hello<br /><br />
+                    A new survey is created.
+                    <div style="margin: 16px 0px 16px 0px;">
+                        <a href="${object.print_url + '/' + ctx.get('token')}"
+                            style="background-color: #875A7B; padding: 8px 16px 8px 16px; text-decoration: none; color: #fff; border-radius: 5px; font-size:13px;">
+                            See result of this Survey
+                        </a>
+                    </div>
+                    or
+                    <div style="margin: 16px 0px 16px 0px;">
+                        <a href="${object.result_url}"
+                            style="background-color: #875A7B; padding: 8px 16px 8px 16px; text-decoration: none; color: #fff; border-radius: 5px; font-size:13px;">
+                            See result of all Survey
+                        </a>
+                    </div>
+                </p>
+            </div>
+            </field>
+            <field name="auto_delete" eval="True"/>
+            <field name="user_signature" eval="False"/>
+        </record>
+    </data>
+</odoo>

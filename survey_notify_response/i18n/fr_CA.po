@@ -1,0 +1,66 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+#	* survey_notify_response
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 12.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-09-07 22:36+0000\n"
+"PO-Revision-Date: 2023-09-07 22:36+0000\n"
+"Last-Translator: <>\n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: \n"
+"Plural-Forms: \n"
+
+#. module: survey_notify_response
+#: model:mail.template,subject:survey_notify_response.email_template_notify_create_survey_survey
+msgid "${object.title}: Survey"
+msgstr "${object.title}: Sondage"
+
+#. module: survey_notify_response
+#: model:mail.template,body_html:survey_notify_response.email_template_notify_create_survey_survey
+msgid "<div style=\"margin: 0px; padding: 0px; font-size: 13px;\">\n"
+"                <p style=\"margin: 0px; padding: 0px; font-size: 13px;\">\n"
+"                    Hello<br/><br/>\n"
+"                    A new survey is created.\n"
+"                    <div style=\"margin: 16px 0px 16px 0px;\">\n"
+"                        <a href=\"${object.print_url + '/' + ctx.get('token')}\" style=\"background-color: #875A7B; padding: 8px 16px 8px 16px; text-decoration: none; color: #fff; border-radius: 5px; font-size:13px;\">\n"
+"                            See result of this Survey\n"
+"                        </a>\n"
+"                    </div>\n"
+"                    or\n"
+"                    <div style=\"margin: 16px 0px 16px 0px;\">\n"
+"                        <a href=\"${object.result_url}\" style=\"background-color: #875A7B; padding: 8px 16px 8px 16px; text-decoration: none; color: #fff; border-radius: 5px; font-size:13px;\">\n"
+"                            See result of all Survey\n"
+"                        </a>\n"
+"                    </div>\n"
+"                </p>\n"
+"            </div>\n"
+"            "
+msgstr "<div style=\"margin: 0px; padding: 0px; font-size: 13px;\">\n"
+"                <p style=\"margin: 0px; padding: 0px; font-size: 13px;\">\n"
+"                    Bonjour<br/><br/>\n"
+"                    Une réponse pour votre sondage a été ajouté.\n"
+"                    <div style=\"margin: 16px 0px 16px 0px;\">\n"
+"                        <a href=\"${object.print_url + '/' + ctx.get('token')}\" style=\"background-color: #875A7B; padding: 8px 16px 8px 16px; text-decoration: none; color: #fff; border-radius: 5px; font-size:13px;\">\n"
+"                            Regarder le résultat\n"
+"                        </a>\n"
+"                    </div>\n"
+"                    ou\n"
+"                    <div style=\"margin: 16px 0px 16px 0px;\">\n"
+"                        <a href=\"${object.result_url}\" style=\"background-color: #875A7B; padding: 8px 16px 8px 16px; text-decoration: none; color: #fff; border-radius: 5px; font-size:13px;\">\n"
+"                            Voir le sommaire de tous les résultats\n"
+"                        </a>\n"
+"                    </div>\n"
+"                </p>\n"
+"            </div>\n"
+"            "
+
+#. module: survey_notify_response
+#: model:ir.model,name:survey_notify_response.model_survey_user_input
+msgid "Survey User Input"
+msgstr "Saisie utilisateur du sondage"
+
