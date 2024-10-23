@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!--Root menu-->
+
+    <menuitem
+        id="plan_view_agile_place_mgmt"
+        name="Plan View Agile Place Mgmt"
+        sequence="20"
+        web_icon="plan_view_agile_place_mgmt,static/description/icon.png"
+    />
+
+    <!--Sub menu-->
+
+    <menuitem id="menu" name="Menu" sequence="1" parent="plan_view_agile_place_mgmt" />
+
+    <!--Child menu-->
+
+    <menuitem
+        id="view_agile_place_board"
+        name="View agile place board"
+        action="plan_view_agile_place_board_view_agile_place_board_action_window"
+        sequence="1"
+        parent="menu"
+    />
+
+    <menuitem
+        id="view_agile_place_card"
+        name="View agile place card"
+        action="plan_view_agile_place_card_view_agile_place_card_action_window"
+        sequence="2"
+        parent="menu"
+    />
+
+    <menuitem
+        id="view_agile_place_lane"
+        name="View agile place lane"
+        action="plan_view_agile_place_lane_view_agile_place_lane_action_window"
+        sequence="3"
+        parent="menu"
+    />
+</odoo>

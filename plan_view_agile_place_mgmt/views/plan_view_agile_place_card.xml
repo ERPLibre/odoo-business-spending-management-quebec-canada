@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="plan_view_agile_place_card_view_form" model="ir.ui.view">
+        <field name="name">plan_view_agile_place_card_form</field>
+        <field name="model">plan.view.agile.place.card</field>
+        <field name="arch" type="xml">
+            <form string="Titre">
+                <sheet>
+                    <group>
+                        <field name="name" />
+                    </group>
+                    <group>
+                        <field name="board_id" />
+                    </group>
+                    <group>
+                        <field name="lane_id" />
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="plan_view_agile_place_card_view_graph" model="ir.ui.view">
+        <field name="name">plan_view_agile_place_card_graph</field>
+        <field name="model">plan.view.agile.place.card</field>
+        <field name="arch" type="xml">
+            <graph string="Plan view agile place card">
+                <field name="name" type="row" />
+                <field name="board_id" type="row" />
+                <field name="lane_id" type="row" />
+            </graph>
+        </field>
+    </record>
+
+    <record id="plan_view_agile_place_card_view_kanban" model="ir.ui.view">
+        <field name="name">plan_view_agile_place_card_kanban</field>
+        <field name="model">plan.view.agile.place.card</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile">
+                <field name="name" />
+                <field name="board_id" />
+                <field name="lane_id" />
+                <templates>
+                    <t t-name="kanban-box">
+                        <div t-attf-class="oe_kanban_global_click">
+                            <div class="oe_kanban_details">
+                                <ul>
+                                    <li class="mb4">
+                                        <strong>
+                                            <field name="name" />
+                                        </strong>
+                                    </li>
+                                    <li class="mb4">
+                                        <strong>
+                                            <field name="board_id" />
+                                        </strong>
+                                    </li>
+                                    <li class="mb4">
+                                        <strong>
+                                            <field name="lane_id" />
+                                        </strong>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="plan_view_agile_place_card_view_pivot" model="ir.ui.view">
+        <field name="name">plan_view_agile_place_card_pivot</field>
+        <field name="model">plan.view.agile.place.card</field>
+        <field name="arch" type="xml">
+            <pivot string="Plan view agile place card">
+                <field name="name" type="row" />
+                <field name="board_id" type="row" />
+                <field name="lane_id" type="row" />
+            </pivot>
+        </field>
+    </record>
+
+    <record id="plan_view_agile_place_card_view_search" model="ir.ui.view">
+        <field name="name">plan_view_agile_place_card_search</field>
+        <field name="model">plan.view.agile.place.card</field>
+        <field name="arch" type="xml">
+            <search string="Plan view agile place card">
+                <filter domain="[('name','!=',False)]" name="name" string="Name" />
+                <filter domain="[('board_id','!=',False)]" name="board_id" string="Board" />
+                <filter domain="[('lane_id','!=',False)]" name="lane_id" string="Lane" />
+            </search>
+        </field>
+    </record>
+
+    <record id="plan_view_agile_place_card_view_tree" model="ir.ui.view">
+        <field name="name">plan_view_agile_place_card_tree</field>
+        <field name="model">plan.view.agile.place.card</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name" />
+                <field name="board_id" />
+                <field name="lane_id" />
+            </tree>
+        </field>
+    </record>
+
+    <act_window
+        id="plan_view_agile_place_card_view_agile_place_card_action_window"
+        name="View agile place card"
+        res_model="plan.view.agile.place.card"
+        view_mode="kanban,tree,pivot,graph,form"
+    />
+</odoo>
