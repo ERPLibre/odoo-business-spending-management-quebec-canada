@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!--Root menu-->
+
+    <menuitem
+        id="plan_view_agile_place_mgmt"
+        name="Plan Mgmt"
+        sequence="20"
+        web_icon="plan_view_agile_place_mgmt,static/description/icon.png"
+    />
+
+    <!--Sub menu-->
+
+    <menuitem id="menu_connexion" name="Connexion" sequence="1" parent="plan_view_agile_place_mgmt" />
+
+    <menuitem id="menu_data" name="Data" sequence="1" parent="plan_view_agile_place_mgmt" />
+
+    <menuitem id="menu_processus" name="Processus" sequence="2" parent="plan_view_agile_place_mgmt" />
+
+    <!--Child menu-->
+
+    <menuitem
+        id="view_agile_place_session"
+        name="Session"
+        action="plan_view_agile_place_session_view_agile_place_session_action_window"
+        sequence="1"
+        parent="menu_connexion"
+    />
+
+    <menuitem
+        id="view_agile_place_request_history"
+        name="Request history"
+        action="plan_view_agile_place_request_history_view_agile_place_request_history_action_window"
+        sequence="2"
+        parent="menu_connexion"
+    />
+
+    <menuitem
+        id="view_agile_place_board"
+        name="Board"
+        action="plan_view_agile_place_board_view_agile_place_board_action_window"
+        sequence="1"
+        parent="menu_data"
+    />
+
+    <menuitem
+        id="view_agile_place_lane"
+        name="Lane"
+        action="plan_view_agile_place_lane_view_agile_place_lane_action_window"
+        sequence="2"
+        parent="menu_data"
+    />
+
+    <menuitem
+        id="view_agile_place_card"
+        name="Card"
+        action="plan_view_agile_place_card_view_agile_place_card_action_window"
+        sequence="3"
+        parent="menu_data"
+    />
+
+    <menuitem
+        id="view_agile_place_card_type"
+        name="Card type"
+        action="plan_view_agile_place_card_type_view_agile_place_card_type_action_window"
+        sequence="4"
+        parent="menu_data"
+    />
+
+    <menuitem
+        id="view_agile_place_processus"
+        name="Processus"
+        action="plan_view_agile_place_processus_view_agile_place_processus_action_window"
+        sequence="1"
+        parent="menu_processus"
+    />
+
+    <menuitem
+        id="view_agile_place_sms_history"
+        name="SMS history"
+        action="plan_view_agile_place_processus_view_agile_place_processus_action_window"
+        sequence="2"
+        parent="menu_processus"
+    />
+</odoo>

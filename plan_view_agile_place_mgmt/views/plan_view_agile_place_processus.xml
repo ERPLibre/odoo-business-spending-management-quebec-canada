@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="plan_view_agile_place_processus_view_form" model="ir.ui.view">
+        <field name="name">plan_view_agile_place_processus_form</field>
+        <field name="model">plan.view.agile.place.processus</field>
+        <field name="arch" type="xml">
+            <form string="Titre">
+                <header>
+                    <button name="action_execute_algo" string="Execute" type="object" class="oe_highlight" />
+                    <button
+                        name="action_execute_send_sms"
+                        string="Send SMS "
+                        type="object"
+                        class="oe_highlight"
+                        attrs="{'invisible': [('sms_enable', '=', False)]}"
+                    />
+                    <button name="action_clear_log" string="Clear log" type="object" />
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name" class="oe_edit_only" />
+                        <h1>
+                            <field name="name" />
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="General">
+                            <field name="board_id" />
+                            <field name="algo_key" />
+                            <field name="sms_message_prefix" />
+                            <field name="sms_detect_card_type_msg_1" />
+                            <field name="location_type_msg" />
+                            <field name="lane_name" />
+                            <field name="parent_lane_name" />
+                            <field name="root_lane_name" />
+                            <field name="sub_lane_name" />
+                            <field name="type_card" />
+                        </group>
+                        <group string="model">
+                            <field name="default_value_model" />
+                            <field name="bind_custom_field" />
+                            <field name="bind_field" />
+                            <field name="model_name" />
+                        </group>
+                        <group string="schedule">
+                            <field name="fake_regex_lane" />
+                        </group>
+                    </group>
+                    <group>
+                        <group string="SMS" attrs="{'invisible': [('sms_enable', '=', False)]}">
+                            <field name="sms_enable" invisible="True" />
+                            <field name="sms_debug" />
+                            <field name="sms_to_number_phone" />
+                            <field name="sms_to_country" />
+                            <field name="sms_message_to_send" />
+                            <field name="sms_limit_iteration" />
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="LOG">
+                            <group>
+                                <field name="log_error_txt" />
+                                <field name="log_txt" />
+                            </group>
+                        </page>
+                        <page string="SMS">
+                            <group>
+                                <field name="sms_history_ids" />
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="plan_view_agile_place_processus_view_graph" model="ir.ui.view">
+        <field name="name">plan_view_agile_place_processus_graph</field>
+        <field name="model">plan.view.agile.place.processus</field>
+        <field name="arch" type="xml">
+            <graph string="Plan view agile place processus">
+                <field name="name" type="row" />
+                <field name="algo_key" type="row" />
+                <field name="bind_custom_field" type="row" />
+                <field name="model_name" type="row" />
+                <field name="parent_lane_name" type="row" />
+                <field name="root_lane_name" type="row" />
+            </graph>
+        </field>
+    </record>
+
+    <record id="plan_view_agile_place_processus_view_kanban" model="ir.ui.view">
+        <field name="name">plan_view_agile_place_processus_kanban</field>
+        <field name="model">plan.view.agile.place.processus</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile">
+                <field name="name" />
+                <field name="algo_key" />
+                <field name="bind_custom_field" />
+                <field name="model_name" />
+                <field name="parent_lane_name" />
+                <field name="root_lane_name" />
+                <templates>
+                    <t t-name="kanban-box">
+                        <div t-attf-class="oe_kanban_global_click">
+                            <div class="oe_kanban_details">
+                                <ul>
+                                    <li class="mb4">
+                                        <strong>
+                                            <field name="name" />
+                                        </strong>
+                                    </li>
+                                    <li class="mb4">
+                                        <strong>
+                                            <field name="algo_key" />
+                                        </strong>
+                                    </li>
+                                    <li class="mb4">
+                                        <strong>
+                                            <field name="bind_custom_field" />
+                                        </strong>
+                                    </li>
+                                    <li class="mb4">
+                                        <strong>
+                                            <field name="model_name" />
+                                        </strong>
+                                    </li>
+                                    <li class="mb4">
+                                        <strong>
+                                            <field name="parent_lane_name" />
+                                        </strong>
+                                    </li>
+                                    <li class="mb4">
+                                        <strong>
+                                            <field name="root_lane_name" />
+                                        </strong>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="plan_view_agile_place_processus_view_pivot" model="ir.ui.view">
+        <field name="name">plan_view_agile_place_processus_pivot</field>
+        <field name="model">plan.view.agile.place.processus</field>
+        <field name="arch" type="xml">
+            <pivot string="Plan view agile place processus">
+                <field name="name" type="row" />
+                <field name="algo_key" type="row" />
+                <field name="bind_custom_field" type="row" />
+                <field name="model_name" type="row" />
+                <field name="parent_lane_name" type="row" />
+                <field name="root_lane_name" type="row" />
+            </pivot>
+        </field>
+    </record>
+
+    <record id="plan_view_agile_place_processus_view_search" model="ir.ui.view">
+        <field name="name">plan_view_agile_place_processus_search</field>
+        <field name="model">plan.view.agile.place.processus</field>
+        <field name="arch" type="xml">
+            <search string="Plan view agile place processus">
+                <filter domain="[('name','!=',False)]" name="name" string="Name" />
+                <filter domain="[('algo_key','!=',False)]" name="algo_key" string="Algo Key" />
+                <filter domain="[('bind_custom_field','!=',False)]" name="bind_custom_field" string="Bind Field" />
+                <filter domain="[('model_name','!=',False)]" name="model_name" string="Model Name" />
+                <filter domain="[('parent_lane_name','!=',False)]" name="parent_lane_name" string="Parent Lane Name" />
+                <filter domain="[('root_lane_name','!=',False)]" name="root_lane_name" string="Root Lane Name" />
+            </search>
+        </field>
+    </record>
+
+    <record id="plan_view_agile_place_processus_view_tree" model="ir.ui.view">
+        <field name="name">plan_view_agile_place_processus_tree</field>
+        <field name="model">plan.view.agile.place.processus</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name" />
+                <field name="algo_key" />
+                <field name="bind_custom_field" />
+                <field name="model_name" />
+                <field name="root_lane_name" />
+                <field name="sub_lane_name" />
+                <field name="parent_lane_name" />
+                <field name="type_card" />
+            </tree>
+        </field>
+    </record>
+
+    <act_window
+        id="plan_view_agile_place_processus_view_agile_place_processus_action_window"
+        name="View agile place processus"
+        res_model="plan.view.agile.place.processus"
+        view_mode="kanban,tree,pivot,graph,form"
+    />
+</odoo>
