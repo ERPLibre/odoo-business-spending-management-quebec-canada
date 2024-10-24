@@ -5,15 +5,23 @@
         <field name="model">plan.view.agile.place.card</field>
         <field name="arch" type="xml">
             <form string="Titre">
+                <header>
+                    <field name="lane_id" widget="statusbar" />
+                </header>
                 <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="toggle_active" type="object" class="oe_stat_button" icon="fa-archive">
+                            <field name="active" widget="boolean_button" options='{"terminology": "archive"}' />
+                        </button>
+                    </div>
+                    <!--                    <field name="active" invisible="1"/>-->
+                    <!--                    <widget name="web_ribbon" title="Archived" bg_color="bg-danger" attrs="{'invisible': [('active', '=', True)]}"/>-->
                     <group>
                         <field name="name" />
                     </group>
                     <group>
                         <field name="board_id" />
-                    </group>
-                    <group>
-                        <field name="lane_id" />
+                        <field name="card_id_pvap" />
                     </group>
                 </sheet>
             </form>
@@ -36,7 +44,7 @@
         <field name="name">plan_view_agile_place_card_kanban</field>
         <field name="model">plan.view.agile.place.card</field>
         <field name="arch" type="xml">
-            <kanban class="o_kanban_mobile">
+            <kanban default_group_by="lane_id">
                 <field name="name" />
                 <field name="board_id" />
                 <field name="lane_id" />

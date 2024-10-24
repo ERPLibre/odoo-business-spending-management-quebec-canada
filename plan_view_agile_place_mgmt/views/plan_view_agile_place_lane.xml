@@ -8,6 +8,7 @@
                 <sheet>
                     <group>
                         <field name="name" />
+                        <field name="lane_id_pvap" />
                     </group>
                 </sheet>
             </form>
