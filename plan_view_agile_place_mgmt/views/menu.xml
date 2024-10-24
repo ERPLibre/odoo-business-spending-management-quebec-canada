@@ -32,10 +32,26 @@
     />
 
     <menuitem
+        id="view_agile_place_card_type"
+        name="View agile place card type"
+        action="plan_view_agile_place_card_type_view_agile_place_card_type_action_window"
+        sequence="3"
+        parent="menu"
+    />
+
+    <menuitem
         id="view_agile_place_lane"
         name="View agile place lane"
         action="plan_view_agile_place_lane_view_agile_place_lane_action_window"
-        sequence="3"
+        sequence="4"
+        parent="menu"
+    />
+
+    <menuitem
+        id="view_agile_place_session"
+        name="View agile place session"
+        action="plan_view_agile_place_session_view_agile_place_session_action_window"
+        sequence="5"
         parent="menu"
     />
 </odoo>

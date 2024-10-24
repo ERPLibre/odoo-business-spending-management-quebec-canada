@@ -27,6 +27,9 @@
                     <group>
                         <field name="is_task_type" />
                     </group>
+                    <group>
+                        <field name="session_id" />
+                    </group>
                 </sheet>
             </form>
         </field>
@@ -44,6 +47,7 @@
                 <field name="is_default" type="row" />
                 <field name="is_default_task_type" type="row" />
                 <field name="is_task_type" type="row" />
+                <field name="session_id" type="row" />
             </graph>
         </field>
     </record>
@@ -60,6 +64,7 @@
                 <field name="is_default" />
                 <field name="is_default_task_type" />
                 <field name="is_task_type" />
+                <field name="session_id" />
                 <templates>
                     <t t-name="kanban-box">
                         <div t-attf-class="oe_kanban_global_click">
@@ -110,6 +115,11 @@
                                     <li class="text-danger float-right mb4" t-if="!record.is_task_type.raw_value">
                                         <i aria-label="Invalid" class="fa fa-circle" role="img" title="Invalid" />
                                     </li>
+                                    <li class="mb4">
+                                        <strong>
+                                            <field name="session_id" />
+                                        </strong>
+                                    </li>
                                 </ul>
                             </div>
                         </div>
@@ -131,6 +141,7 @@
                 <field name="is_default" type="row" />
                 <field name="is_default_task_type" type="row" />
                 <field name="is_task_type" type="row" />
+                <field name="session_id" type="row" />
             </pivot>
         </field>
     </record>
@@ -155,6 +166,7 @@
                     string="Is Default Task Type"
                 />
                 <filter domain="[('is_task_type','=',True)]" name="is_task_type" string="Is Task Type" />
+                <filter domain="[('session_id','!=',False)]" name="session_id" string="Session" />
             </search>
         </field>
     </record>
@@ -171,7 +183,15 @@
                 <field name="is_default" />
                 <field name="is_default_task_type" />
                 <field name="is_task_type" />
+                <field name="session_id" />
             </tree>
         </field>
     </record>
+
+    <act_window
+        id="plan_view_agile_place_card_type_view_agile_place_card_type_action_window"
+        name="View agile place card type"
+        res_model="plan.view.agile.place.card_type"
+        view_mode="kanban,tree,pivot,graph,form"
+    />
 </odoo>

@@ -10,6 +10,9 @@
                         <field name="name" />
                         <field name="board_id_pvap" />
                     </group>
+                    <group>
+                        <field name="session_id" />
+                    </group>
                 </sheet>
             </form>
         </field>
@@ -21,6 +24,8 @@
         <field name="arch" type="xml">
             <graph string="Plan view agile place board">
                 <field name="name" type="row" />
+                <field name="board_id_pvap" type="row" />
+                <field name="session_id" type="row" />
             </graph>
         </field>
     </record>
@@ -31,6 +36,8 @@
         <field name="arch" type="xml">
             <kanban class="o_kanban_mobile">
                 <field name="name" />
+                <field name="board_id_pvap" />
+                <field name="session_id" />
                 <templates>
                     <t t-name="kanban-box">
                         <div t-attf-class="oe_kanban_global_click">
@@ -39,6 +46,16 @@
                                     <li class="mb4">
                                         <strong>
                                             <field name="name" />
+                                        </strong>
+                                    </li>
+                                    <li class="mb4">
+                                        <strong>
+                                            <field name="board_id_pvap" />
+                                        </strong>
+                                    </li>
+                                    <li class="mb4">
+                                        <strong>
+                                            <field name="session_id" />
                                         </strong>
                                     </li>
                                 </ul>
@@ -56,6 +73,8 @@
         <field name="arch" type="xml">
             <pivot string="Plan view agile place board">
                 <field name="name" type="row" />
+                <field name="board_id_pvap" type="row" />
+                <field name="session_id" type="row" />
             </pivot>
         </field>
     </record>
@@ -66,6 +85,8 @@
         <field name="arch" type="xml">
             <search string="Plan view agile place board">
                 <filter domain="[('name','!=',False)]" name="name" string="Name" />
+                <filter domain="[('board_id_pvap','!=',False)]" name="board_id_pvap" string="Board Id Pvap" />
+                <filter domain="[('session_id','!=',False)]" name="session_id" string="Session" />
             </search>
         </field>
     </record>
@@ -76,6 +97,8 @@
         <field name="arch" type="xml">
             <tree>
                 <field name="name" />
+                <field name="board_id_pvap" />
+                <field name="session_id" />
             </tree>
         </field>
     </record>

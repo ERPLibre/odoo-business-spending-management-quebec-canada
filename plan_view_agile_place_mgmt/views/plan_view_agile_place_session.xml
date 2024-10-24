@@ -91,4 +91,11 @@
             </tree>
         </field>
     </record>
+
+    <act_window
+        id="plan_view_agile_place_session_view_agile_place_session_action_window"
+        name="View agile place session"
+        res_model="plan.view.agile.place.session"
+        view_mode="kanban,tree,pivot,graph,form"
+    />
 </odoo>

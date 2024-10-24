@@ -23,6 +23,12 @@
                         <field name="board_id" />
                         <field name="card_id_pvap" />
                     </group>
+                    <group>
+                        <field name="lane_id" />
+                    </group>
+                    <group>
+                        <field name="session_id" />
+                    </group>
                 </sheet>
             </form>
         </field>
@@ -35,7 +41,9 @@
             <graph string="Plan view agile place card">
                 <field name="name" type="row" />
                 <field name="board_id" type="row" />
+                <field name="card_id_pvap" type="row" />
                 <field name="lane_id" type="row" />
+                <field name="session_id" type="row" />
             </graph>
         </field>
     </record>
@@ -47,7 +55,9 @@
             <kanban default_group_by="lane_id">
                 <field name="name" />
                 <field name="board_id" />
+                <field name="card_id_pvap" />
                 <field name="lane_id" />
+                <field name="session_id" />
                 <templates>
                     <t t-name="kanban-box">
                         <div t-attf-class="oe_kanban_global_click">
@@ -65,7 +75,17 @@
                                     </li>
                                     <li class="mb4">
                                         <strong>
+                                            <field name="card_id_pvap" />
+                                        </strong>
+                                    </li>
+                                    <li class="mb4">
+                                        <strong>
                                             <field name="lane_id" />
+                                        </strong>
+                                    </li>
+                                    <li class="mb4">
+                                        <strong>
+                                            <field name="session_id" />
                                         </strong>
                                     </li>
                                 </ul>
@@ -84,7 +104,9 @@
             <pivot string="Plan view agile place card">
                 <field name="name" type="row" />
                 <field name="board_id" type="row" />
+                <field name="card_id_pvap" type="row" />
                 <field name="lane_id" type="row" />
+                <field name="session_id" type="row" />
             </pivot>
         </field>
     </record>
@@ -95,8 +117,11 @@
         <field name="arch" type="xml">
             <search string="Plan view agile place card">
                 <filter domain="[('name','!=',False)]" name="name" string="Name" />
+                <filter domain="[('active','=',False)]" name="Inactive" string="Inactive Plan view agile place card" />
                 <filter domain="[('board_id','!=',False)]" name="board_id" string="Board" />
+                <filter domain="[('card_id_pvap','!=',False)]" name="card_id_pvap" string="Card Id Pvap" />
                 <filter domain="[('lane_id','!=',False)]" name="lane_id" string="Lane" />
+                <filter domain="[('session_id','!=',False)]" name="session_id" string="Session" />
             </search>
         </field>
     </record>
@@ -108,7 +133,9 @@
             <tree>
                 <field name="name" />
                 <field name="board_id" />
+                <field name="card_id_pvap" />
                 <field name="lane_id" />
+                <field name="session_id" />
             </tree>
         </field>
     </record>
