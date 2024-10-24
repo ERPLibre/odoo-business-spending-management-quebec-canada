@@ -36,6 +36,12 @@ class PlanViewAgilePlaceSession(models.Model):
     )
 
     def request_api_get(self, path, data=None):
+        return self._request_api(path, requests.get, data=data)
+
+    def request_api_post(self, path, data=None):
+        return self._request_api(path, requests.post, data=data)
+
+    def _request_api(self, path, cb_type_request, data=None):
         headers = {
             "Content-Type": "application/json",
             "Authorization": "Bearer " + self.api_token,
@@ -44,9 +50,9 @@ class PlanViewAgilePlaceSession(models.Model):
         json_data = None
         if data:
             json_data = json.dumps(data)
-            response = requests.get(url, headers=headers, data=json_data)
+            response = cb_type_request(url, headers=headers, data=json_data)
         else:
-            response = requests.get(url, headers=headers)
+            response = cb_type_request(url, headers=headers)
 
         response_data = json.loads(response.text)
 
@@ -67,14 +73,7 @@ class PlanViewAgilePlaceSession(models.Model):
             "plan.view.agile.place.request_history"
         ].create(request_history_value)
 
-        # print(response)
-        # print(response.status_code)  # Affiche le code de statut (ex: 200, 404)
-        # print(response.text)  # Affiche le contenu de la réponse
-        # print(response.headers)  # Affiche les en-têtes de la réponse
         return response.status_code, response_data
-
-    def request_api_post(self, path, data):
-        pass
 
     @api.multi
     def action_sync(self):
@@ -132,5 +131,41 @@ class PlanViewAgilePlaceSession(models.Model):
                 size = dct_card.get("size")
                 version = dct_card.get("version")
 
+                card_type_id = self.env[
+                    "plan.view.agile.place.card.type"
+                ].search([("card_type_id_pvap", "=", type_id_pvap)], limit=1)
+
+                lane_id = self.env["plan.view.agile.place.lane"].search(
+                    [("lane_id_pvap", "=", lane_id_pvap)], limit=1
+                )
+
+                board_id = self.env["plan.view.agile.place.board"].search(
+                    [("board_id_pvap", "=", board_id_pvap)], limit=1
+                )
+
+                card_value = {
+                    "card_id_pvap": card_id_pvap,
+                    "active": True if archived_on is None else False,
+                    "card_type_id": card_type_id.id if card_type_id else False,
+                    "lane_id": lane_id.id if lane_id else False,
+                    "board_id": board_id.id if board_id else False,
+                    "moved_on": moved_on,
+                    "name": title,
+                    "size": size,
+                    "version": version,
+                    "session_id": rec.id,
+                }
+
+                # Search if exist or create it
+                card_id = self.env["plan.view.agile.place.card"].search(
+                    [("card_id_pvap", "=", card_id_pvap)], limit=1
+                )
+                if card_id:
+                    # Update it
+                    card_id.name = title
+                else:
+                    card_id = self.env["plan.view.agile.place.card"].create(
+                        card_value
+                    )
             # TODO update employe information
             # TODO faire une configuration de la lane qui contient les cartes d'employés

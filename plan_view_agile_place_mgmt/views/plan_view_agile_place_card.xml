@@ -29,9 +29,11 @@
                         <field name="lane_id" />
                         <field name="moved_on" />
                         <field name="session_id" />
-                    </group>
                         <field name="size" />
                         <field name="version" />
+                        <field name="lane_name_unique" />
+                        <field name="lane_parent_name" />
+                    </group>
                 </sheet>
             </form>
         </field>
@@ -55,7 +57,7 @@
         <field name="name">plan_view_agile_place_card_kanban</field>
         <field name="model">plan.view.agile.place.card</field>
         <field name="arch" type="xml">
-            <kanban default_group_by="lane_id">
+            <kanban default_group_by="lane_name_unique">
                 <field name="name" />
                 <field name="board_id" />
                 <field name="card_id_pvap" />
@@ -119,12 +121,11 @@
         <field name="model">plan.view.agile.place.card</field>
         <field name="arch" type="xml">
             <search string="Plan view agile place card">
-                <filter domain="[('name','!=',False)]" name="name" string="Name" />
-                <filter domain="[('active','=',False)]" name="Inactive" string="Inactive Plan view agile place card" />
-                <filter domain="[('board_id','!=',False)]" name="board_id" string="Board" />
-                <filter domain="[('card_id_pvap','!=',False)]" name="card_id_pvap" string="Card Id Pvap" />
-                <filter domain="[('lane_id','!=',False)]" name="lane_id" string="Lane" />
-                <filter domain="[('session_id','!=',False)]" name="session_id" string="Session" />
+                <field name="name" />
+                <field name="lane_parent_name" />
+                <group string="Group By" expand="1">
+                    <filter name="lane_name_unique" string="Unique lane" context="{'group_by':'lane_name_unique'}" />
+                </group>
             </search>
         </field>
     </record>
