@@ -11,7 +11,9 @@ class PlanViewAgilePlaceCardType(models.Model):
 
     name = fields.Char()
 
-    card_type_id_pvap = fields.Char()
+    card_type_id_pvap = fields.Char(
+        readonly=True, help="Plan View Agile Plane - Card type ID"
+    )
 
     color_hex = fields.Char()
 

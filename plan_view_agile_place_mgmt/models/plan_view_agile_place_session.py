@@ -9,6 +9,8 @@ class PlanViewAgilePlaceSession(models.Model):
     _name = "plan.view.agile.place.session"
     _description = "plan_view_agile_place_session"
 
-    name = fields.Char()
+    name = fields.Char(
+        string="URL", required=True, default="https://myaccount.leankit.com"
+    )
 
-    api_token = fields.Char()
+    api_token = fields.Char(required=True)
