@@ -11,31 +11,22 @@
                         <h1>
                             <field name="name" />
                         </h1>
+                    </div>
                     <div class="oe_button_box" name="button_box">
                         <button class="oe_stat_button" icon="fa-archive" name="toggle_active" type="object">
                             <field name="active" widget="boolean_button" />
                         </button>
                     </div>
                     <group>
-                        <field name="is_collapsed" />
-                    </group>
-                    <group>
-                        <field name="lane_class_type" />
-                    </group>
-                    <group>
-                        <field name="lane_id_pvap" />
-                    <group>
-                        <field name="lane_type" />
-                    </group>
-                    <group>
-                        <field name="orientation" />
-                    </group>
-                    <group>
-                        <field name="parent_lane_id" />
-                    </group>
-                    <group>
+                        <field name="board_id" />
                         <field name="sequence" />
-                    </group>
+                        <field name="description" />
+                        <field name="is_collapsed" />
+                        <field name="lane_class_type" />
+                        <field name="lane_id_pvap" />
+                        <field name="lane_type" />
+                        <field name="orientation" />
+                        <field name="parent_lane_id" />
                         <field name="session_id" />
                     </group>
                 </sheet>
@@ -112,6 +103,9 @@
                 <filter domain="[('name','!=',False)]" name="name" string="Name" />
                 <filter domain="[('lane_id_pvap','!=',False)]" name="lane_id_pvap" string="Lane Id Pvap" />
                 <filter domain="[('session_id','!=',False)]" name="session_id" string="Session" />
+                <group string="Group By" expand="1">
+                    <filter name="parent_lane_id" string="Parent" context="{'group_by':'parent_lane_id'}" />
+                </group>
             </search>
         </field>
     </record>

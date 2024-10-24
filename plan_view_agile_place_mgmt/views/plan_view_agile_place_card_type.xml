@@ -13,6 +13,7 @@
                         </h1>
                     </div>
                     <group>
+                        <field name="board_id" />
                         <field name="card_type_id_pvap" />
                         <field name="color_hex" />
                         <field name="is_card_type" />

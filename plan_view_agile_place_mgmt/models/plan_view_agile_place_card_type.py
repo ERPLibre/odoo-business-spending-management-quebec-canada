@@ -29,3 +29,9 @@ class PlanViewAgilePlaceCardType(models.Model):
         comodel_name="plan.view.agile.place.session",
         string="Session",
     )
+
+    board_id = fields.Many2one(
+        comodel_name="plan.view.agile.place.board",
+        required=True,
+        string="Board",
+    )

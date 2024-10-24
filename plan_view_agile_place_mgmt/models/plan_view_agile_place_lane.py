@@ -11,6 +11,8 @@ class PlanViewAgilePlaceLane(models.Model):
 
     name = fields.Char()
 
+    description = fields.Char()
+
     active = fields.Boolean()
 
     is_collapsed = fields.Boolean()
@@ -23,9 +25,17 @@ class PlanViewAgilePlaceLane(models.Model):
 
     orientation = fields.Char()
 
-    parent_lane_id = fields.Integer(string="Parent Lane")
+    parent_lane_id = fields.Many2one(
+        string="Parent Lane", comodel_name="plan.view.agile.place.lane"
+    )
 
     sequence = fields.Integer()
+
+    board_id = fields.Many2one(
+        comodel_name="plan.view.agile.place.board",
+        required=True,
+        string="Board",
+    )
 
     session_id = fields.Many2one(
         comodel_name="plan.view.agile.place.session",
