@@ -10,7 +10,13 @@
                         <field name="name" />
                     </group>
                     <group>
+                        <field name="type" />
                         <field name="session_id" />
+                        <field name="request_server_date" />
+                        <field name="status_code" />
+                        <field name="is_success" />
+                        <field name="send_data" />
+                        <field name="response_data" />
                     </group>
                 </sheet>
             </form>
@@ -86,7 +92,11 @@
         <field name="model">plan.view.agile.place.request_history</field>
         <field name="arch" type="xml">
             <tree>
+                <field name="request_server_date" />
                 <field name="name" />
+                <field name="type" />
+                <field name="status_code" />
+                <field name="is_success" />
                 <field name="session_id" />
             </tree>
         </field>

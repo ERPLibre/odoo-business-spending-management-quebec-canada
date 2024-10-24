@@ -25,6 +25,11 @@
                                 <field name="board_ids" />
                             </group>
                         </page>
+                        <page string="Requests">
+                            <group>
+                                <field name="request_history_ids" />
+                            </group>
+                        </page>
                     </notebook>
                 </sheet>
             </form>

@@ -11,55 +11,57 @@
 
     <!--Sub menu-->
 
-    <menuitem id="menu" name="Plan View Agile Place" sequence="1" parent="plan_view_agile_place_mgmt" />
+    <menuitem id="menu_connexion" name="Connexion" sequence="1" parent="plan_view_agile_place_mgmt" />
+
+    <menuitem id="menu_data" name="Data" sequence="1" parent="plan_view_agile_place_mgmt" />
 
     <!--Child menu-->
 
     <menuitem
         id="view_agile_place_session"
-        name="session"
+        name="Session"
         action="plan_view_agile_place_session_view_agile_place_session_action_window"
-        sequence="0"
-        parent="menu"
-    />
-
-    <menuitem
-        id="view_agile_place_board"
-        name="board"
-        action="plan_view_agile_place_board_view_agile_place_board_action_window"
         sequence="1"
-        parent="menu"
-    />
-
-    <menuitem
-        id="view_agile_place_card"
-        name="card"
-        action="plan_view_agile_place_card_view_agile_place_card_action_window"
-        sequence="2"
-        parent="menu"
-    />
-
-    <menuitem
-        id="view_agile_place_card_type"
-        name="card type"
-        action="plan_view_agile_place_card_type_view_agile_place_card_type_action_window"
-        sequence="3"
-        parent="menu"
-    />
-
-    <menuitem
-        id="view_agile_place_lane"
-        name="lane"
-        action="plan_view_agile_place_lane_view_agile_place_lane_action_window"
-        sequence="4"
-        parent="menu"
+        parent="menu_connexion"
     />
 
     <menuitem
         id="view_agile_place_request_history"
-        name="View agile place request history"
+        name="Request history"
         action="plan_view_agile_place_request_history_view_agile_place_request_history_action_window"
-        sequence="5"
-        parent="menu"
+        sequence="2"
+        parent="menu_connexion"
+    />
+
+    <menuitem
+        id="view_agile_place_board"
+        name="Board"
+        action="plan_view_agile_place_board_view_agile_place_board_action_window"
+        sequence="1"
+        parent="menu_data"
+    />
+
+    <menuitem
+        id="view_agile_place_lane"
+        name="Lane"
+        action="plan_view_agile_place_lane_view_agile_place_lane_action_window"
+        sequence="2"
+        parent="menu_data"
+    />
+
+    <menuitem
+        id="view_agile_place_card"
+        name="Card"
+        action="plan_view_agile_place_card_view_agile_place_card_action_window"
+        sequence="3"
+        parent="menu_data"
+    />
+
+    <menuitem
+        id="view_agile_place_card_type"
+        name="Card type"
+        action="plan_view_agile_place_card_type_view_agile_place_card_type_action_window"
+        sequence="4"
+        parent="menu_data"
     />
 </odoo>
