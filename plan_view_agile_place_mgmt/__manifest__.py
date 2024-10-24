@@ -11,8 +11,8 @@
         "views/plan_view_agile_place_card.xml",
         "views/plan_view_agile_place_card_type.xml",
         "views/plan_view_agile_place_lane.xml",
-        "views/menu.xml",
         "views/plan_view_agile_place_session.xml",
+        "views/menu.xml",
     ],
     "installable": True,
 }
