@@ -11,7 +11,21 @@ class PlanViewAgilePlaceLane(models.Model):
 
     name = fields.Char()
 
+    active = fields.Boolean()
+
+    is_collapsed = fields.Boolean()
+
+    lane_class_type = fields.Char()
+
     lane_id_pvap = fields.Char(help="Plan View Agile Plane - Lane ID")
+
+    lane_type = fields.Char()
+
+    orientation = fields.Char()
+
+    parent_lane_id = fields.Integer(string="Parent Lane")
+
+    sequence = fields.Integer()
 
     session_id = fields.Many2one(
         comodel_name="plan.view.agile.place.session",
