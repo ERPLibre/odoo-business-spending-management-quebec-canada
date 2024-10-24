@@ -25,9 +25,13 @@
                     <group>
                         <field name="board_id" />
                         <field name="card_id_pvap" />
+                        <field name="card_type_id" />
                         <field name="lane_id" />
+                        <field name="moved_on" />
                         <field name="session_id" />
                     </group>
+                        <field name="size" />
+                        <field name="version" />
                 </sheet>
             </form>
         </field>

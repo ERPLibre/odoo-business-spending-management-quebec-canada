@@ -31,6 +31,9 @@ class PlanViewAgilePlaceCard(models.Model):
 
     card_id_pvap = fields.Char(
         readonly=True, help="Plan View Agile Plane - Card ID"
+    card_type_id = fields.Many2one(
+        comodel_name="plan.view.agile.place.card.type",
+        string="Card Type",
     )
 
     lane_id = fields.Many2one(
@@ -40,6 +43,8 @@ class PlanViewAgilePlaceCard(models.Model):
         default=lambda self: self._default_stage(),
     )
 
+    moved_on = fields.Datetime()
+
     session_id = fields.Many2one(
         comodel_name="plan.view.agile.place.session",
         string="Session",
@@ -48,6 +53,7 @@ class PlanViewAgilePlaceCard(models.Model):
     @api.returns("self")
     def _default_stage(self):
         return self.env["plan.view.agile.place.lane"].search([], limit=1)
+    size = fields.Integer()
 
     @api.model
     def _read_group_lane_ids(self, stages, domain, order):
@@ -98,3 +104,4 @@ class PlanViewAgilePlaceCard(models.Model):
                 if response.status_code != 200:
                     return False
         return status
+    version = fields.Integer()
