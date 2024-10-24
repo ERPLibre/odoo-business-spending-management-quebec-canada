@@ -6,28 +6,19 @@
         <field name="arch" type="xml">
             <form string="Titre">
                 <sheet>
-                    <group>
-                        <field name="name" />
-                    </group>
+                    <div class="oe_title">
+                        <label for="name" class="oe_edit_only" />
+                        <h1>
+                            <field name="name" />
+                        </h1>
+                    </div>
                     <group>
                         <field name="card_type_id_pvap" />
-                    </group>
-                    <group>
                         <field name="color_hex" />
-                    </group>
-                    <group>
                         <field name="is_card_type" />
-                    </group>
-                    <group>
                         <field name="is_default" />
-                    </group>
-                    <group>
                         <field name="is_default_task_type" />
-                    </group>
-                    <group>
                         <field name="is_task_type" />
-                    </group>
-                    <group>
                         <field name="session_id" />
                     </group>
                 </sheet>

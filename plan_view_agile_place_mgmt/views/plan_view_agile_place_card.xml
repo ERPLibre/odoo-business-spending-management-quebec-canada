@@ -14,19 +14,18 @@
                             <field name="active" widget="boolean_button" options='{"terminology": "archive"}' />
                         </button>
                     </div>
+                    <div class="oe_title">
+                        <label for="name" class="oe_edit_only" />
+                        <h1>
+                            <field name="name" />
+                        </h1>
+                    </div>
                     <!--                    <field name="active" invisible="1"/>-->
                     <!--                    <widget name="web_ribbon" title="Archived" bg_color="bg-danger" attrs="{'invisible': [('active', '=', True)]}"/>-->
                     <group>
-                        <field name="name" />
-                    </group>
-                    <group>
                         <field name="board_id" />
                         <field name="card_id_pvap" />
-                    </group>
-                    <group>
                         <field name="lane_id" />
-                    </group>
-                    <group>
                         <field name="session_id" />
                     </group>
                 </sheet>

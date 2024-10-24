@@ -14,3 +14,13 @@ class PlanViewAgilePlaceSession(models.Model):
     )
 
     api_token = fields.Char(required=True)
+
+    has_first_sync = fields.Boolean(
+        default=False, readonly=True, help="Will be True when first sync done."
+    )
+
+    @api.multi
+    def action_sync(self):
+        for rec in self:
+            print("ok")
+            rec.has_first_sync = True
