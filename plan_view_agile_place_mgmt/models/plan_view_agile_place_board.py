@@ -70,6 +70,7 @@ class PlanViewAgilePlaceBoard(models.Model):
                 lane_type = dct_lane.get("laneType")
                 orientation = dct_lane.get("orientation")
                 sequence = dct_lane.get("index")
+                columns = dct_lane.get("columns")
                 # activityId
                 # archiveCardCount
                 # cardCount
@@ -93,7 +94,7 @@ class PlanViewAgilePlaceBoard(models.Model):
                     lane_id.name = lane_name
                 else:
                     value = {
-                        "name": lane_name,
+                        "title": lane_name,
                         "lane_id_pvap": lane_id_pvap,
                         "active": active,
                         "is_collapsed": is_collapsed,
@@ -101,6 +102,7 @@ class PlanViewAgilePlaceBoard(models.Model):
                         "lane_type": lane_type,
                         "orientation": orientation,
                         "sequence": sequence,
+                        "columns": columns,
                         "board_id": rec.id,
                         "session_id": rec.session_id.id,
                     }

@@ -18,10 +18,12 @@
                         </button>
                     </div>
                     <group>
+                        <field name="title" />
                         <field name="board_id" />
                         <field name="sequence" />
                         <field name="description" />
                         <field name="is_collapsed" />
+                        <field name="columns" />
                         <field name="lane_class_type" />
                         <field name="lane_id_pvap" />
                         <field name="lane_type" />

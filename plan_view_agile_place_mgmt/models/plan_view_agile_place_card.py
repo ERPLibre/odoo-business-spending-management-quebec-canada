@@ -51,10 +51,6 @@ class PlanViewAgilePlaceCard(models.Model):
         store=True,
     )
 
-    lane_name_unique = fields.Char(
-        compute="_compute_lane_name_unique", store=True
-    )
-
     moved_on = fields.Datetime()
 
     session_id = fields.Many2one(
@@ -70,21 +66,13 @@ class PlanViewAgilePlaceCard(models.Model):
     def _default_stage(self):
         return self.env["plan.view.agile.place.lane"].search([], limit=1)
 
-    @api.depends("lane_id")
-    def _compute_lane_name_unique(self):
-        for rec in self:
-            if not rec.lane_id:
-                rec.lane_name_unique = ""
-            elif rec.lane_id.parent_lane_id:
-                rec.lane_name_unique = (
-                    f"{rec.lane_id.parent_lane_id.name}/{rec.lane_id.name}"
-                )
-            else:
-                rec.lane_name_unique = f"/{rec.lane_id.name}"
-
     @api.model
     def _read_group_lane_ids(self, stages, domain, order):
-        return self.env["plan.view.agile.place.lane"].search([], order=order)
+        return (
+            self.env["plan.view.agile.place.lane"]
+            .search([], order=order)
+            .sorted("name")
+        )
 
     @api.model_create_multi
     def create(self, vals_list):

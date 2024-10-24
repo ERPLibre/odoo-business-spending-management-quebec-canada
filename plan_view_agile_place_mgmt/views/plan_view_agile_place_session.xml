@@ -16,7 +16,7 @@
                         </h1>
                     </div>
                     <group>
-                        <field name="api_token" />
+                        <field name="api_token" type="password" password="True" />
                         <field name="has_first_sync" />
                     </group>
                     <notebook>

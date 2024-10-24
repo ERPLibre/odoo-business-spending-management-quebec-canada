@@ -31,7 +31,6 @@
                         <field name="session_id" />
                         <field name="size" />
                         <field name="version" />
-                        <field name="lane_name_unique" />
                         <field name="lane_parent_name" />
                     </group>
                 </sheet>
@@ -57,7 +56,7 @@
         <field name="name">plan_view_agile_place_card_kanban</field>
         <field name="model">plan.view.agile.place.card</field>
         <field name="arch" type="xml">
-            <kanban default_group_by="lane_name_unique">
+            <kanban default_group_by="lane_id">
                 <field name="name" />
                 <field name="board_id" />
                 <field name="card_id_pvap" />
@@ -124,7 +123,7 @@
                 <field name="name" />
                 <field name="lane_parent_name" />
                 <group string="Group By" expand="1">
-                    <filter name="lane_name_unique" string="Unique lane" context="{'group_by':'lane_name_unique'}" />
+                    <filter name="lane_id" string="Lane" context="{'group_by':'lane_id'}" />
                 </group>
             </search>
         </field>

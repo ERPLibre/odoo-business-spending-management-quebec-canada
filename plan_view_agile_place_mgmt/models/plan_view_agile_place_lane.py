@@ -8,8 +8,11 @@ from odoo import _, api, fields, models
 class PlanViewAgilePlaceLane(models.Model):
     _name = "plan.view.agile.place.lane"
     _description = "plan_view_agile_place_lane"
+    _order = "name,id"
 
-    name = fields.Char()
+    name = fields.Char(compute="_compute_name")
+
+    title = fields.Char()
 
     description = fields.Char()
 
@@ -31,6 +34,8 @@ class PlanViewAgilePlaceLane(models.Model):
 
     sequence = fields.Integer()
 
+    columns = fields.Integer()
+
     board_id = fields.Many2one(
         comodel_name="plan.view.agile.place.board",
         required=True,
@@ -41,3 +46,16 @@ class PlanViewAgilePlaceLane(models.Model):
         comodel_name="plan.view.agile.place.session",
         string="Session",
     )
+
+    @api.depends("title", "parent_lane_id")
+    def _compute_name(self):
+        for rec in self:
+            # seq = f"{rec.columns}.{rec.sequence} "
+            # seq = f"{rec.sequence} "
+            if rec.parent_lane_id:
+                # rec.name = (
+                #     f"{rec.parent_lane_id.name}/{rec.title}"
+                # )
+                rec.name = f"/[{rec.parent_lane_id.sequence}]{rec.parent_lane_id.title}/[{rec.sequence}]{rec.title}"
+            else:
+                rec.name = f"/[{rec.sequence}]{rec.title}"
