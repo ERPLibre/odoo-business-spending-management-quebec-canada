@@ -39,6 +39,11 @@ class PlanViewAgilePlaceCard(models.Model):
         default=lambda self: self._default_stage(),
     )
 
+    session_id = fields.Many2one(
+        comodel_name="plan.view.agile.place.session",
+        string="Session",
+    )
+
     @api.returns("self")
     def _default_stage(self):
         return self.env["plan.view.agile.place.lane"].search([], limit=1)
@@ -92,8 +97,3 @@ class PlanViewAgilePlaceCard(models.Model):
                 if response.status_code != 200:
                     return False
         return status
-
-    session_id = fields.Many2one(
-        comodel_name="plan.view.agile.place.session",
-        string="Session",
-    )

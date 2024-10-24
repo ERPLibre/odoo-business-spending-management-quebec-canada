@@ -4,20 +4,28 @@
 
     <menuitem
         id="plan_view_agile_place_mgmt"
-        name="Plan View Agile Place Mgmt"
+        name="Plan Mgmt"
         sequence="20"
         web_icon="plan_view_agile_place_mgmt,static/description/icon.png"
     />
 
     <!--Sub menu-->
 
-    <menuitem id="menu" name="Menu" sequence="1" parent="plan_view_agile_place_mgmt" />
+    <menuitem id="menu" name="Plan View Agile Place" sequence="1" parent="plan_view_agile_place_mgmt" />
 
     <!--Child menu-->
 
     <menuitem
+        id="view_agile_place_session"
+        name="session"
+        action="plan_view_agile_place_session_view_agile_place_session_action_window"
+        sequence="0"
+        parent="menu"
+    />
+
+    <menuitem
         id="view_agile_place_board"
-        name="View agile place board"
+        name="board"
         action="plan_view_agile_place_board_view_agile_place_board_action_window"
         sequence="1"
         parent="menu"
@@ -25,7 +33,7 @@
 
     <menuitem
         id="view_agile_place_card"
-        name="View agile place card"
+        name="card"
         action="plan_view_agile_place_card_view_agile_place_card_action_window"
         sequence="2"
         parent="menu"
@@ -33,7 +41,7 @@
 
     <menuitem
         id="view_agile_place_card_type"
-        name="View agile place card type"
+        name="card type"
         action="plan_view_agile_place_card_type_view_agile_place_card_type_action_window"
         sequence="3"
         parent="menu"
@@ -41,17 +49,9 @@
 
     <menuitem
         id="view_agile_place_lane"
-        name="View agile place lane"
+        name="lane"
         action="plan_view_agile_place_lane_view_agile_place_lane_action_window"
         sequence="4"
-        parent="menu"
-    />
-
-    <menuitem
-        id="view_agile_place_session"
-        name="View agile place session"
-        action="plan_view_agile_place_session_view_agile_place_session_action_window"
-        sequence="5"
         parent="menu"
     />
 </odoo>
