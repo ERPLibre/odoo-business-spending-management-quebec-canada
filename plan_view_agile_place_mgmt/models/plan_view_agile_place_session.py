@@ -80,6 +80,9 @@ class PlanViewAgilePlaceSession(models.Model):
     def action_sync(self):
         for rec in self:
             # Get all board
+            # TODO configuration board
+            # champs personnalisés champs telephone
+            # effacer une carte
             status, response = rec.request_api_get("/io/board")
             if status != 200:
                 continue
@@ -112,4 +115,22 @@ class PlanViewAgilePlaceSession(models.Model):
                 # Refresh all board information
                 board_id.action_sync()
 
+            # Get all cards
+            status, response = rec.request_api_get("/io/card")
+
             rec.has_first_sync = True
+            lst_cards = response.get("cards")
+            # Generate cards
+            for dct_card in lst_cards:
+                card_id_pvap = dct_card.get("id")
+                archived_on = dct_card.get("archivedOn")
+                lane_id_pvap = dct_card.get("lane").get("id")
+                board_id_pvap = dct_card.get("board").get("id")
+                moved_on = dct_card.get("movedOn")
+                type_id_pvap = dct_card.get("type").get("id")
+                title = dct_card.get("title")
+                size = dct_card.get("size")
+                version = dct_card.get("version")
+
+            # TODO update employe information
+            # TODO faire une configuration de la lane qui contient les cartes d'employés

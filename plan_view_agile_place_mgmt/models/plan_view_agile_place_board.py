@@ -70,6 +70,20 @@ class PlanViewAgilePlaceBoard(models.Model):
                 lane_type = dct_lane.get("laneType")
                 orientation = dct_lane.get("orientation")
                 sequence = dct_lane.get("index")
+                # activityId
+                # archiveCardCount
+                # cardCount
+                # cardLimit
+                # cardSize
+                # cardStatus
+                # columns
+                # creationDate
+                # description
+                # isConnectionDoneLane
+                # isDefaultDropLane
+                # sortBy
+                # subscriptionId
+                # wipLimit
 
                 lane_id = self.env["plan.view.agile.place.lane"].search(
                     [("lane_id_pvap", "=", lane_id_pvap)], limit=1
@@ -112,4 +126,3 @@ class PlanViewAgilePlaceBoard(models.Model):
                     )
                     if parent_lane_id:
                         lane_id.parent_lane_id = parent_lane_id.id
-            print(status)
