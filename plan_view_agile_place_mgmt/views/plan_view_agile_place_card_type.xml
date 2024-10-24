@@ -2,7 +2,7 @@
 <odoo>
     <record id="plan_view_agile_place_card_type_view_form" model="ir.ui.view">
         <field name="name">plan_view_agile_place_card_type_form</field>
-        <field name="model">plan.view.agile.place.card_type</field>
+        <field name="model">plan.view.agile.place.card.type</field>
         <field name="arch" type="xml">
             <form string="Titre">
                 <sheet>
@@ -28,7 +28,7 @@
 
     <record id="plan_view_agile_place_card_type_view_graph" model="ir.ui.view">
         <field name="name">plan_view_agile_place_card_type_graph</field>
-        <field name="model">plan.view.agile.place.card_type</field>
+        <field name="model">plan.view.agile.place.card.type</field>
         <field name="arch" type="xml">
             <graph string="Plan view agile place card type">
                 <field name="name" type="row" />
@@ -45,7 +45,7 @@
 
     <record id="plan_view_agile_place_card_type_view_kanban" model="ir.ui.view">
         <field name="name">plan_view_agile_place_card_type_kanban</field>
-        <field name="model">plan.view.agile.place.card_type</field>
+        <field name="model">plan.view.agile.place.card.type</field>
         <field name="arch" type="xml">
             <kanban class="o_kanban_mobile">
                 <field name="name" />
@@ -122,7 +122,7 @@
 
     <record id="plan_view_agile_place_card_type_view_pivot" model="ir.ui.view">
         <field name="name">plan_view_agile_place_card_type_pivot</field>
-        <field name="model">plan.view.agile.place.card_type</field>
+        <field name="model">plan.view.agile.place.card.type</field>
         <field name="arch" type="xml">
             <pivot string="Plan view agile place card type">
                 <field name="name" type="row" />
@@ -139,7 +139,7 @@
 
     <record id="plan_view_agile_place_card_type_view_search" model="ir.ui.view">
         <field name="name">plan_view_agile_place_card_type_search</field>
-        <field name="model">plan.view.agile.place.card_type</field>
+        <field name="model">plan.view.agile.place.card.type</field>
         <field name="arch" type="xml">
             <search string="Plan view agile place card type">
                 <filter domain="[('name','!=',False)]" name="name" string="Name" />
@@ -164,7 +164,7 @@
 
     <record id="plan_view_agile_place_card_type_view_tree" model="ir.ui.view">
         <field name="name">plan_view_agile_place_card_type_tree</field>
-        <field name="model">plan.view.agile.place.card_type</field>
+        <field name="model">plan.view.agile.place.card.type</field>
         <field name="arch" type="xml">
             <tree>
                 <field name="name" />
@@ -182,7 +182,7 @@
     <act_window
         id="plan_view_agile_place_card_type_view_agile_place_card_type_action_window"
         name="View agile place card type"
-        res_model="plan.view.agile.place.card_type"
+        res_model="plan.view.agile.place.card.type"
         view_mode="kanban,tree,pivot,graph,form"
     />
 </odoo>

@@ -19,7 +19,8 @@ class PlanViewAgilePlaceCard(models.Model):
     name = fields.Char(required=True)
 
     active = fields.Boolean(
-        help="Set active to false to hide the card without deleting it."
+        default=True,
+        help="Set active to false to hide the card without deleting it.",
     )
 
     board_id = fields.Many2one(

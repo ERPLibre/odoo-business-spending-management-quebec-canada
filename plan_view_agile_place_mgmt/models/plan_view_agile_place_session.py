@@ -84,8 +84,10 @@ class PlanViewAgilePlaceSession(models.Model):
             if status != 200:
                 continue
             lst_boards = response.get("boards")
+            # Generate boards
             for dct_board in lst_boards:
                 board_id_pvap = dct_board.get("id")
+                # TODO add this field into board
                 board_role = dct_board.get("boardRole")
                 board_role_id_no = dct_board.get("boardRoleId")
                 board_description = dct_board.get("description")
@@ -107,4 +109,7 @@ class PlanViewAgilePlaceSession(models.Model):
                     board_id = self.env["plan.view.agile.place.board"].create(
                         board_value
                     )
+                # Refresh all board information
+                board_id.action_sync()
+
             rec.has_first_sync = True

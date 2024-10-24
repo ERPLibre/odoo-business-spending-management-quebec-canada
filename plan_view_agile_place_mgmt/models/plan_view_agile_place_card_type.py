@@ -6,7 +6,7 @@ from odoo import _, api, fields, models
 
 
 class PlanViewAgilePlaceCardType(models.Model):
-    _name = "plan.view.agile.place.card_type"
+    _name = "plan.view.agile.place.card.type"
     _description = "plan_view_agile_place_card_type"
 
     name = fields.Char()
