@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="plan_view_agile_place_card_type_view_form" model="ir.ui.view">
+        <field name="name">plan_view_agile_place_card_type_form</field>
+        <field name="model">plan.view.agile.place.card_type</field>
+        <field name="arch" type="xml">
+            <form string="Titre">
+                <sheet>
+                    <group>
+                        <field name="name" />
+                    </group>
+                    <group>
+                        <field name="card_type_id_pvap" />
+                    </group>
+                    <group>
+                        <field name="color_hex" />
+                    </group>
+                    <group>
+                        <field name="is_card_type" />
+                    </group>
+                    <group>
+                        <field name="is_default" />
+                    </group>
+                    <group>
+                        <field name="is_default_task_type" />
+                    </group>
+                    <group>
+                        <field name="is_task_type" />
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="plan_view_agile_place_card_type_view_graph" model="ir.ui.view">
+        <field name="name">plan_view_agile_place_card_type_graph</field>
+        <field name="model">plan.view.agile.place.card_type</field>
+        <field name="arch" type="xml">
+            <graph string="Plan view agile place card type">
+                <field name="name" type="row" />
+                <field name="card_type_id_pvap" type="row" />
+                <field name="color_hex" type="row" />
+                <field name="is_card_type" type="row" />
+                <field name="is_default" type="row" />
+                <field name="is_default_task_type" type="row" />
+                <field name="is_task_type" type="row" />
+            </graph>
+        </field>
+    </record>
+
+    <record id="plan_view_agile_place_card_type_view_kanban" model="ir.ui.view">
+        <field name="name">plan_view_agile_place_card_type_kanban</field>
+        <field name="model">plan.view.agile.place.card_type</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile">
+                <field name="name" />
+                <field name="card_type_id_pvap" />
+                <field name="color_hex" />
+                <field name="is_card_type" />
+                <field name="is_default" />
+                <field name="is_default_task_type" />
+                <field name="is_task_type" />
+                <templates>
+                    <t t-name="kanban-box">
+                        <div t-attf-class="oe_kanban_global_click">
+                            <div class="oe_kanban_details">
+                                <ul>
+                                    <li class="mb4">
+                                        <strong>
+                                            <field name="name" />
+                                        </strong>
+                                    </li>
+                                    <li class="mb4">
+                                        <strong>
+                                            <field name="card_type_id_pvap" />
+                                        </strong>
+                                    </li>
+                                    <li class="mb4">
+                                        <strong>
+                                            <field name="color_hex" />
+                                        </strong>
+                                    </li>
+                                    <li class="text-success float-right mb4" t-if="record.is_card_type.raw_value">
+                                        <i aria-label="Ok" class="fa fa-circle" role="img" title="Ok" />
+                                    </li>
+                                    <li class="text-danger float-right mb4" t-if="!record.is_card_type.raw_value">
+                                        <i aria-label="Invalid" class="fa fa-circle" role="img" title="Invalid" />
+                                    </li>
+                                    <li class="text-success float-right mb4" t-if="record.is_default.raw_value">
+                                        <i aria-label="Ok" class="fa fa-circle" role="img" title="Ok" />
+                                    </li>
+                                    <li class="text-danger float-right mb4" t-if="!record.is_default.raw_value">
+                                        <i aria-label="Invalid" class="fa fa-circle" role="img" title="Invalid" />
+                                    </li>
+                                    <li
+                                        class="text-success float-right mb4"
+                                        t-if="record.is_default_task_type.raw_value"
+                                    >
+                                        <i aria-label="Ok" class="fa fa-circle" role="img" title="Ok" />
+                                    </li>
+                                    <li
+                                        class="text-danger float-right mb4"
+                                        t-if="!record.is_default_task_type.raw_value"
+                                    >
+                                        <i aria-label="Invalid" class="fa fa-circle" role="img" title="Invalid" />
+                                    </li>
+                                    <li class="text-success float-right mb4" t-if="record.is_task_type.raw_value">
+                                        <i aria-label="Ok" class="fa fa-circle" role="img" title="Ok" />
+                                    </li>
+                                    <li class="text-danger float-right mb4" t-if="!record.is_task_type.raw_value">
+                                        <i aria-label="Invalid" class="fa fa-circle" role="img" title="Invalid" />
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="plan_view_agile_place_card_type_view_pivot" model="ir.ui.view">
+        <field name="name">plan_view_agile_place_card_type_pivot</field>
+        <field name="model">plan.view.agile.place.card_type</field>
+        <field name="arch" type="xml">
+            <pivot string="Plan view agile place card type">
+                <field name="name" type="row" />
+                <field name="card_type_id_pvap" type="row" />
+                <field name="color_hex" type="row" />
+                <field name="is_card_type" type="row" />
+                <field name="is_default" type="row" />
+                <field name="is_default_task_type" type="row" />
+                <field name="is_task_type" type="row" />
+            </pivot>
+        </field>
+    </record>
+
+    <record id="plan_view_agile_place_card_type_view_search" model="ir.ui.view">
+        <field name="name">plan_view_agile_place_card_type_search</field>
+        <field name="model">plan.view.agile.place.card_type</field>
+        <field name="arch" type="xml">
+            <search string="Plan view agile place card type">
+                <filter domain="[('name','!=',False)]" name="name" string="Name" />
+                <filter
+                    domain="[('card_type_id_pvap','!=',False)]"
+                    name="card_type_id_pvap"
+                    string="Card Type Id Pvap"
+                />
+                <filter domain="[('color_hex','!=',False)]" name="color_hex" string="Color Hex" />
+                <filter domain="[('is_card_type','=',True)]" name="is_card_type" string="Is Card Type" />
+                <filter domain="[('is_default','=',True)]" name="is_default" string="Is Default" />
+                <filter
+                    domain="[('is_default_task_type','=',True)]"
+                    name="is_default_task_type"
+                    string="Is Default Task Type"
+                />
+                <filter domain="[('is_task_type','=',True)]" name="is_task_type" string="Is Task Type" />
+            </search>
+        </field>
+    </record>
+
+    <record id="plan_view_agile_place_card_type_view_tree" model="ir.ui.view">
+        <field name="name">plan_view_agile_place_card_type_tree</field>
+        <field name="model">plan.view.agile.place.card_type</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name" />
+                <field name="card_type_id_pvap" />
+                <field name="color_hex" />
+                <field name="is_card_type" />
+                <field name="is_default" />
+                <field name="is_default_task_type" />
+                <field name="is_task_type" />
+            </tree>
+        </field>
+    </record>
+</odoo>

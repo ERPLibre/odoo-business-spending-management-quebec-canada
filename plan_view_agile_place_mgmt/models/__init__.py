@@ -3,5 +3,7 @@
 from . import (
     plan_view_agile_place_board,
     plan_view_agile_place_card,
+    plan_view_agile_place_card_type,
     plan_view_agile_place_lane,
+    plan_view_agile_place_session,
 )
