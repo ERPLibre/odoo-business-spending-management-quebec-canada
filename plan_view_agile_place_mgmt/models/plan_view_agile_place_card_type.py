@@ -24,3 +24,8 @@ class PlanViewAgilePlaceCardType(models.Model):
     is_default_task_type = fields.Boolean()
 
     is_task_type = fields.Boolean()
+
+    session_id = fields.Many2one(
+        comodel_name="plan.view.agile.place.session",
+        string="Session",
+    )

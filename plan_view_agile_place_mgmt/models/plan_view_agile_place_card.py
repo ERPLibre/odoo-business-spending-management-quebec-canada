@@ -92,3 +92,7 @@ class PlanViewAgilePlaceCard(models.Model):
                 if response.status_code != 200:
                     return False
         return status
+    session_id = fields.Many2one(
+        comodel_name="plan.view.agile.place.session",
+        string="Session",
+    )

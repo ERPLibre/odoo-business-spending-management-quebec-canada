@@ -12,3 +12,8 @@ class PlanViewAgilePlaceLane(models.Model):
     name = fields.Char()
 
     lane_id_pvap = fields.Char(help="Plan View Agile Plane - Lane ID")
+
+    session_id = fields.Many2one(
+        comodel_name="plan.view.agile.place.session",
+        string="Session",
+    )
