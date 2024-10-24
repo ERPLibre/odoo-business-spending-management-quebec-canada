@@ -23,6 +23,12 @@ class PlanViewAgilePlaceSession(models.Model):
         default=False, readonly=True, help="Will be True when first sync done."
     )
 
+    board_ids = fields.One2many(
+        comodel_name="plan.view.agile.place.board",
+        inverse_name="session_id",
+        string="Boards",
+    )
+
     def request_api_get(self, path, data=None):
         headers = {
             "Content-Type": "application/json",

@@ -19,6 +19,13 @@
                         <field name="api_token" />
                         <field name="has_first_sync" />
                     </group>
+                    <notebook>
+                        <page string="Board">
+                            <group>
+                                <field name="board_ids" />
+                            </group>
+                        </page>
+                    </notebook>
                 </sheet>
             </form>
         </field>
