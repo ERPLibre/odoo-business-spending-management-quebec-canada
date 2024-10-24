@@ -54,4 +54,12 @@
         sequence="4"
         parent="menu"
     />
+
+    <menuitem
+        id="view_agile_place_request_history"
+        name="View agile place request history"
+        action="plan_view_agile_place_request_history_view_agile_place_request_history_action_window"
+        sequence="5"
+        parent="menu"
+    />
 </odoo>

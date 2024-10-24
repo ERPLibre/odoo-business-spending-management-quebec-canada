@@ -11,6 +11,7 @@
         "views/plan_view_agile_place_card.xml",
         "views/plan_view_agile_place_card_type.xml",
         "views/plan_view_agile_place_lane.xml",
+        "views/plan_view_agile_place_request_history.xml",
         "views/plan_view_agile_place_session.xml",
         "views/menu.xml",
     ],
