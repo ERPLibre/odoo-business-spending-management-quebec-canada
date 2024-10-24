@@ -11,9 +11,31 @@
                         <h1>
                             <field name="name" />
                         </h1>
+                    <div class="oe_button_box" name="button_box">
+                        <button class="oe_stat_button" icon="fa-archive" name="toggle_active" type="object">
+                            <field name="active" widget="boolean_button" />
+                        </button>
                     </div>
                     <group>
+                        <field name="is_collapsed" />
+                    </group>
+                    <group>
+                        <field name="lane_class_type" />
+                    </group>
+                    <group>
                         <field name="lane_id_pvap" />
+                    <group>
+                        <field name="lane_type" />
+                    </group>
+                    <group>
+                        <field name="orientation" />
+                    </group>
+                    <group>
+                        <field name="parent_lane_id" />
+                    </group>
+                    <group>
+                        <field name="sequence" />
+                    </group>
                         <field name="session_id" />
                     </group>
                 </sheet>
@@ -100,7 +122,13 @@
         <field name="arch" type="xml">
             <tree>
                 <field name="name" />
+                <field name="is_collapsed" />
+                <field name="lane_class_type" />
                 <field name="lane_id_pvap" />
+                <field name="lane_type" />
+                <field name="orientation" />
+                <field name="parent_lane_id" />
+                <field name="sequence" />
                 <field name="session_id" />
             </tree>
         </field>
