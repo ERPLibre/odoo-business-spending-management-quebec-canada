@@ -148,7 +148,14 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 )
                 body = dct_sms.get("body")
                 if self.sms_debug:
-                    body = f"SEND TO [{to_country}{dct_sms.get('to')}] " + body
+                    # TODO missing user name
+                    ir_employee = self.env["hr.employee"].search(
+                        [("work_phone", "=", dct_sms.get("to"))], limit=1
+                    )
+                    send_to = to_country + dct_sms.get("to")
+                    if ir_employee:
+                        send_to = ir_employee.name + " " + send_to
+                    body = f"DEBUG SEND TO [{send_to}]\n\n" + body
                 msg_to = dct_sms.get("to") if not self.sms_debug else to
                 value_sms["to_number_phone"] = msg_to
                 value_sms["name"] = body
@@ -277,11 +284,6 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                         [("name", "=", card_id.lane_name)],
                                         limit=1,
                                     )
-                                    if partner_id:
-                                        msg_sms += (
-                                            " à l'adresse"
-                                            f" «{partner_id.street}»."
-                                        )
                                     # Detect msg 1 from card type
                                     if rec.sms_detect_card_type_msg_1:
                                         lst_type_card = rec.sms_detect_card_type_msg_1.split(
@@ -332,14 +334,20 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                                 rec.log_error_txt += msg_txt
                                             if card_msg_1_ids:
                                                 if card_msg_1_ids.size:
-                                                    msg = (
+                                                    msg_sms += (
                                                         " + Couler à"
                                                         f" {card_msg_1_ids.size}h."
                                                     )
                                                 else:
-                                                    msg = " + Couler."
-                                                msg_sms += msg
-                                        print("ok")
+                                                    msg_sms += " + Couler."
+                                    if partner_id:
+                                        street_map = partner_id.street.replace(
+                                            " ", "%20"
+                                        )
+                                        msg_sms += (
+                                            "\nÀ l'adresse suivante : \n\n"
+                                            f"{partner_id.street}\n\nhttps://www.google.ca/maps/place/{street_map}"
+                                        )
                                     # Detect
                                     # TODO detect coulee type
                                     # detect taille coule + taille actuel
@@ -511,6 +519,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     @staticmethod
     def return_next_open_day(date):
+        # TODO support weekday, check next day from calendar into system
         prochain_jour = date + datetime.timedelta(days=1)
 
         while prochain_jour.weekday() in (5, 6):  # 5 = saturday, 6 = sunday
