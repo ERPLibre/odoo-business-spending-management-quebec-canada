@@ -18,6 +18,11 @@ class PlanViewAgilePlaceProcessus(models.Model):
         selection=[
             ("create_model", "Create Model"),
             ("send_sms_schedule", "Send SMS schedule"),
+            (
+                "send_reminder_sms_schedule_condition",
+                "Send reminder SMS schedule condition",
+            ),
+            ("copy_cards", "Copy cards from lane to lane"),
         ],
         required=True,
         default="create_model",
@@ -51,6 +56,14 @@ class PlanViewAgilePlaceProcessus(models.Model):
     parent_lane_name = fields.Char()
 
     root_lane_name = fields.Char()
+
+    copy_from_lane = fields.Char()
+
+    copy_to_lane = fields.Char()
+
+    clean_before_card_from_lane = fields.Boolean(
+        help="Will delete all card when using from_lane"
+    )
 
     sms_enable = fields.Boolean(related="session_id.sms_enable")
 
@@ -187,6 +200,83 @@ class PlanViewAgilePlaceProcessus(models.Model):
             )
             rec.log_txt += msg_txt
             rec.log_error_txt += msg_txt
+
+            if rec.algo_key == "send_reminder_sms_schedule_condition":
+                print("ok")
+            if rec.algo_key == "copy_cards":
+                # print(rec.copy_to_lane)
+                # print(rec.copy_from_lane)
+                # print(rec.root_lane_name)
+                # print(rec.type_card)
+                # print(rec.parent_lane_name)
+
+                # TODO do refresh data for from lane et to lane
+
+                if not rec.copy_to_lane:
+                    # TODO raise error
+                    pass
+                lane_to_query = [
+                    ("root_lane_name", "=", rec.root_lane_name),
+                    ("parent_lane_name", "=", rec.parent_lane_name),
+                    ("title", "in", rec.copy_to_lane.split(";")),
+                ]
+                lane_to_ids = self.env["plan.view.agile.place.lane"].search(
+                    lane_to_query
+                )
+
+                if rec.clean_before_card_from_lane:
+                    # get all cards to delete
+                    card_to_delete_ids = self.env[
+                        "plan.view.agile.place.card"
+                    ].search([("lane_id", "in", lane_to_ids.ids)])
+                    array_card_pvap = [
+                        a.card_id_pvap for a in card_to_delete_ids
+                    ]
+                    if not array_card_pvap:
+                        data_delete = {"cardIds": array_card_pvap}
+                        result = rec.board_id.session_id.request_api_delete(
+                            "/io/card/", data=data_delete
+                        )
+                        if result[0] not in [200, 204]:
+                            raise exceptions.Warning(
+                                f"Receive request {result[0]} from delete all"
+                                " cards from specific lane."
+                            )
+
+                # Get lane from and lane to
+                if not rec.copy_from_lane:
+                    # TODO raise error
+                    pass
+                lst_copy_from_lane = rec.copy_from_lane.split(";")
+                for copy_from_lane in lst_copy_from_lane:
+                    card_from_query = [
+                        ("root_lane_name", "=", rec.root_lane_name),
+                        ("lane_name", "=", copy_from_lane),
+                        ("lane_parent_name", "=", rec.parent_lane_name),
+                    ]
+
+                    card_from_ids = self.env[
+                        "plan.view.agile.place.card"
+                    ].search(card_from_query)
+                    for lane_to_id in lane_to_ids:
+                        for card_id in card_from_ids:
+                            data = {
+                                "copiedFromCardId": card_id.card_id_pvap,
+                                "boardId": card_id.board_id.board_id_pvap,
+                                "title": card_id.name,
+                                "laneId": lane_to_id.lane_id_pvap,
+                                "size": card_id.size,
+                                "typeId": card_id.card_type_id.card_type_id_pvap,
+                                "customId": card_id.entete,
+                            }
+                            result = card_id.session_id.request_api_post(
+                                "/io/card/", data=data
+                            )
+                            if result[0] not in [201]:
+                                raise exceptions.Warning(
+                                    f"Cannot copy card id {card_id.id} pvap"
+                                    f" {card_id.card_id_pvap}"
+                                )
 
             if rec.algo_key == "send_sms_schedule":
                 if rec.fake_regex_lane == "jour d/m":

@@ -10,7 +10,7 @@ class PlanViewAgilePlaceLane(models.Model):
     _description = "plan_view_agile_place_lane"
     _order = "name,id"
 
-    name = fields.Char()
+    name = fields.Char(readonly=True)
 
     title = fields.Char()
 
@@ -32,6 +32,14 @@ class PlanViewAgilePlaceLane(models.Model):
         string="Parent Lane", comodel_name="plan.view.agile.place.lane"
     )
 
+    parent_lane_name = fields.Char(
+        string="Parent Lane name", related="parent_lane_id.title"
+    )
+
+    breadcrumb_middle_name = fields.Text(
+        help="Will be use to search sub_lane", readonly=True
+    )
+
     child_lane_ids = fields.One2many(
         comodel_name="plan.view.agile.place.lane",
         inverse_name="parent_lane_id",
@@ -41,6 +49,7 @@ class PlanViewAgilePlaceLane(models.Model):
     root_lane_id = fields.Many2one(
         string="Root Lane",
         comodel_name="plan.view.agile.place.lane",
+        readonly=True
         # compute="_compute_root_lane_id",
         # store=True,
     )
@@ -97,8 +106,11 @@ class PlanViewAgilePlaceLane(models.Model):
                 rec.root_lane_id = False
             lane_id = False
             parent_lane_id = rec.parent_lane_id
+            breadcrumb_middle_name = ""
             while parent_lane_id:
+                breadcrumb_middle_name += f"{parent_lane_id.title}\n"
                 lane_id = parent_lane_id
                 parent_lane_id = parent_lane_id.parent_lane_id
 
+            rec.breadcrumb_middle_name = breadcrumb_middle_name
             rec.root_lane_id = False if not lane_id else lane_id.id

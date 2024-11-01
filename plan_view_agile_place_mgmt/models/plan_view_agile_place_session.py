@@ -62,6 +62,9 @@ class PlanViewAgilePlaceSession(models.Model):
     def request_api_post(self, path, data=None):
         return self._request_api(path, requests.post, data=data)
 
+    def request_api_delete(self, path, data=None):
+        return self._request_api(path, requests.delete, data=data)
+
     def request_api_post_unlimited(self, path, data_name, data=None):
         return self._request_api_unlimited(
             path, requests.post, data_name, data=data
@@ -105,7 +108,10 @@ class PlanViewAgilePlaceSession(models.Model):
         else:
             response = cb_type_request(url, headers=headers)
 
-        response_data = json.loads(response.text)
+        if response.text:
+            response_data = json.loads(response.text)
+        else:
+            response_data = ""
 
         request_history_value = {
             "name": url,
@@ -125,6 +131,22 @@ class PlanViewAgilePlaceSession(models.Model):
         ].create(request_history_value)
 
         return response.status_code, response_data
+
+    @api.multi
+    def action_clear_all(self):
+        for rec in self:
+            self.env["plan.view.agile.place.card"].search(
+                [("session_id", "=", rec.id)]
+            ).unlink()
+            self.env["plan.view.agile.place.card.type"].search(
+                [("session_id", "=", rec.id)]
+            ).unlink()
+            self.env["plan.view.agile.place.lane"].search(
+                [("session_id", "=", rec.id)]
+            ).unlink()
+            self.env["plan.view.agile.place.board"].search(
+                [("session_id", "=", rec.id)]
+            ).unlink()
 
     @api.multi
     def action_sync(self):

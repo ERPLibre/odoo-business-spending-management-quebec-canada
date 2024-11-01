@@ -36,6 +36,11 @@
                             <field name="sub_lane_name" />
                             <field name="type_card" />
                         </group>
+                        <group string="Copy">
+                            <field name="copy_from_lane" />
+                            <field name="copy_to_lane" />
+                            <field name="clean_before_card_from_lane" />
+                        </group>
                         <group string="model">
                             <field name="default_value_model" />
                             <field name="bind_custom_field" />

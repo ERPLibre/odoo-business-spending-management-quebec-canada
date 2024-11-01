@@ -32,6 +32,7 @@
                         <field name="child_lane_ids" />
                         <field name="card_ids" />
                         <field name="root_lane_id" />
+                        <field name="breadcrumb_middle_name" />
                         <field name="root_lane_name" />
                         <field name="session_id" />
                         <field name="count_card" />

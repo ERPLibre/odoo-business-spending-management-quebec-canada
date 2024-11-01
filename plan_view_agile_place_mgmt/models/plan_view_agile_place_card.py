@@ -45,6 +45,11 @@ class PlanViewAgilePlaceCard(models.Model):
         default=lambda self: self._default_stage(),
     )
 
+    lane_name = fields.Char(
+        string="Lane name",
+        related="lane_id.title",
+    )
+
     root_lane_id = fields.Many2one(
         related="lane_id.root_lane_id",
         # comodel_name="plan.view.agile.place.lane",
@@ -52,6 +57,10 @@ class PlanViewAgilePlaceCard(models.Model):
         # compute="_compute_root_lane_id",
         # group_expand="_read_group_lane_ids",
         # default=lambda self: self._default_stage(),
+    )
+
+    root_lane_name = fields.Char(
+        related="lane_id.root_lane_name",
     )
 
     lane_parent_id = fields.Many2one(
@@ -63,11 +72,6 @@ class PlanViewAgilePlaceCard(models.Model):
     lane_parent_name = fields.Char(
         string="Lane parent name",
         related="lane_id.parent_lane_id.title",
-    )
-
-    lane_name = fields.Char(
-        string="Lane name",
-        related="lane_id.title",
     )
 
     moved_on = fields.Datetime()

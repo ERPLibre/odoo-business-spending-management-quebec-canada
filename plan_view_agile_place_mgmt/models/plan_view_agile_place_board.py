@@ -136,4 +136,5 @@ class PlanViewAgilePlaceBoard(models.Model):
             for lane_id in lane_ids:
                 # lane_id.root_lane_id.compute()
                 lane_id._compute_root_lane_id()
+                # The name need to be compute at the end, depend on root_lane_id
                 lane_id._compute_name()
