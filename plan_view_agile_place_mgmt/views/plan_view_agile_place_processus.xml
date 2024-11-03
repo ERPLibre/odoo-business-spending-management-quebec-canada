@@ -41,11 +41,12 @@
                             <field name="copy_to_lane" />
                             <field name="clean_before_card_from_lane" />
                         </group>
-                        <group string="model">
+                        <group string="Extract data">
                             <field name="default_value_model" />
                             <field name="bind_custom_field" />
                             <field name="bind_field" />
                             <field name="model_name" />
+                            <field name="ignore_warning_from_name" />
                         </group>
                         <group string="schedule">
                             <field name="fake_regex_lane" />

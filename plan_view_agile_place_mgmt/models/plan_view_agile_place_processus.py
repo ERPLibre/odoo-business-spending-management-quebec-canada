@@ -41,6 +41,11 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     default_value_model = fields.Text()
 
+    ignore_warning_from_name = fields.Char(
+        default="",
+        help="Separate by ; for multiple, will ignore warning from his name.",
+    )
+
     model_name = fields.Char()
 
     lane_name = fields.Char()
@@ -495,12 +500,16 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 for card_id in card_ids:
                     # Check doublon from card
                     if card_id.name in lst_existing_name:
-                        msg_txt = (
-                            f"WAR '{rec.model_name}' Ignore duplicate name"
-                            f" '{card_id.name}'\n"
-                        )
-                        rec.log_txt += msg_txt
-                        rec.log_error_txt += msg_txt
+                        if (
+                            not card_id.name
+                            in rec.ignore_warning_from_name.split(";")
+                        ):
+                            msg_txt = (
+                                f"WAR '{rec.model_name}' Ignore duplicate name"
+                                f" '{card_id.name}'\n"
+                            )
+                            rec.log_txt += msg_txt
+                            rec.log_error_txt += msg_txt
                         continue
                     else:
                         lst_existing_name.append(card_id.name)
@@ -547,12 +556,15 @@ class PlanViewAgilePlaceProcessus(models.Model):
                             if a.get("label") == custom_field_name
                         ]
                         if not lst_find_lst_custom_field:
-                            msg_txt = (
-                                f"WAR '{rec.model_name}' Missing custom field"
-                                f" '{custom_field_name}' about name '{name}'"
-                                f" id '{card_id.card_id_pvap}. Try"
-                                " auto-update\n"
-                            )
+                            if not name in rec.ignore_warning_from_name.split(
+                                ";"
+                            ):
+                                msg_txt = (
+                                    f"WAR '{rec.model_name}' Missing custom"
+                                    f" field '{custom_field_name}' about name"
+                                    f" '{name}' id '{card_id.card_id_pvap}."
+                                    " Try auto-update\n"
+                                )
                             rec.log_txt += msg_txt
                             rec.log_error_txt += msg_txt
 
@@ -570,14 +582,19 @@ class PlanViewAgilePlaceProcessus(models.Model):
                             if value:
                                 new_model_value[field_name] = value
                             else:
-                                msg_txt = (
-                                    f"WAR '{rec.model_name}' Missing value for"
-                                    f" custom field '{custom_field_name}'"
-                                    f" about name '{name}' id"
-                                    f" '{card_id.card_id_pvap}\n"
-                                )
-                                rec.log_txt += msg_txt
-                                rec.log_error_txt += msg_txt
+                                if (
+                                    not name
+                                    in rec.ignore_warning_from_name.split(";")
+                                ):
+                                    msg_txt = (
+                                        f"WAR '{rec.model_name}' Missing value"
+                                        " for custom field"
+                                        f" '{custom_field_name}' about name"
+                                        f" '{name}' id"
+                                        f" '{card_id.card_id_pvap}\n"
+                                    )
+                                    rec.log_txt += msg_txt
+                                    rec.log_error_txt += msg_txt
 
                     # Update or create
                     new_model_id = self.env[rec.model_name].search(
