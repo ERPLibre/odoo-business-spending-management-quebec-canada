@@ -2,6 +2,7 @@
 # © 2021-2024 TechnoLibre (http://www.technolibre.ca)
 # License GPL-3.0 or later (http://www.gnu.org/licenses/gpl)
 
+import datetime
 import json
 
 import requests
@@ -29,8 +30,14 @@ class PlanViewAgilePlaceCard(models.Model):
         string="Board",
     )
 
+    assigned_users = fields.Char(help="Separate pvap id by ;")
+
     card_id_pvap = fields.Char(
         readonly=True, help="Plan View Agile Plane - Card ID"
+    )
+
+    copied_from_card_pvap = fields.Char(
+        help="Plan View Agile Plane - Card ID to copy when create"
     )
 
     card_type_id = fields.Many2one(
@@ -130,7 +137,7 @@ class PlanViewAgilePlaceCard(models.Model):
             status, response = rec.session_id.request_api_get(
                 f"/io/card/{rec.card_id_pvap}"
             )
-            if status != 200:
+            if str(status)[0] != "2":
                 rec.card_details = ""
                 continue
             rec.card_details = json.dumps(response)
@@ -150,12 +157,34 @@ class PlanViewAgilePlaceCard(models.Model):
                 "title": rec.name,
                 "laneId": rec.lane_id.lane_id_pvap,
             }
+            # TODO miss active, moved_on, version, externalLinks,
+            if rec.custom_fields:
+                data["customFields"] = json.dumps(rec.custom_fields)
+            if rec.description:
+                data["description"] = rec.description
+            if rec.entete:
+                data["entete"] = rec.entete
+            # TODO Ignore assigned user, use instead /io/card/assign
+            # https://success.planview.com/Planview_AgilePlace/AgilePlace_API/01_v2/card/assign-members
+            # if rec.assigned_users:
+            #     data["assigned_users"] = rec.assigned_users.replace(";", ",")
+            if rec.size:
+                data["size"] = rec.size
+            if rec.entete:
+                data["customId"] = rec.entete
+            if rec.card_type_id:
+                data["typeId"] = rec.card_type_id.card_type_id_pvap
+            if rec.copied_from_card_pvap:
+                data["copiedFromCardId"] = rec.copied_from_card_pvap
+
             status, response = rec.session_id.request_api_post(
                 "/io/card", data=data
             )
-            if status != 200:
+            if str(status)[0] != "2":
+                # TODO log this error
                 continue
-            rec.card_id_pvap = json.loads(response.text).get("id")
+            # TODO raise error if missing... will already raise error
+            rec.card_id_pvap = response.get("id")
         return rec_ids
 
     def write(self, values):
@@ -171,6 +200,167 @@ class PlanViewAgilePlaceCard(models.Model):
                 status, response = rec.session_id.request_api_post(
                     "/io/card/move", data=data
                 )
-                if status != 200:
+                if str(status)[0] != "2":
                     continue
         return status
+
+    def sync_pvap_cards(self, session_id, board_id, from_lane=None):
+        # from_lane will do partial update
+        # Search all under lane with from_lane
+        lane_to_extract_ids = None
+        if not from_lane:
+            lst_pvap_lane = []
+        else:
+            lane_to_extract_ids = from_lane.get_list_child_lane_from_lane(
+                add_itself=True
+            )
+            lst_pvap_lane = [a.lane_id_pvap for a in lane_to_extract_ids]
+
+        # Get all cards
+        data = {
+            "limit": 500,
+            "board": board_id.board_id_pvap,
+            # "include": "customFields",
+        }
+        if lst_pvap_lane:
+            data["lanes"] = ",".join(lst_pvap_lane)
+        is_include_custom_fields = False
+        lst_cards = session_id.request_api_get_unlimited(
+            "/io/card", "cards", data=data
+        )
+        session_id.has_first_sync = True
+
+        # Generate cards
+        # Get list before to delete extra not existing after
+        if not lane_to_extract_ids:
+            all_card_ids = self.env["plan.view.agile.place.card"].search(
+                [("board_id", "=", board_id.id)]
+            )
+        else:
+            all_card_ids = self.env["plan.view.agile.place.card"].search(
+                [
+                    ("board_id", "=", board_id.id),
+                    ("lane_id", "in", lane_to_extract_ids.ids),
+                ]
+            )
+
+        lst_card_pvap_sync = []
+
+        for dct_card in lst_cards:
+            # Extract data card
+            card_id_pvap = dct_card.get("id")
+            archived_on = dct_card.get("archivedOn")
+            is_active = True if archived_on is None else False
+            lane_id_pvap = dct_card.get("lane").get("id")
+            board_id_pvap = dct_card.get("board").get("id")
+            str_moved_on = dct_card.get("movedOn")
+            moved_on = (
+                False
+                if not str_moved_on
+                else datetime.datetime.fromisoformat(
+                    str_moved_on.replace("Z", "+00:00")
+                ).replace(tzinfo=None)
+            )
+            type_id_pvap = dct_card.get("type").get("id")
+            title = dct_card.get("title")
+            description = (
+                False
+                if not dct_card.get("description")
+                else dct_card.get("description")
+            )
+            size = dct_card.get("size")
+            version = (
+                0
+                if not dct_card.get("version")
+                else int(dct_card.get("version"))
+            )
+            assigned_users = ";".join(
+                [a.get("id") for a in dct_card.get("assignedUsers")]
+            )
+            if not assigned_users:
+                assigned_users = False
+            entete = dct_card.get("customId").get("value")
+
+            if dct_card.get("externalLinks"):
+                external_link = dct_card.get("externalLinks")[0].get("url")
+            else:
+                external_link = ""
+
+            if is_include_custom_fields:
+                custom_fields = json.dumps(dct_card.get("customFields"))
+            else:
+                custom_fields = False
+
+            card_type_id = self.env["plan.view.agile.place.card.type"].search(
+                [("card_type_id_pvap", "=", type_id_pvap)], limit=1
+            )
+
+            lane_id = self.env["plan.view.agile.place.lane"].search(
+                [("lane_id_pvap", "=", lane_id_pvap)], limit=1
+            )
+
+            board_id = self.env["plan.view.agile.place.board"].search(
+                [("board_id_pvap", "=", board_id_pvap)], limit=1
+            )
+
+            lst_card_pvap_sync.append(card_id_pvap)
+
+            # Search if exist or create it
+            card_id = self.env["plan.view.agile.place.card"].search(
+                [("card_id_pvap", "=", card_id_pvap)], limit=1
+            )
+            if card_id:
+                # Update it, except card_id_pvap and session_id
+                if title != card_id.name:
+                    card_id.name = title
+                if is_active != card_id.active:
+                    card_id.active = is_active
+                if moved_on != card_id.moved_on:
+                    card_id.moved_on = moved_on
+                if size != card_id.size:
+                    card_id.size = size
+                if version != card_id.version:
+                    card_id.version = version
+                if custom_fields != card_id.custom_fields:
+                    card_id.custom_fields = custom_fields
+                if description != card_id.description:
+                    card_id.description = description
+                if assigned_users != card_id.assigned_users:
+                    card_id.assigned_users = assigned_users
+                if entete != card_id.entete:
+                    card_id.entete = entete
+                if card_type_id != card_id.card_type_id:
+                    card_id.card_type_id = card_type_id.id
+                if lane_id != card_id.lane_id:
+                    card_id.lane_id = lane_id.id
+                if board_id != card_id.board_id:
+                    card_id.board_id = board_id.id
+            else:
+                card_value = {
+                    "card_id_pvap": card_id_pvap,
+                    "active": is_active,
+                    "card_type_id": card_type_id.id if card_type_id else False,
+                    "lane_id": lane_id.id if lane_id else False,
+                    "board_id": board_id.id if board_id else False,
+                    "moved_on": moved_on,
+                    "name": title,
+                    "size": size,
+                    "version": version,
+                    "session_id": session_id.id,
+                    "custom_fields": custom_fields,
+                    "description": description,
+                    "assigned_users": assigned_users,
+                    "entete": entete,
+                    "external_link": external_link,
+                }
+
+                card_id = self.env["plan.view.agile.place.card"].create(
+                    card_value
+                )
+
+        card_to_delete_ids = self.env["plan.view.agile.place.card"]
+        for card_id in all_card_ids:
+            if card_id.card_id_pvap not in lst_card_pvap_sync:
+                card_to_delete_ids += card_id
+        if card_to_delete_ids:
+            card_to_delete_ids.unlink()

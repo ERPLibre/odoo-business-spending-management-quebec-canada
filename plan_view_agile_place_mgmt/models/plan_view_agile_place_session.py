@@ -2,11 +2,16 @@
 # © 2021-2024 TechnoLibre (http://www.technolibre.ca)
 # License GPL-3.0 or later (http://www.gnu.org/licenses/gpl)
 
+import datetime
 import json
+import logging
+import time
 
 import requests
 
-from odoo import _, api, fields, models
+from odoo import _, api, exceptions, fields, models
+
+_logger = logging.getLogger(__name__)
 
 
 class PlanViewAgilePlaceSession(models.Model):
@@ -52,26 +57,24 @@ class PlanViewAgilePlaceSession(models.Model):
     )
 
     def request_api_get(self, path, data=None):
-        return self._request_api(path, requests.get, data=data, is_param=True)
+        return self._request_api(path, "get", data=data, is_param=True)
 
     def request_api_get_unlimited(self, path, data_name, data=None):
         return self._request_api_unlimited(
-            path, requests.get, data_name, data=data, is_param=True
+            path, "get", data_name, data=data, is_param=True
         )
 
     def request_api_post(self, path, data=None):
-        return self._request_api(path, requests.post, data=data)
+        return self._request_api(path, "post", data=data)
 
     def request_api_delete(self, path, data=None):
-        return self._request_api(path, requests.delete, data=data)
+        return self._request_api(path, "delete", data=data)
 
     def request_api_post_unlimited(self, path, data_name, data=None):
-        return self._request_api_unlimited(
-            path, requests.post, data_name, data=data
-        )
+        return self._request_api_unlimited(path, "post", data_name, data=data)
 
     def _request_api_unlimited(
-        self, path, cb_type_request, data_name, data=None, is_param=True
+        self, path, type_request, data_name, data=None, is_param=True
     ):
         # Will loop to extract all information
         end_row = 0
@@ -81,32 +84,69 @@ class PlanViewAgilePlaceSession(models.Model):
         while is_started or end_row < total_records:
             is_started = False
             status, response = self._request_api(
-                path, cb_type_request, data=data, is_param=True
+                path, type_request, data=data, is_param=True
             )
+            if response.get("message") == "Server error":
+                raise exceptions.Warning(
+                    f"Unknown error from server with request '{path}' type"
+                    f" '{type_request}' data '{data}'"
+                )
             end_row = response.get("pageMeta").get("endRow")
             data["offset"] = end_row
             total_records = response.get("pageMeta").get("totalRecords")
             lst_data.extend(response.get(data_name))
         return lst_data
 
-    def _request_api(self, path, cb_type_request, data=None, is_param=False):
-        # TODO limit 120 requests par second and wait
+    def _request_api(self, path, type_request, data=None, is_param=False):
+        if type_request == "get":
+            cb_type_request = requests.get
+        elif type_request == "post":
+            cb_type_request = requests.post
+        elif type_request == "delete":
+            cb_type_request = requests.delete
+        else:
+            raise exceptions.Warning(
+                f"Cannot support type request '{type_request}'"
+            )
+
         headers = {
             "Content-Type": "application/json",
             "Authorization": "Bearer " + self.api_token,
         }
-        url = self.name + path
-        json_data = None
-        if data:
-            json_data = json.dumps(data)
-            if is_param:
-                response = cb_type_request(url, headers=headers, params=data)
+        has_finish = False
+        while not has_finish:
+            url = self.name + path
+            json_data = None
+            if data:
+                json_data = json.dumps(data)
+                if is_param:
+                    response = cb_type_request(
+                        url, headers=headers, params=data
+                    )
+                else:
+                    response = cb_type_request(
+                        url, headers=headers, data=json_data
+                    )
             else:
-                response = cb_type_request(
-                    url, headers=headers, data=json_data
+                response = cb_type_request(url, headers=headers)
+
+            if response.status_code == 429:
+                # Detect too much request
+                retry_after = response.headers.get("retry-after")
+                timestamp_retry_after = datetime.datetime.strptime(
+                    retry_after,
+                    "%a, %d %b %Y %H:%M:%S %Z",
                 )
-        else:
-            response = cb_type_request(url, headers=headers)
+                diff_time = timestamp_retry_after - datetime.datetime.now()
+                total_second_to_wait = diff_time.total_seconds()
+                _logger.info(
+                    f"Wait {total_second_to_wait} seconds after 120 requests"
+                    " over API Plan View Agile Place."
+                )
+                time.sleep(total_second_to_wait)
+                _logger.info(f"Wait done, continue!")
+                continue
+            has_finish = True
 
         if response.text:
             response_data = json.loads(response.text)
@@ -115,7 +155,7 @@ class PlanViewAgilePlaceSession(models.Model):
 
         request_history_value = {
             "name": url,
-            "type": "get",
+            "type": type_request,
             "session_id": self.id,
             "is_success": response.status_code == requests.codes.ok,
             "status_code": response.status_code,
@@ -149,14 +189,14 @@ class PlanViewAgilePlaceSession(models.Model):
             ).unlink()
 
     @api.multi
-    def action_sync(self):
+    def action_sync(self, ctx=None, partial_root_lane_name=None):
         for rec in self:
             # Get all board
             # TODO configuration board
             # champs personnalisés champs telephone
             # effacer une carte
             status, response = rec.request_api_get("/io/board")
-            if status != 200:
+            if str(status)[0] != "2":
                 continue
             lst_boards = response.get("boards")
             # Generate boards
@@ -187,83 +227,6 @@ class PlanViewAgilePlaceSession(models.Model):
                 # Refresh all board information
                 board_id.action_sync()
 
-                # Get all cards
-                data = {
-                    "limit": 500,
-                    "board": board_id_pvap,
-                    # "include": "customFields",
-                }
-                is_include_custom_fields = False
-                lst_cards = rec.request_api_get_unlimited(
-                    "/io/card", "cards", data=data
+                self.env["plan.view.agile.place.card"].sync_pvap_cards(
+                    rec, board_id
                 )
-                rec.has_first_sync = True
-                # Generate cards
-                for dct_card in lst_cards:
-                    card_id_pvap = dct_card.get("id")
-                    archived_on = dct_card.get("archivedOn")
-                    lane_id_pvap = dct_card.get("lane").get("id")
-                    board_id_pvap = dct_card.get("board").get("id")
-                    moved_on = dct_card.get("movedOn")
-                    type_id_pvap = dct_card.get("type").get("id")
-                    title = dct_card.get("title")
-                    description = dct_card.get("description")
-                    size = dct_card.get("size")
-                    version = dct_card.get("version")
-                    entete = dct_card.get("customId").get("value")
-
-                    if is_include_custom_fields:
-                        custom_fields = json.dumps(
-                            dct_card.get("customFields")
-                        )
-                    else:
-                        custom_fields = ""
-
-                    card_type_id = self.env[
-                        "plan.view.agile.place.card.type"
-                    ].search(
-                        [("card_type_id_pvap", "=", type_id_pvap)], limit=1
-                    )
-
-                    lane_id = self.env["plan.view.agile.place.lane"].search(
-                        [("lane_id_pvap", "=", lane_id_pvap)], limit=1
-                    )
-
-                    board_id = self.env["plan.view.agile.place.board"].search(
-                        [("board_id_pvap", "=", board_id_pvap)], limit=1
-                    )
-
-                    card_value = {
-                        "card_id_pvap": card_id_pvap,
-                        "active": True if archived_on is None else False,
-                        "card_type_id": card_type_id.id
-                        if card_type_id
-                        else False,
-                        "lane_id": lane_id.id if lane_id else False,
-                        "board_id": board_id.id if board_id else False,
-                        "moved_on": moved_on,
-                        "name": title,
-                        "size": size,
-                        "version": version,
-                        "session_id": rec.id,
-                        "custom_fields": custom_fields,
-                        "description": description,
-                        "entete": entete,
-                    }
-
-                    if dct_card.get("externalLinks"):
-                        card_value["external_link"] = dct_card.get(
-                            "externalLinks"
-                        )[0].get("url")
-
-                    # Search if exist or create it
-                    card_id = self.env["plan.view.agile.place.card"].search(
-                        [("card_id_pvap", "=", card_id_pvap)], limit=1
-                    )
-                    if card_id:
-                        # Update it
-                        card_id.name = title
-                    else:
-                        card_id = self.env[
-                            "plan.view.agile.place.card"
-                        ].create(card_value)

@@ -91,7 +91,11 @@ class PlanViewAgilePlaceBoard(models.Model):
                 )
                 if lane_id:
                     # Update it
-                    lane_id.name = lane_name
+                    if lane_name != lane_id.title:
+                        lane_id.title = lane_name
+                        lane_id.need_update_compute = True
+                    # TODO check another parameter into lane
+
                 else:
                     value = {
                         "title": lane_name,
@@ -134,7 +138,9 @@ class PlanViewAgilePlaceBoard(models.Model):
                 [("board_id", "=", rec.id)]
             )
             for lane_id in lane_ids:
-                # lane_id.root_lane_id.compute()
-                lane_id._compute_root_lane_id()
-                # The name need to be compute at the end, depend on root_lane_id
-                lane_id._compute_name()
+                if lane_id.need_update_compute:
+                    # lane_id.root_lane_id.compute()
+                    lane_id._compute_root_lane_id()
+                    # The name need to be computed at the end, depend on root_lane_id
+                    lane_id._compute_name()
+                    lane_id.need_update_compute = False

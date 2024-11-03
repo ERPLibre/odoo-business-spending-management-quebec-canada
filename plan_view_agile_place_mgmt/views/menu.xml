@@ -21,7 +21,7 @@
 
     <menuitem
         id="view_agile_place_session"
-        name="Session"
+        name="Session API"
         action="plan_view_agile_place_session_view_agile_place_session_action_window"
         sequence="1"
         parent="menu_connexion"

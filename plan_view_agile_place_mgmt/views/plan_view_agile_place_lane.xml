@@ -5,6 +5,9 @@
         <field name="model">plan.view.agile.place.lane</field>
         <field name="arch" type="xml">
             <form string="Titre">
+                <header>
+                    <button name="action_sync_cards" string="Sync card" type="object" class="oe_highlight" />
+                </header>
                 <sheet>
                     <div class="oe_title">
                         <label for="name" class="oe_edit_only" />
@@ -23,6 +26,7 @@
                         <field name="sequence" />
                         <field name="description" />
                         <field name="is_collapsed" />
+                        <field name="need_update_compute" />
                         <field name="columns" />
                         <field name="lane_class_type" />
                         <field name="lane_id_pvap" />
@@ -109,6 +113,7 @@
         <field name="arch" type="xml">
             <search string="Plan view agile place lane">
                 <field name="name" filter_domain="['|', ('name','ilike',self), ('title','ilike',self)]" string="Name" />
+                <field name="title" filter_domain="[('title','ilike',self)]" string="Title" />
                 <filter name="with_card" string="With card" domain="[('count_card','>',0)]" />
                 <group string="Group By" expand="1">
                     <filter name="parent_lane_id" string="Parent" context="{'group_by':'parent_lane_id'}" />

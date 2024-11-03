@@ -8,6 +8,7 @@ from odoo import _, api, fields, models
 class PlanViewAgilePlaceRequestHistory(models.Model):
     _name = "plan.view.agile.place.request_history"
     _description = "plan_view_agile_place_request_history"
+    _order = "request_server_date desc,id desc"
 
     name = fields.Char(string="URL", readonly=True, required=True)
 

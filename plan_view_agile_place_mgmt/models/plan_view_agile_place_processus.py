@@ -1,11 +1,14 @@
 import datetime
 import json
+import logging
 import os
 import re
 
 import requests
 
 from odoo import _, api, exceptions, fields, models
+
+_logger = logging.getLogger(__name__)
 
 
 class PlanViewAgilePlaceProcessus(models.Model):
@@ -237,16 +240,17 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     array_card_pvap = [
                         a.card_id_pvap for a in card_to_delete_ids
                     ]
-                    if not array_card_pvap:
+                    if array_card_pvap:
                         data_delete = {"cardIds": array_card_pvap}
                         result = rec.board_id.session_id.request_api_delete(
                             "/io/card/", data=data_delete
                         )
-                        if result[0] not in [200, 204]:
+                        if str(result[0])[0] != "2":
                             raise exceptions.Warning(
                                 f"Receive request {result[0]} from delete all"
                                 " cards from specific lane."
                             )
+                        card_to_delete_ids.unlink()
 
                 # Get lane from and lane to
                 if not rec.copy_from_lane:
@@ -266,22 +270,19 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     for lane_to_id in lane_to_ids:
                         for card_id in card_from_ids:
                             data = {
-                                "copiedFromCardId": card_id.card_id_pvap,
-                                "boardId": card_id.board_id.board_id_pvap,
-                                "title": card_id.name,
-                                "laneId": lane_to_id.lane_id_pvap,
+                                "copied_from_card_pvap": card_id.card_id_pvap,
+                                "board_id": card_id.board_id.id,
+                                "name": card_id.name,
+                                "lane_id": lane_to_id.id,
                                 "size": card_id.size,
-                                "typeId": card_id.card_type_id.card_type_id_pvap,
-                                "customId": card_id.entete,
+                                "card_type_id": card_id.card_type_id.id,
+                                "entete": card_id.entete,
+                                "custom_fields": card_id.custom_fields,
+                                "description": card_id.description,
+                                "assigned_users": card_id.assigned_users,
+                                "session_id": rec.session_id.id,
                             }
-                            result = card_id.session_id.request_api_post(
-                                "/io/card/", data=data
-                            )
-                            if result[0] not in [201]:
-                                raise exceptions.Warning(
-                                    f"Cannot copy card id {card_id.id} pvap"
-                                    f" {card_id.card_id_pvap}"
-                                )
+                            self.env["plan.view.agile.place.card"].create(data)
 
             if rec.algo_key == "send_sms_schedule":
                 if rec.fake_regex_lane == "jour d/m":
@@ -622,7 +623,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 rec.log_error_txt += "\n"
 
                 # TODO generate SMS message with adresse and job and employ
-            print("end")
+            _logger.info(f"End of execution processus '{rec.algo_key}'")
 
     @staticmethod
     def return_next_open_day(date):

@@ -16,7 +16,12 @@ class PlanViewAgilePlaceLane(models.Model):
 
     description = fields.Char()
 
-    active = fields.Boolean()
+    active = fields.Boolean(default=True)
+
+    need_update_compute = fields.Boolean(
+        default=True,
+        help="Will be False when updating algorithm compute this record.",
+    )
 
     is_collapsed = fields.Boolean()
 
@@ -114,3 +119,27 @@ class PlanViewAgilePlaceLane(models.Model):
 
             rec.breadcrumb_middle_name = breadcrumb_middle_name
             rec.root_lane_id = False if not lane_id else lane_id.id
+
+    @api.multi
+    def action_sync_cards(self):
+        for rec in self:
+            self.env["plan.view.agile.place.card"].sync_pvap_cards(
+                rec.session_id, rec.board_id, from_lane=rec
+            )
+
+    def get_list_child_lane_from_lane(self, add_itself=False):
+        lane_ids = self.env["plan.view.agile.place.lane"]
+        for rec in self:
+            if rec.child_lane_ids:
+                # Recursive add
+                lane_ids += rec.child_lane_ids.get_list_child_lane_from_lane(
+                    add_itself=True
+                )
+            # Note, ignore lane with child, cause error on server
+            if add_itself and not rec.child_lane_ids:
+                lane_ids += rec
+        return lane_ids
+
+    def get_list_pvap_child_lane_from_lane(self, add_itself=False):
+        lane_ids = self.get_list_child_lane_from_lane(add_itself=add_itself)
+        return [a.lane_id_pvap for a in lane_ids]
