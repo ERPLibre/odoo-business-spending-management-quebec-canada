@@ -82,4 +82,12 @@
         sequence="2"
         parent="menu_processus"
     />
+
+    <menuitem
+        id="view_action_planifie"
+        name="Action planifié"
+        action="base.ir_cron_act"
+        sequence="3"
+        parent="menu_processus"
+    />
 </odoo>

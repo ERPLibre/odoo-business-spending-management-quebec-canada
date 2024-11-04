@@ -36,6 +36,11 @@ class PlanViewAgilePlaceSession(models.Model):
         default=False, help="Ignore this functionality if not enable."
     )
 
+    enable_production = fields.Boolean(
+        default=False,
+        help="Informe user this instance is ready for production.",
+    )
+
     sms_to_number_phone_default = fields.Char(help="Separate multiple with ;")
 
     sms_to_country_default = fields.Char(default="+1")
@@ -189,7 +194,43 @@ class PlanViewAgilePlaceSession(models.Model):
             ).unlink()
 
     @api.multi
-    def action_sync(self, ctx=None, partial_root_lane_name=None):
+    def action_production(self):
+        is_first_execution = False
+        for rec in self:
+            rec.enable_production = not rec.enable_production
+            if not is_first_execution:
+                is_first_execution = True
+                # Enable process over cron
+                ir_cron_ids = self.env["ir.cron"].search(
+                    [
+                        ("model_name", "=", "plan.view.agile.place.processus"),
+                        ("active", "!=", rec.enable_production),
+                    ]
+                )
+                for ir_cron_id in ir_cron_ids:
+                    ir_cron_id.active = rec.enable_production
+                if rec.enable_production:
+                    # warm up process with sms
+                    process_ids = self.env[
+                        "plan.view.agile.place.processus"
+                    ].search(
+                        [
+                            ("session_id", "=", rec.id),
+                            (
+                                "algo_key",
+                                "in",
+                                [
+                                    "send_sms_schedule",
+                                    "send_reminder_sms_schedule_condition",
+                                ],
+                            ),
+                        ]
+                    )
+                    for process_id in process_ids:
+                        process_id.action_execute_algo()
+
+    @api.multi
+    def action_sync(self):
         for rec in self:
             # Get all board
             # TODO configuration board

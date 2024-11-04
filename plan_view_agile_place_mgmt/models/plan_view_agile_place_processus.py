@@ -35,7 +35,6 @@ class PlanViewAgilePlaceProcessus(models.Model):
     session_id = fields.Many2one(
         comodel_name="plan.view.agile.place.session",
         string="Session",
-        related="board_id.session_id",
     )
 
     bind_custom_field = fields.Text()
@@ -81,7 +80,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     sms_message_to_send = fields.Text()
 
-    sms_debug = fields.Boolean(default=True)
+    sms_debug = fields.Boolean(default=False)
 
     sms_limit_iteration = fields.Integer(
         help="0 is default, will be ignore and run."
@@ -112,6 +111,15 @@ class PlanViewAgilePlaceProcessus(models.Model):
     log_txt = fields.Text(string="Log")
 
     log_error_txt = fields.Text(string="Log error")
+
+    depend_process_ids = fields.Many2many(
+        comodel_name="plan.view.agile.place.processus",
+        relation="plan_view_agile_place_processus_depend",
+        column1="process_id1",
+        column2="process_depend_id2",
+        string="Depend Process",
+        help="Will execute depend process before execute this process.",
+    )
 
     @api.multi
     def action_clear_log(self):
@@ -209,8 +217,11 @@ class PlanViewAgilePlaceProcessus(models.Model):
             rec.log_txt += msg_txt
             rec.log_error_txt += msg_txt
 
-            if rec.algo_key == "send_reminder_sms_schedule_condition":
-                print("ok")
+            # Execute dependencies before
+            if rec.depend_process_ids:
+                for process_id in rec.depend_process_ids:
+                    process_id.action_execute_algo()
+
             if rec.algo_key == "copy_cards":
                 # print(rec.copy_to_lane)
                 # print(rec.copy_from_lane)
@@ -284,6 +295,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
                             }
                             self.env["plan.view.agile.place.card"].create(data)
 
+            if rec.algo_key == "send_reminder_sms_schedule_condition":
+                # TODO maybe can search employee information
+                pass
+
             if rec.algo_key == "send_sms_schedule":
                 if rec.fake_regex_lane == "jour d/m":
                     lane_ids = self.env["plan.view.agile.place.lane"].search(
@@ -340,13 +355,26 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                     i_msg += 1
                                     # TODO validate double employee, validate time or raise error if missing time
                                     # Find employee
+                                    card_name = card_id.name.strip()
                                     employee_id = self.env[
                                         "hr.employee"
                                     ].search(
-                                        [("name", "=", card_id.name.title())],
+                                        [("name", "=", card_name.title())],
                                         limit=1,
                                     )
-                                    if not employee_id.work_phone:
+                                    if not employee_id:
+                                        msg_txt = (
+                                            "ERR Missing employee card"
+                                            f" '{card_name}'. Check lane_root"
+                                            f" '{card_id.root_lane_name}',"
+                                            " lane_parent"
+                                            f" '{card_id.lane_parent_name}',"
+                                            f" lane '{card_id.lane_name}'\n"
+                                        )
+                                        rec.log_txt += msg_txt
+                                        rec.log_error_txt += msg_txt
+                                        continue
+                                    elif not employee_id.work_phone:
                                         msg_txt = (
                                             "ERR Employee"
                                             f" '{employee_id.name}' missing"
@@ -370,7 +398,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                             f" à {card_id.size}h"
                                         )
                                     msg_sms += (
-                                        "Tu travailles le"
+                                        f"{employee_id.name}, tu travailles le"
                                         f" {datetime_msg_str}, au"
                                         f" {rec.location_type_msg} «{card_id.lane_name}»"
                                     )
@@ -449,8 +477,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                     # detect taille coule + taille actuel
 
                                     msg_txt = (
-                                        f"\nSMS({i_msg})"
-                                        f" '{msg_sms_log_debug}{msg_sms}'\n\n"
+                                        f"\nSMS({i_msg}) {msg_sms_log_debug}"
+                                        f"«\n{msg_sms}\n»\n"
                                     )
                                     rec.log_txt += msg_txt
 

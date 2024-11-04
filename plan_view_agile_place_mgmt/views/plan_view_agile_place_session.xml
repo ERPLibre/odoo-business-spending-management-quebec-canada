@@ -8,8 +8,22 @@
                 <header>
                     <button name="action_sync" string="Sync" type="object" class="oe_highlight" />
                     <button name="action_clear_all" string="Clear" type="object" class="oe_highlight" />
+                    <button
+                        name="action_production"
+                        string="Enable production"
+                        class="btn-warning"
+                        type="object"
+                        attrs="{'invisible': ['|',('enable_production', '!=', False),('has_first_sync', '=', False)]}"
+                    />
+                    <button
+                        name="action_production"
+                        string="Disable production"
+                        type="object"
+                        attrs="{'invisible': ['|',('enable_production', '=', False),('has_first_sync', '=', False)]}"
+                    />
                 </header>
                 <sheet>
+                    <field name="enable_production" invisible="True" />
                     <div class="oe_title">
                         <label for="name" class="oe_edit_only" />
                         <h1>

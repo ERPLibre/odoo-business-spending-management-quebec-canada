@@ -11,7 +11,7 @@
                         name="action_execute_send_sms"
                         string="Send SMS "
                         type="object"
-                        class="oe_highlight"
+                        class="btn-warning"
                         attrs="{'invisible': [('sms_enable', '=', False)]}"
                     />
                     <button name="action_clear_log" string="Clear log" type="object" />
@@ -25,6 +25,7 @@
                     </div>
                     <group>
                         <group string="General">
+                            <field name="session_id" />
                             <field name="board_id" />
                             <field name="algo_key" />
                             <field name="sms_message_prefix" />
@@ -72,6 +73,11 @@
                         <page string="SMS">
                             <group>
                                 <field name="sms_history_ids" />
+                            </group>
+                        </page>
+                        <page string="Dependence">
+                            <group>
+                                <field name="depend_process_ids" />
                             </group>
                         </page>
                     </notebook>
