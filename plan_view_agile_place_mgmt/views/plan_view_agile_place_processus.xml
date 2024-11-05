@@ -49,8 +49,10 @@
                             <field name="model_name" />
                             <field name="ignore_warning_from_name" />
                         </group>
-                        <group string="schedule">
+                        <group string="Schedule">
                             <field name="fake_regex_lane" />
+                            <field name="delay_in_day" />
+                            <field name="ignore_weekend" />
                         </group>
                     </group>
                     <group>

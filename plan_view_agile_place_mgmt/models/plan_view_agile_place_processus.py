@@ -5,6 +5,7 @@ import os
 import re
 
 import requests
+from pytz import timezone
 
 from odoo import _, api, exceptions, fields, models
 
@@ -53,6 +54,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
     lane_name = fields.Char()
 
     fake_regex_lane = fields.Char()
+
+    delay_in_day = fields.Integer()
+
+    ignore_weekend = fields.Boolean()
 
     sms_message_prefix = fields.Text()
 
@@ -210,9 +215,11 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 rec.board_id = board_id.id
 
             # First log
+            user_tz = self.env.user.tz or "UTC"
+            user_timezone = timezone(user_tz)
             msg_txt = (
                 f"LOG Execute algo '{rec.algo_key}' -"
-                f" {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+                f" {datetime.datetime.now().astimezone(user_timezone).strftime('%Y-%m-%d %H:%M:%S')}\n"
             )
             rec.log_txt += msg_txt
             rec.log_error_txt += msg_txt
@@ -316,7 +323,11 @@ class PlanViewAgilePlaceProcessus(models.Model):
                             #     "mois": int(result.group("mois")),
                             # }
                             next_day = self.return_next_open_day(
-                                datetime.date.today()
+                                datetime.datetime.now().astimezone(
+                                    user_timezone
+                                ),
+                                delay_day=rec.delay_in_day,
+                                is_skipping_weekend=rec.ignore_weekend,
                             )
                             if next_day.month == int(
                                 result.group("mois")
@@ -362,6 +373,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                         [("name", "=", card_name.title())],
                                         limit=1,
                                     )
+
                                     if not employee_id:
                                         msg_txt = (
                                             "ERR Missing employee card"
@@ -459,11 +471,11 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                             if card_msg_1_ids:
                                                 if card_msg_1_ids.size:
                                                     msg_sms += (
-                                                        " + Couler à"
+                                                        " + Coulée à"
                                                         f" {card_msg_1_ids.size}h."
                                                     )
                                                 else:
-                                                    msg_sms += " + Couler."
+                                                    msg_sms += " + Coulée."
                                     if partner_id:
                                         street_map = partner_id.street.replace(
                                             " ", "%20"
@@ -654,11 +666,15 @@ class PlanViewAgilePlaceProcessus(models.Model):
             _logger.info(f"End of execution processus '{rec.algo_key}'")
 
     @staticmethod
-    def return_next_open_day(date):
+    def return_next_open_day(date, delay_day=1, is_skipping_weekend=True):
         # TODO support weekday, check next day from calendar into system
-        prochain_jour = date + datetime.timedelta(days=1)
+        prochain_jour = date + datetime.timedelta(days=delay_day)
 
-        while prochain_jour.weekday() in (5, 6):  # 5 = saturday, 6 = sunday
-            prochain_jour += datetime.timedelta(days=1)
+        if is_skipping_weekend:
+            while prochain_jour.weekday() in (
+                5,
+                6,
+            ):  # 5 = saturday, 6 = sunday
+                prochain_jour += datetime.timedelta(days=delay_day)
 
         return prochain_jour
