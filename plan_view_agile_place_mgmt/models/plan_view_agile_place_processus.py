@@ -38,7 +38,23 @@ class PlanViewAgilePlaceProcessus(models.Model):
         string="Session",
     )
 
-    bind_custom_field = fields.Text()
+    bind_custom_field = fields.Text(
+        help="Contain JSON, key is custom field and value is field name"
+    )
+
+    bind_required_field_list = fields.Text(
+        help=(
+            "Contain JSON of list, when required, will show warning if missing"
+            " value."
+        )
+    )
+
+    filter_field = fields.Text(
+        help=(
+            "Contain JSON, key is field name, value depend on type. Selection"
+            " will be a boolean filter."
+        )
+    )
 
     bind_field = fields.Text()
 
@@ -307,6 +323,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 pass
 
             if rec.algo_key == "send_sms_schedule":
+                lst_filter_field = json.loads(rec.filter_field)
                 if rec.fake_regex_lane == "jour d/m":
                     lane_ids = self.env["plan.view.agile.place.lane"].search(
                         [("board_id", "=", rec.board_id.id)]
@@ -363,7 +380,6 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                 # TODO switch for ready production
                                 i_msg = 0
                                 for card_id in card_ids:
-                                    i_msg += 1
                                     # TODO validate double employee, validate time or raise error if missing time
                                     # Find employee
                                     card_name = card_id.name.strip()
@@ -373,6 +389,17 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                         [("name", "=", card_name.title())],
                                         limit=1,
                                     )
+
+                                    ignore_this_employee = False
+                                    if lst_filter_field:
+                                        ignore_this_employee = not any(
+                                            [
+                                                getattr(employee_id, a)
+                                                for a in lst_filter_field
+                                            ]
+                                        )
+                                    if ignore_this_employee:
+                                        continue
 
                                     if not employee_id:
                                         msg_txt = (
@@ -395,6 +422,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                         rec.log_txt += msg_txt
                                         rec.log_error_txt += msg_txt
                                         continue
+                                    i_msg += 1
                                     msg_sms_log_debug = (
                                         f"PHONE: {employee_id.work_phone}\n"
                                     )
@@ -535,9 +563,16 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 )
 
                 lst_existing_name = []
-                dct_custom_field_to_field_name = json.loads(
-                    rec.bind_custom_field
-                )
+                dct_custom_field_to_field_name = {}
+                if rec.bind_custom_field:
+                    dct_custom_field_to_field_name = json.loads(
+                        rec.bind_custom_field
+                    )
+                lst_bind_required_field_list = []
+                if rec.bind_required_field_list:
+                    lst_bind_required_field_list = json.loads(
+                        rec.bind_required_field_list
+                    )
                 for card_id in card_ids:
                     # Check doublon from card
                     if card_id.name in lst_existing_name:
@@ -619,13 +654,38 @@ class PlanViewAgilePlaceProcessus(models.Model):
                             ]
 
                         for dct_custom_field in lst_find_lst_custom_field:
+                            custom_field_label = dct_custom_field.get("label")
                             value = dct_custom_field.get("value")
+                            # When field_name is dict, a structure to choose another field_name
                             if value:
-                                new_model_value[field_name] = value
+                                # support integer and selection to enable boolean
+                                if type(field_name) is dict:
+                                    for item_value in value:
+                                        field_name_find = field_name.get(
+                                            item_value
+                                        )
+                                        if not field_name_find:
+                                            msg_txt = (
+                                                f"WAR '{name}' cannot extract"
+                                                " custom field"
+                                                f" '{custom_field_label}' with"
+                                                f" value '{item_value}'\n"
+                                            )
+                                            rec.log_txt += msg_txt
+                                            rec.log_error_txt += msg_txt
+                                            continue
+                                        else:
+                                            new_model_value[
+                                                field_name_find
+                                            ] = True
+                                else:
+                                    new_model_value[field_name] = value
                             else:
                                 if (
                                     not name
                                     in rec.ignore_warning_from_name.split(";")
+                                    and custom_field_name
+                                    in lst_bind_required_field_list
                                 ):
                                     msg_txt = (
                                         f"WAR '{rec.model_name}' Missing value"
@@ -647,7 +707,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
                             f" '{name}' id '{card_id.card_id_pvap}\n"
                         )
                         rec.log_txt += msg_txt
-                        new_model_id.write(new_model_value)
+                        try:
+                            new_model_id.write(new_model_value)
+                        except Exception as e:
+                            print(e)
                     else:
                         msg_txt = (
                             f"LOG Create '{rec.model_name}' with name"

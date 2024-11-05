@@ -7,6 +7,7 @@
     "application": True,
     "data": [
         "security/ir.model.access.csv",
+        "views/hr_views.xml",
         "views/plan_view_agile_place_board.xml",
         "views/plan_view_agile_place_card.xml",
         "views/plan_view_agile_place_card_type.xml",
@@ -16,6 +17,10 @@
         "views/plan_view_agile_place_session.xml",
         "views/plan_view_agile_place_sms_history.xml",
         "views/menu.xml",
+    ],
+    "depends": [
+        "hr",
+        "contacts",
     ],
     "installable": True,
 }

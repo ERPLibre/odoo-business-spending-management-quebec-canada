@@ -45,9 +45,11 @@
                         <group string="Extract data">
                             <field name="default_value_model" />
                             <field name="bind_custom_field" />
+                            <field name="bind_required_field_list" />
                             <field name="bind_field" />
                             <field name="model_name" />
                             <field name="ignore_warning_from_name" />
+                            <field name="filter_field" />
                         </group>
                         <group string="Schedule">
                             <field name="fake_regex_lane" />

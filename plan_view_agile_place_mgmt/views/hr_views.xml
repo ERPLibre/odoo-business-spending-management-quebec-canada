@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <data>
+        <!-- Employee -->
+        <record id="view_employee_form_sms" model="ir.ui.view">
+            <field name="name">hr.employee.form SMS</field>
+            <field name="inherit_id" ref="hr.view_employee_form" />
+            <field name="model">hr.employee</field>
+            <field name="arch" type="xml">
+                <xpath expr="//group[@name='active_group']" position="after">
+                    <group string='SMS' name="sms_group">
+                        <field name="enable_sms_rappel_horaire_gestionnaire" string="Enable SMS gestionnaire horaire" />
+                        <field name="enable_sms_rappel_horaire_employee" string="Enable SMS employé horaire" />
+                    </group>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>
