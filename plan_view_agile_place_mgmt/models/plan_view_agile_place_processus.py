@@ -540,6 +540,16 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 root_lane_id = self.env["plan.view.agile.place.lane"].search(
                     [("title", "=", rec.root_lane_name)]
                 )
+                if not root_lane_id:
+                    msg_txt = (
+                        f"ERR processus '{rec.name}' root lane name"
+                        f" '{rec.root_lane_name}'\n"
+                    )
+                    rec.log_txt += msg_txt
+                    rec.log_error_txt += msg_txt
+                    continue
+                # Force auto refresh root lane
+                root_lane_id.action_sync_cards()
                 lane_query = [("root_lane_id", "=", root_lane_id.id)]
                 if rec.lane_name:
                     lane_query.append(("title", "=", rec.lane_name))

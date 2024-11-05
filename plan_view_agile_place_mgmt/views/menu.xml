@@ -78,7 +78,7 @@
     <menuitem
         id="view_agile_place_sms_history"
         name="SMS history"
-        action="plan_view_agile_place_processus_view_agile_place_processus_action_window"
+        action="plan_view_agile_place_sms_history_view_agile_place_sms_history_action_window"
         sequence="2"
         parent="menu_processus"
     />
