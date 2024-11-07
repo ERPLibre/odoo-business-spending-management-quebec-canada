@@ -366,6 +366,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
                         if next_day.month == int(
                             result.group("mois")
                         ) and next_day.day == int(result.group("journee")):
+                            # Find root lane
+                            # Force auto refresh root lane
+                            lane_id.action_sync_cards()
+
                             lst_query = [
                                 ("board_id", "=", rec.board_id.id),
                                 (
