@@ -75,6 +75,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     ignore_weekend = fields.Boolean()
 
+    description = fields.Text()
+
     sms_message_prefix = fields.Text()
 
     sms_detect_card_type_msg_1 = fields.Text()
@@ -101,7 +103,11 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     sms_message_to_send = fields.Text()
 
-    sms_debug = fields.Boolean(default=False)
+    sms_debug = fields.Boolean()
+
+    force_update_model = fields.Boolean(
+        help="Will force to update model when sync with another lane."
+    )
 
     sms_limit_iteration = fields.Integer(
         help="0 is default, will be ignore and run."
@@ -245,6 +251,18 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 for process_id in rec.depend_process_ids:
                     process_id.action_execute_algo()
 
+            # Compute variable
+            dct_custom_field_to_field_name = {}
+            if rec.bind_custom_field:
+                dct_custom_field_to_field_name = json.loads(
+                    rec.bind_custom_field
+                )
+            lst_bind_required_field_list = []
+            if rec.bind_required_field_list:
+                lst_bind_required_field_list = json.loads(
+                    rec.bind_required_field_list
+                )
+
             if rec.algo_key == "copy_cards":
                 # print(rec.copy_to_lane)
                 # print(rec.copy_from_lane)
@@ -318,11 +336,11 @@ class PlanViewAgilePlaceProcessus(models.Model):
                             }
                             self.env["plan.view.agile.place.card"].create(data)
 
-            if rec.algo_key == "send_reminder_sms_schedule_condition":
+            elif rec.algo_key == "send_reminder_sms_schedule_condition":
                 # TODO maybe can search employee information
                 pass
 
-            if rec.algo_key == "send_sms_schedule":
+            elif rec.algo_key == "send_sms_schedule":
                 lst_filter_field = json.loads(rec.filter_field)
                 if rec.fake_regex_lane == "jour d/m":
                     lane_ids = self.env["plan.view.agile.place.lane"].search(
@@ -380,12 +398,21 @@ class PlanViewAgilePlaceProcessus(models.Model):
                             i_msg = 0
                             for card_id in card_ids:
                                 # TODO validate double employee, validate time or raise error if missing time
-                                # Find employee
                                 card_name = card_id.name.strip()
-                                employee_id = self.env["hr.employee"].search(
-                                    [("name", "=", card_name.title())],
-                                    limit=1,
-                                )
+                                if rec.force_update_model:
+                                    employee_id = rec.create_model_from_card(
+                                        card_id,
+                                        dct_custom_field_to_field_name,
+                                        lst_bind_required_field_list,
+                                    )
+                                else:
+                                    # Find employee
+                                    employee_id = self.env[
+                                        "hr.employee"
+                                    ].search(
+                                        [("name", "=", card_name.title())],
+                                        limit=1,
+                                    )
 
                                 ignore_this_employee = False
                                 if lst_filter_field:
@@ -568,16 +595,6 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 )
 
                 lst_existing_name = []
-                dct_custom_field_to_field_name = {}
-                if rec.bind_custom_field:
-                    dct_custom_field_to_field_name = json.loads(
-                        rec.bind_custom_field
-                    )
-                lst_bind_required_field_list = []
-                if rec.bind_required_field_list:
-                    lst_bind_required_field_list = json.loads(
-                        rec.bind_required_field_list
-                    )
                 for card_id in card_ids:
                     # Check doublon from card
                     if card_id.name in lst_existing_name:
@@ -595,143 +612,142 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     else:
                         lst_existing_name.append(card_id.name)
                     # Create it
-                    if rec.default_value_model:
-                        new_model_value = json.loads(rec.default_value_model)
-                    else:
-                        new_model_value = {}
-                    if rec.bind_field:
-                        dct_model_value = json.loads(rec.bind_field)
-                        for k, v in dct_model_value.items():
-                            if v == "name":
-                                name = (
-                                    card_id.name
-                                    if not card_id.name.isupper()
-                                    else card_id.name.title()
-                                )
-                            else:
-                                name = getattr(card_id, v)
-                            new_model_value[k] = name
-                    name = new_model_value.get("name")
-                    # Custom Fields
-                    if not card_id.custom_fields:
-                        card_id.update_card_details()
-                        dct_detail = json.loads(card_id.card_details)
-                        lst_custom_field = dct_detail.get("customFields")
-                    else:
-                        lst_custom_field = json.loads(card_id.custom_fields)
-                    if not lst_custom_field:
-                        msg_txt = (
-                            f"ERR '{rec.model_name}' Missing custom fields\n"
-                        )
-                        rec.log_txt += msg_txt
-                        rec.log_error_txt += msg_txt
-                        continue
-                    # Bind value
-                    for (
-                        custom_field_name,
-                        field_name,
-                    ) in dct_custom_field_to_field_name.items():
-                        lst_find_lst_custom_field = [
-                            a
-                            for a in lst_custom_field
-                            if a.get("label") == custom_field_name
-                        ]
-                        if not lst_find_lst_custom_field:
-                            if not name in rec.ignore_warning_from_name.split(
-                                ";"
-                            ):
-                                msg_txt = (
-                                    f"WAR '{rec.model_name}' Missing custom"
-                                    f" field '{custom_field_name}' about name"
-                                    f" '{name}' id '{card_id.card_id_pvap}."
-                                    " Try auto-update\n"
-                                )
-                            rec.log_txt += msg_txt
-                            rec.log_error_txt += msg_txt
-
-                            card_id.update_card_details()
-                            dct_detail = json.loads(card_id.card_details)
-                            lst_custom_field = dct_detail.get("customFields")
-                            lst_find_lst_custom_field = [
-                                a
-                                for a in lst_custom_field
-                                if a.get("label") == custom_field_name
-                            ]
-
-                        for dct_custom_field in lst_find_lst_custom_field:
-                            custom_field_label = dct_custom_field.get("label")
-                            value = dct_custom_field.get("value")
-                            # When field_name is dict, a structure to choose another field_name
-                            if value:
-                                # support integer and selection to enable boolean
-                                if type(field_name) is dict:
-                                    for item_value in value:
-                                        field_name_find = field_name.get(
-                                            item_value
-                                        )
-                                        if not field_name_find:
-                                            msg_txt = (
-                                                f"WAR '{name}' cannot extract"
-                                                " custom field"
-                                                f" '{custom_field_label}' with"
-                                                f" value '{item_value}'\n"
-                                            )
-                                            rec.log_txt += msg_txt
-                                            rec.log_error_txt += msg_txt
-                                            continue
-                                        else:
-                                            new_model_value[
-                                                field_name_find
-                                            ] = True
-                                else:
-                                    new_model_value[field_name] = value
-                            else:
-                                if (
-                                    not name
-                                    in rec.ignore_warning_from_name.split(";")
-                                    and custom_field_name
-                                    in lst_bind_required_field_list
-                                ):
-                                    msg_txt = (
-                                        f"WAR '{rec.model_name}' Missing value"
-                                        " for custom field"
-                                        f" '{custom_field_name}' about name"
-                                        f" '{name}' id"
-                                        f" '{card_id.card_id_pvap}\n"
-                                    )
-                                    rec.log_txt += msg_txt
-                                    rec.log_error_txt += msg_txt
-
-                    # Update or create
-                    new_model_id = self.env[rec.model_name].search(
-                        [("name", "=", name)], limit=1
+                    rec.create_model_from_card(
+                        card_id,
+                        dct_custom_field_to_field_name,
+                        lst_bind_required_field_list,
                     )
-                    if new_model_id:
-                        msg_txt = (
-                            f"LOG Update '{rec.model_name}' with name"
-                            f" '{name}' id '{card_id.card_id_pvap}\n"
-                        )
-                        rec.log_txt += msg_txt
-                        try:
-                            new_model_id.write(new_model_value)
-                        except Exception as e:
-                            print(e)
-                    else:
-                        msg_txt = (
-                            f"LOG Create '{rec.model_name}' with name"
-                            f" '{name}' id '{card_id.card_id_pvap}'\n"
-                        )
-                        rec.log_txt += msg_txt
-                        new_model_id = self.env[rec.model_name].create(
-                            new_model_value
-                        )
-                        # TODO send id to client, can visualize all created data
-                        #  or maybe not, too much link into database, maybe create html link
                 rec.log_txt += "\n"
                 rec.log_error_txt += "\n"
 
                 # TODO generate SMS message with adresse and job and employ
             _logger.info(f"End of execution processus '{rec.algo_key}'")
+
+    def create_model_from_card(
+        self,
+        card_id,
+        dct_custom_field_to_field_name,
+        lst_bind_required_field_list,
+    ):
+        rec = self
+        if rec.default_value_model:
+            new_model_value = json.loads(rec.default_value_model)
+        else:
+            new_model_value = {}
+        if rec.bind_field:
+            dct_model_value = json.loads(rec.bind_field)
+            for k, v in dct_model_value.items():
+                if v == "name":
+                    name = (
+                        card_id.name
+                        if not card_id.name.isupper()
+                        else card_id.name.title()
+                    )
+                else:
+                    name = getattr(card_id, v)
+                new_model_value[k] = name
+        name = new_model_value.get("name").strip()
+        # Custom Fields
+        if not card_id.custom_fields:
+            card_id.update_card_details()
+            dct_detail = json.loads(card_id.card_details)
+            lst_custom_field = dct_detail.get("customFields")
+        else:
+            lst_custom_field = json.loads(card_id.custom_fields)
+        if not lst_custom_field:
+            msg_txt = f"ERR '{rec.model_name}' Missing custom fields\n"
+            rec.log_txt += msg_txt
+            rec.log_error_txt += msg_txt
+            return
+        # Bind value
+        for (
+            custom_field_name,
+            field_name,
+        ) in dct_custom_field_to_field_name.items():
+            lst_find_lst_custom_field = [
+                a
+                for a in lst_custom_field
+                if a.get("label") == custom_field_name
+            ]
+            if not lst_find_lst_custom_field:
+                if not name in rec.ignore_warning_from_name.split(";"):
+                    msg_txt = (
+                        f"WAR '{rec.model_name}' Missing custom"
+                        f" field '{custom_field_name}' about name"
+                        f" '{name}' id '{card_id.card_id_pvap}."
+                        " Try auto-update\n"
+                    )
+                    rec.log_txt += msg_txt
+                    rec.log_error_txt += msg_txt
+
+                card_id.update_card_details()
+                dct_detail = json.loads(card_id.card_details)
+                lst_custom_field = dct_detail.get("customFields")
+                lst_find_lst_custom_field = [
+                    a
+                    for a in lst_custom_field
+                    if a.get("label") == custom_field_name
+                ]
+
+            for dct_custom_field in lst_find_lst_custom_field:
+                custom_field_label = dct_custom_field.get("label")
+                value = dct_custom_field.get("value")
+                # When field_name is dict, a structure to choose another field_name
+                if value:
+                    # support integer and selection to enable boolean
+                    if type(field_name) is dict:
+                        for item_value in value:
+                            field_name_find = field_name.get(item_value)
+                            if not field_name_find:
+                                msg_txt = (
+                                    f"WAR '{name}' cannot extract"
+                                    " custom field"
+                                    f" '{custom_field_label}' with"
+                                    f" value '{item_value}'\n"
+                                )
+                                rec.log_txt += msg_txt
+                                rec.log_error_txt += msg_txt
+                                continue
+                            else:
+                                new_model_value[field_name_find] = True
+                    else:
+                        new_model_value[field_name] = value
+                else:
+                    if (
+                        not name in rec.ignore_warning_from_name.split(";")
+                        and custom_field_name in lst_bind_required_field_list
+                    ):
+                        msg_txt = (
+                            f"WAR '{rec.model_name}' Missing value"
+                            " for custom field"
+                            f" '{custom_field_name}' about name"
+                            f" '{name}' id"
+                            f" '{card_id.card_id_pvap}\n"
+                        )
+                        rec.log_txt += msg_txt
+                        rec.log_error_txt += msg_txt
+
+        # Update or create
+        new_model_id = self.env[rec.model_name].search(
+            [("name", "=", name)], limit=1
+        )
+        if new_model_id:
+            msg_txt = (
+                f"LOG Update '{rec.model_name}' with name"
+                f" '{name}' id '{card_id.card_id_pvap}\n"
+            )
+            rec.log_txt += msg_txt
+            new_model_id.write(new_model_value)
+        else:
+            msg_txt = (
+                f"LOG Create '{rec.model_name}' with name"
+                f" '{name}' id '{card_id.card_id_pvap}'\n"
+            )
+            rec.log_txt += msg_txt
+            new_model_id = self.env[rec.model_name].create(new_model_value)
+            # TODO send id to client, can visualize all created data
+            #  or maybe not, too much link into database, maybe create html link
+        return new_model_id
 
     @staticmethod
     def return_next_open_day(date, delay_day=1, is_skipping_weekend=True):
