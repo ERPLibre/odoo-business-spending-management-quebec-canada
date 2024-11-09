@@ -204,9 +204,11 @@ class PlanViewAgilePlaceCard(models.Model):
                     continue
         return status
 
-    def sync_pvap_cards(self, session_id, board_id, from_lane=None):
+    def sync_pvap_cards(self, board_id, from_lane=None):
         # from_lane will do partial update
         # Search all under lane with from_lane
+        session_id = board_id.session_id
+
         lane_to_extract_ids = None
         if not from_lane:
             lst_pvap_lane = []

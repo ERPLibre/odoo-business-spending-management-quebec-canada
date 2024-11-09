@@ -144,3 +144,5 @@ class PlanViewAgilePlaceBoard(models.Model):
                     # The name need to be computed at the end, depend on root_lane_id
                     lane_id._compute_name()
                     lane_id.need_update_compute = False
+
+            self.env["plan.view.agile.place.card"].sync_pvap_cards(rec)

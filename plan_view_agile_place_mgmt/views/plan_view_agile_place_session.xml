@@ -6,7 +6,34 @@
         <field name="arch" type="xml">
             <form string="Titre">
                 <header>
-                    <button name="action_sync" string="Sync" type="object" class="oe_highlight" />
+                    <button
+                        name="action_sync_board_info"
+                        string="Sync board list"
+                        type="object"
+                        class="btn-success"
+                        attrs="{'invisible': [('board_selected_id', '!=', False)]}"
+                    />
+                    <button
+                        name="action_sync_board_info"
+                        string="Sync board list"
+                        type="object"
+                        class="oe_highlight"
+                        attrs="{'invisible': [('board_selected_id', '=', False)]}"
+                    />
+                    <button
+                        name="action_sync_all"
+                        string="Sync all"
+                        type="object"
+                        class="oe_highlight"
+                        attrs="{'invisible': [('board_selected_id', '!=', False)]}"
+                    />
+                    <button
+                        name="action_sync_board"
+                        string="Sync board"
+                        type="object"
+                        class="btn-success"
+                        attrs="{'invisible': [('board_selected_id', '=', False)]}"
+                    />
                     <button name="action_clear_all" string="Clear" type="object" class="oe_highlight" />
                     <button
                         name="action_production"
@@ -35,6 +62,7 @@
                     </div>
                     <group>
                         <group>
+                            <field name="board_selected_id" />
                             <field name="api_token" type="password" password="True" />
                             <field name="has_first_sync" />
                             <field name="sms_enable" />

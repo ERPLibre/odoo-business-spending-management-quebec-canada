@@ -49,6 +49,11 @@ class PlanViewAgilePlaceSession(models.Model):
         default=False, readonly=True, help="Will be True when first sync done."
     )
 
+    board_selected_id = fields.Many2one(
+        comodel_name="plan.view.agile.place.board",
+        string="Selected board",
+    )
+
     board_ids = fields.One2many(
         comodel_name="plan.view.agile.place.board",
         inverse_name="session_id",
@@ -230,7 +235,8 @@ class PlanViewAgilePlaceSession(models.Model):
                         process_id.action_execute_algo()
 
     @api.multi
-    def action_sync(self):
+    def action_sync_board_info(self):
+        board_ids = self.env["plan.view.agile.place.board"]
         for rec in self:
             # Get all board
             # TODO configuration board
@@ -265,9 +271,17 @@ class PlanViewAgilePlaceSession(models.Model):
                     board_id = self.env["plan.view.agile.place.board"].create(
                         board_value
                     )
+                    board_ids += board_id
+        return board_ids
+
+    @api.multi
+    def action_sync_all(self):
+        for rec in self:
+            for board_id in rec.action_sync_board_info():
                 # Refresh all board information
                 board_id.action_sync()
 
-                self.env["plan.view.agile.place.card"].sync_pvap_cards(
-                    rec, board_id
-                )
+    def action_sync_board(self):
+        for rec in self:
+            # Refresh selected board
+            rec.board_selected_id.action_sync()

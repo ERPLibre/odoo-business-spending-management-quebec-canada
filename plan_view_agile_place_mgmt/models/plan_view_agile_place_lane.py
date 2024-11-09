@@ -124,7 +124,7 @@ class PlanViewAgilePlaceLane(models.Model):
     def action_sync_cards(self):
         for rec in self:
             self.env["plan.view.agile.place.card"].sync_pvap_cards(
-                rec.session_id, rec.board_id, from_lane=rec
+                rec.board_id, from_lane=rec
             )
 
     def get_list_child_lane_from_lane(self, add_itself=False):
