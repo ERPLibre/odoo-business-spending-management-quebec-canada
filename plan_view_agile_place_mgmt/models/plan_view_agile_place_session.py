@@ -36,7 +36,7 @@ class PlanViewAgilePlaceSession(models.Model):
         default=False, help="Ignore this functionality if not enable."
     )
 
-    enable_production = fields.Boolean(
+    production_enabled = fields.Boolean(
         default=False,
         help="Informe user this instance is ready for production.",
     )
@@ -202,19 +202,20 @@ class PlanViewAgilePlaceSession(models.Model):
     def action_production(self):
         is_first_execution = False
         for rec in self:
-            rec.enable_production = not rec.enable_production
+            rec.production_enabled = not rec.production_enabled
+            rec.sms_enable = rec.production_enabled
             if not is_first_execution:
                 is_first_execution = True
                 # Enable process over cron
                 ir_cron_ids = self.env["ir.cron"].search(
                     [
                         ("model_name", "=", "plan.view.agile.place.processus"),
-                        ("active", "!=", rec.enable_production),
+                        ("active", "!=", rec.production_enabled),
                     ]
                 )
                 for ir_cron_id in ir_cron_ids:
-                    ir_cron_id.active = rec.enable_production
-                if rec.enable_production:
+                    ir_cron_id.active = rec.production_enabled
+                if rec.production_enabled:
                     # warm up process with sms
                     process_ids = self.env[
                         "plan.view.agile.place.processus"
