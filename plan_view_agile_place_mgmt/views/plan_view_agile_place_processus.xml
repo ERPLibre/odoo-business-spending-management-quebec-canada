@@ -194,6 +194,14 @@
                 <filter domain="[('model_name','!=',False)]" name="model_name" string="Model Name" />
                 <filter domain="[('parent_lane_name','!=',False)]" name="parent_lane_name" string="Parent Lane Name" />
                 <filter domain="[('root_lane_name','!=',False)]" name="root_lane_name" string="Root Lane Name" />
+                <group string="Group By">
+                    <filter
+                        string="Algorithme key"
+                        name="group_algo_key"
+                        domain="[]"
+                        context="{'group_by':'algo_key'}"
+                    />
+                </group>
             </search>
         </field>
     </record>
@@ -220,5 +228,6 @@
         name="View agile place processus"
         res_model="plan.view.agile.place.processus"
         view_mode="kanban,tree,pivot,graph,form"
+        context="{'search_default_group_algo_key': 1}"
     />
 </odoo>
