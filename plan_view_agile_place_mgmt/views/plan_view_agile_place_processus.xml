@@ -29,19 +29,30 @@
                             <field name="session_id" />
                             <field name="board_id" />
                             <field name="algo_key" />
-                            <field name="sms_message_prefix" />
-                            <field name="sms_detect_card_type_msg_1" />
-                            <field name="location_type_msg" />
+                        </group>
+                        <group string="Search">
                             <field name="lane_name" />
                             <field name="parent_lane_name" />
                             <field name="root_lane_name" />
                             <field name="sub_lane_name" />
                             <field name="type_card" />
                         </group>
+                        <group string="SMS">
+                            <field name="sms_summary_phone" />
+                            <field name="sms_message_prefix" />
+                            <field name="sms_detect_card_type_msg_1" />
+                            <field name="location_type_msg" />
+                        </group>
                         <group string="Copy">
                             <field name="copy_from_lane" />
                             <field name="copy_to_lane" />
                             <field name="clean_before_card_from_lane" />
+                        </group>
+                        <group string="Schedule">
+                            <field name="fake_regex_lane" />
+                            <field name="delay_in_day" />
+                            <field name="ignore_weekend" />
+                            <field name="force_update_model" />
                         </group>
                         <group string="Extract data">
                             <field name="default_value_model" />
@@ -52,17 +63,12 @@
                             <field name="ignore_warning_from_name" />
                             <field name="filter_field" />
                         </group>
-                        <group string="Schedule">
-                            <field name="fake_regex_lane" />
-                            <field name="delay_in_day" />
-                            <field name="ignore_weekend" />
-                            <field name="force_update_model" />
-                        </group>
                     </group>
                     <group>
                         <group string="SMS" attrs="{'invisible': [('sms_enable', '=', False)]}">
                             <field name="sms_enable" invisible="True" />
                             <field name="sms_debug" />
+                            <field name="sms_in_test_mode" />
                             <field name="sms_to_number_phone" />
                             <field name="sms_to_country" />
                             <field name="sms_message_to_send" />

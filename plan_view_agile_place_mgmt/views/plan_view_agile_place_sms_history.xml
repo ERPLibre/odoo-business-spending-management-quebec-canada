@@ -16,14 +16,23 @@
                         </h1>
                     </div>
                     <group>
-                        <field name="create_date" />
-                        <field name="from_number_phone" />
-                        <field name="from_number_phone_country" />
-                        <field name="is_sent" />
-                        <field name="to_number_phone" />
-                        <field name="to_number_phone_country" />
-                        <field name="processus_id" />
-                        <field name="session_id" />
+                        <group string="General">
+                            <field name="create_date" />
+                            <field name="processus_id" />
+                            <field name="session_id" />
+                            <field name="is_sent" />
+                        </group>
+                        <group string="Phone">
+                            <field name="from_number_phone_country" />
+                            <field name="from_number_phone" />
+                            <field name="to_number_phone_country" />
+                            <field name="to_number_phone" />
+                        </group>
+                        <group string="Debug">
+                            <field name="from_number_real_phone" />
+                            <field name="to_number_real_phone" />
+                            <field name="group_execution_name" />
+                        </group>
                     </group>
                 </sheet>
             </form>
@@ -145,6 +154,12 @@
                         name="create_date_filter"
                         domain="[]"
                         context="{'group_by':'create_date'}"
+                    />
+                    <filter
+                        string="Group execution"
+                        name="group_execution_name"
+                        domain="[]"
+                        context="{'group_by':'group_execution_name'}"
                     />
                 </group>
             </search>

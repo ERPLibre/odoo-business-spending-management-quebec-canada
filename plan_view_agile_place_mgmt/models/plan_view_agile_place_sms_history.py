@@ -9,18 +9,36 @@ _logger = logging.getLogger(__name__)
 class PlanViewAgilePlaceSmsHistory(models.Model):
     _name = "plan.view.agile.place.sms.history"
     _description = "plan_view_agile_place_sms_history"
+    _order = "id desc"
 
-    name = fields.Char(string="Body")
+    name = fields.Text(string="Body")
 
     from_number_phone = fields.Char()
 
     from_number_phone_country = fields.Char()
+
+    from_number_real_phone = fields.Char(
+        help="This is the real phone to be use, can be overwrite for debug.",
+        readonly=True,
+    )
 
     is_sent = fields.Boolean(readonly=True)
 
     to_number_phone = fields.Char()
 
     to_number_phone_country = fields.Char()
+
+    to_number_real_phone = fields.Char(
+        help="This is the real phone to be use, can be overwrite for debug.",
+        readonly=True,
+    )
+
+    group_execution_name = fields.Char(
+        help=(
+            "This can be use to create group of sending, to associate another"
+            " SMS history to this."
+        )
+    )
 
     processus_id = fields.Many2one(
         "plan.view.agile.place.processus", string="Processus"
@@ -53,6 +71,7 @@ class PlanViewAgilePlaceSmsHistory(models.Model):
                     to_number_phone = (
                         rec.to_number_phone_country + rec.to_number_phone
                     )
+                rec.to_number_real_phone = to_number_phone
                 if rec.session_id.sms_from_number_phone:
                     from_number_phone = (
                         rec.from_number_phone_country
@@ -62,6 +81,7 @@ class PlanViewAgilePlaceSmsHistory(models.Model):
                     from_number_phone = (
                         rec.from_number_phone_country + rec.from_number_phone
                     )
+                rec.from_number_real_phone = from_number_phone
                 for to_number_phone_single in to_number_phone.split(";"):
                     # Create request
                     pre_command = (
@@ -72,11 +92,14 @@ class PlanViewAgilePlaceSmsHistory(models.Model):
                     command = pre_command + f" -u {api_token}" + past_command
                     cmd_curl = f"curl '{api_url}' -X POST {command}"
 
-                    rec.is_sent = True
-                    if (
-                        rec.session_id.sms_enable
-                        or rec.processus_id.board_id.session_id.sms_enable
+                    if rec.session_id.sms_enable and (
+                        not rec.processus_id
+                        or (
+                            rec.processus_id
+                            and not rec.processus_id.sms_in_test_mode
+                        )
                     ):
                         os.system(cmd_curl)
+                        rec.is_sent = True
                     else:
                         _logger.info(pre_command + past_command)

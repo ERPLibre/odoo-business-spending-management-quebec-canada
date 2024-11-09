@@ -1,11 +1,10 @@
 import datetime
 import json
 import logging
-import os
 import re
 
-import requests
 from pytz import timezone
+from randomwordfr import RandomWordFr
 
 from odoo import _, api, exceptions, fields, models
 
@@ -79,6 +78,13 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     sms_message_prefix = fields.Text()
 
+    sms_summary_phone = fields.Char(
+        help=(
+            "Separate by ; for multiple SMS destination. Will send a summary"
+            " about the notification SMS for employee"
+        )
+    )
+
     sms_detect_card_type_msg_1 = fields.Text()
 
     location_type_msg = fields.Char()
@@ -105,6 +111,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     sms_debug = fields.Boolean()
 
+    sms_in_test_mode = fields.Boolean(help="Enable to fake sending SMS")
+
     force_update_model = fields.Boolean(
         help="Will force to update model when sync with another lane."
     )
@@ -116,7 +124,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
     sms_history_ids = fields.One2many(
         comodel_name="plan.view.agile.place.sms.history",
         inverse_name="processus_id",
-        string="Processus",
+        string="SMS history",
     )
 
     board_id = fields.Many2one(
@@ -156,9 +164,15 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     @api.multi
     def action_execute_send_sms(self):
+        rw = RandomWordFr()
+        group_execution_name = rw.get().get("word")
         for rec in self:
             if not rec.session_id.sms_enable:
                 continue
+
+            summary_final_msg = rec.sms_message_prefix
+            summary_msg = ""
+            sms_history_ids = self.env["plan.view.agile.place.sms.history"]
 
             to = (
                 rec.session_id.sms_to_number_phone_default
@@ -180,23 +194,29 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 "from_number_phone_country": rec.session_id.sms_from_country,
                 "from_number_phone": rec.session_id.sms_from_number_phone,
                 "processus_id": rec.id,
+                "group_execution_name": group_execution_name,
+                "session_id": rec.session_id.id,
             }
             if self.sms_debug and body:
                 # Send single message
                 sms_history_id = self.env[
                     "plan.view.agile.place.sms.history"
                 ].create(value_sms)
-                sms_history_id.send_sms(
-                    rec.session_id.sms_api_url, rec.session_id.sms_api_token
-                )
+                sms_history_id.send_sms()
                 return
             dct_sms_data = {"lst_data": []}
+            # TODO the algorith can create data into a new model, like this, the execution will be more fast
             rec.action_execute_algo(dct_sms_data=dct_sms_data)
-            for i, dct_sms in enumerate(dct_sms_data.get("lst_data")):
+            lst_data = dct_sms_data.get("lst_data")
+            date_msg_str = ""
+            for i, dct_sms in enumerate(lst_data):
                 if not (
                     not rec.sms_limit_iteration or rec.sms_limit_iteration > i
                 ):
                     continue
+                if not date_msg_str:
+                    date_msg_str = dct_sms.get("date")
+                summary_msg += f"#{i+1} {dct_sms.get('summary')}\n"
                 to_country = (
                     dct_sms.get("to_country")
                     if dct_sms.get("to_country")
@@ -218,9 +238,29 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 sms_history_id = self.env[
                     "plan.view.agile.place.sms.history"
                 ].create(value_sms)
-                sms_history_id.send_sms(
-                    rec.session_id.sms_api_url, rec.session_id.sms_api_token
-                )
+                sms_history_id.send_sms()
+                sms_history_ids += sms_history_id
+            # Send summary SMS
+            summary_final_msg += (
+                f"Sommaire ({len(lst_data)} SMS) {date_msg_str}\n{summary_msg}"
+                .strip()
+            )
+            rec.log_txt += "\n" + summary_final_msg + "\n"
+            for to_summary in rec.sms_summary_phone.split(";"):
+                value_sms = {
+                    "name": summary_final_msg,
+                    "to_number_phone_country": to_country,
+                    "to_number_phone": to_summary,
+                    "from_number_phone_country": rec.session_id.sms_from_country,
+                    "from_number_phone": rec.session_id.sms_from_number_phone,
+                    "processus_id": rec.id,
+                    "group_execution_name": group_execution_name,
+                    "session_id": rec.session_id.id,
+                }
+                sms_history_id = self.env[
+                    "plan.view.agile.place.sms.history"
+                ].create(value_sms)
+                sms_history_id.send_sms()
 
     @api.multi
     def action_execute_algo(self, ctx=None, dct_sms_data=None):
@@ -231,10 +271,17 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 rec.log_error_txt = ""
 
             if not rec.board_id:
-                board_id = self.env["plan.view.agile.place.board"].search([])
-                if len(board_id) != 1:
-                    raise exceptions.Warning("Missing board_id")
-                rec.board_id = board_id.id
+                if rec.session_id and rec.session_id.board_selected_id:
+                    rec.board_id = rec.session_id.board_selected_id.id
+                else:
+                    board_id = self.env["plan.view.agile.place.board"].search(
+                        []
+                    )
+                    if len(board_id) != 1:
+                        raise exceptions.Warning(
+                            f"Missing board_id for processus {rec.name}"
+                        )
+                    rec.board_id = board_id.id
 
             # First log
             user_tz = self.env.user.tz or "UTC"
@@ -459,14 +506,21 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                     if not rec.sms_message_prefix
                                     else rec.sms_message_prefix
                                 )
+                                msg_summary_sms = ""
                                 # Find contact location
+                                date_msg_str = lane_id.title.title()
                                 datetime_msg_str = lane_id.title.title()
+                                msg_time = ""
                                 if card_id.size:
-                                    datetime_msg_str += f" à {card_id.size}h"
+                                    msg_time = f" à {card_id.size}h"
+                                    datetime_msg_str += msg_time
                                 msg_sms += (
                                     f"{employee_id.name}, tu travailles le"
                                     f" {datetime_msg_str}, au"
                                     f" {rec.location_type_msg} «{card_id.lane_name}»"
+                                )
+                                msg_summary_sms += (
+                                    f"{employee_id.name} «{card_id.lane_name}»{msg_time}"
                                 )
                                 partner_id = self.env["res.partner"].search(
                                     [("name", "=", card_id.lane_name)],
@@ -524,12 +578,14 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                             rec.log_error_txt += msg_txt
                                         if card_msg_1_ids:
                                             if card_msg_1_ids.size:
-                                                msg_sms += (
+                                                msg_coule = (
                                                     " + Coulée à"
                                                     f" {card_msg_1_ids.size}h."
                                                 )
                                             else:
-                                                msg_sms += " + Coulée."
+                                                msg_coule = " + Coulée."
+                                            msg_sms += msg_coule
+                                            msg_summary_sms += msg_coule
                                 if partner_id:
                                     street_map = partner_id.street.replace(
                                         " ", "%20"
@@ -553,6 +609,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                         {
                                             "to": employee_id.work_phone,
                                             "body": msg_sms,
+                                            "summary": msg_summary_sms,
+                                            "date": date_msg_str,
                                         }
                                     )
                 else:
@@ -624,8 +682,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 rec.log_txt += "\n"
                 rec.log_error_txt += "\n"
 
-                # TODO generate SMS message with adresse and job and employ
-            _logger.info(f"End of execution processus '{rec.algo_key}'")
+            _logger.info(
+                f"End of execution processus '{rec.algo_key}' name"
+                f" '{rec.name}'"
+            )
 
     def create_model_from_card(
         self,
