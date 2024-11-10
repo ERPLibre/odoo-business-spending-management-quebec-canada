@@ -4,11 +4,11 @@
 
 import datetime
 import json
+import logging
 
 from odoo import _, api, fields, models
 
-LEANKIT_URL = "https://MYACCOUNT.leankit.com"
-LEANKIT_API_TOKEN = ""
+_logger = logging.getLogger(__name__)
 
 
 class PlanViewAgilePlaceCard(models.Model):
@@ -157,7 +157,7 @@ class PlanViewAgilePlaceCard(models.Model):
             }
             # TODO miss active, moved_on, version, externalLinks,
             if rec.custom_fields:
-                data["customFields"] = json.dumps(rec.custom_fields)
+                data["customFields"] = eval(rec.custom_fields)
             if rec.description:
                 data["description"] = rec.description
             if rec.entete:
@@ -179,7 +179,7 @@ class PlanViewAgilePlaceCard(models.Model):
                 "/io/card", data=data
             )
             if str(status)[0] != "2":
-                # TODO log this error
+                _logger.error(response)
                 continue
             # TODO raise error if missing... will already raise error
             rec.card_id_pvap = response.get("id")

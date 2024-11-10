@@ -71,7 +71,7 @@
                                         </strong>
                                     </li>
                                     <li class="mb4">
-                                        <strong>Index: </strong>
+                                        <strong>Index:</strong>
                                         <field name="index" />
                                     </li>
                                     <li class="mb4">
