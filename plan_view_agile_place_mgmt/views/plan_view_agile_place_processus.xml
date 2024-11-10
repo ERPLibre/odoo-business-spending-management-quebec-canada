@@ -32,9 +32,9 @@
                         </group>
                         <group string="Search">
                             <field name="lane_name" />
-                            <field name="parent_lane_name" />
-                            <field name="root_lane_name" />
-                            <field name="sub_lane_name" />
+                            <field name="lane_parent_name" />
+                            <field name="lane_root_name" />
+                            <!--                            <field name="sub_lane_name" />-->
                             <field name="type_card" />
                             <field name="is_root_lane" />
                         </group>
@@ -115,8 +115,8 @@
                 <field name="algo_key" type="row" />
                 <field name="bind_custom_field" type="row" />
                 <field name="model_name" type="row" />
-                <field name="parent_lane_name" type="row" />
-                <field name="root_lane_name" type="row" />
+                <field name="lane_parent_name" type="row" />
+                <field name="lane_root_name" type="row" />
             </graph>
         </field>
     </record>
@@ -130,8 +130,8 @@
                 <field name="algo_key" />
                 <field name="bind_custom_field" />
                 <field name="model_name" />
-                <field name="parent_lane_name" />
-                <field name="root_lane_name" />
+                <field name="lane_parent_name" />
+                <field name="lane_root_name" />
                 <templates>
                     <t t-name="kanban-box">
                         <div t-attf-class="oe_kanban_global_click">
@@ -164,8 +164,8 @@
                 <field name="algo_key" type="row" />
                 <field name="bind_custom_field" type="row" />
                 <field name="model_name" type="row" />
-                <field name="parent_lane_name" type="row" />
-                <field name="root_lane_name" type="row" />
+                <field name="lane_parent_name" type="row" />
+                <field name="lane_root_name" type="row" />
             </pivot>
         </field>
     </record>
@@ -179,8 +179,8 @@
                 <filter domain="[('algo_key','!=',False)]" name="algo_key" string="Algo Key" />
                 <filter domain="[('bind_custom_field','!=',False)]" name="bind_custom_field" string="Bind Field" />
                 <filter domain="[('model_name','!=',False)]" name="model_name" string="Model Name" />
-                <filter domain="[('parent_lane_name','!=',False)]" name="parent_lane_name" string="Parent Lane Name" />
-                <filter domain="[('root_lane_name','!=',False)]" name="root_lane_name" string="Root Lane Name" />
+                <filter domain="[('lane_parent_name','!=',False)]" name="lane_parent_name" string="Parent Lane Name" />
+                <filter domain="[('lane_root_name','!=',False)]" name="lane_root_name" string="Root Lane Name" />
                 <group string="Group By">
                     <filter
                         string="Algorithme key"
@@ -202,9 +202,9 @@
                 <field name="algo_key" />
                 <field name="bind_custom_field" />
                 <field name="model_name" />
-                <field name="root_lane_name" />
-                <field name="sub_lane_name" />
-                <field name="parent_lane_name" />
+                <field name="lane_root_name" />
+                <!--                <field name="sub_lane_name" />-->
+                <field name="lane_parent_name" />
                 <field name="type_card" />
             </tree>
         </field>

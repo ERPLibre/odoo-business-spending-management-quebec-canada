@@ -104,9 +104,9 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     location_type_msg = fields.Char()
 
-    parent_lane_name = fields.Char()
+    lane_parent_name = fields.Char()
 
-    root_lane_name = fields.Char()
+    lane_root_name = fields.Char()
 
     copy_from_lane = fields.Char()
 
@@ -147,12 +147,12 @@ class PlanViewAgilePlaceProcessus(models.Model):
         string="Board",
     )
 
-    sub_lane_name = fields.Char(
-        help=(
-            "NOT SUPPORTED Optional, will search only into this lane and"
-            " childs lane"
-        )
-    )
+    # sub_lane_name = fields.Char(
+    #     help=(
+    #         "NOT SUPPORTED Optional, will search only into this lane and"
+    #         " childs lane"
+    #     )
+    # )
 
     type_card = fields.Char(
         help="Optional, search only with this type of card"
@@ -322,9 +322,9 @@ class PlanViewAgilePlaceProcessus(models.Model):
             if rec.algo_key == "copy_cards":
                 # print(rec.copy_to_lane)
                 # print(rec.copy_from_lane)
-                # print(rec.root_lane_name)
+                # print(rec.lane_root_name)
                 # print(rec.type_card)
-                # print(rec.parent_lane_name)
+                # print(rec.lane_parent_name)
 
                 # TODO do refresh data for from lane et to lane
 
@@ -332,8 +332,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     # TODO raise error
                     pass
                 lane_to_query = [
-                    ("root_lane_name", "=", rec.root_lane_name),
-                    ("parent_lane_name", "=", rec.parent_lane_name),
+                    ("lane_root_name", "=", rec.lane_root_name),
+                    ("lane_parent_name", "=", rec.lane_parent_name),
                     ("title", "in", rec.copy_to_lane.split(";")),
                 ]
                 lane_to_ids = self.env["plan.view.agile.place.lane"].search(
@@ -367,9 +367,9 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 lst_copy_from_lane = rec.copy_from_lane.split(";")
                 for copy_from_lane in lst_copy_from_lane:
                     card_from_query = [
-                        ("root_lane_name", "=", rec.root_lane_name),
+                        ("lane_root_name", "=", rec.lane_root_name),
                         ("lane_name", "=", copy_from_lane),
-                        ("lane_parent_name", "=", rec.parent_lane_name),
+                        ("lane_parent_name", "=", rec.lane_parent_name),
                     ]
 
                     card_from_ids = self.env[
@@ -431,7 +431,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                 (
                                     "lane_id",
                                     "in",
-                                    lane_id.child_lane_ids.ids,
+                                    lane_id.lane_child_ids.ids,
                                 ),
                             ]
                             if rec.type_card:
@@ -489,7 +489,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                     msg_txt = (
                                         "ERR Missing employee card"
                                         f" '{card_name}'. Check lane_root"
-                                        f" '{card_id.root_lane_name}',"
+                                        f" '{card_id.lane_root_name}',"
                                         " lane_parent"
                                         f" '{card_id.lane_parent_name}',"
                                         f" lane '{card_id.lane_name}'\n"
@@ -628,38 +628,38 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     rec.log_txt += msg_txt
                     rec.log_error_txt += msg_txt
             elif rec.algo_key == "create_model":
-                if not rec.root_lane_name:
-                    msg_txt = "WARN Ignore this processus, create_model need a root_lane_name."
+                if not rec.lane_root_name:
+                    msg_txt = "WARN Ignore this processus, create_model need a lane_root_name."
                     rec.log_txt += msg_txt
                     rec.log_error_txt += msg_txt
                     continue
-                root_lane_id = self.env["plan.view.agile.place.lane"].search(
-                    [("title", "=", rec.root_lane_name)]
+                lane_root_id = self.env["plan.view.agile.place.lane"].search(
+                    [("title", "=", rec.lane_root_name)]
                 )
-                if not root_lane_id:
+                if not lane_root_id:
                     msg_txt = (
                         f"ERR processus '{rec.name}' root lane name"
-                        f" '{rec.root_lane_name}'\n"
+                        f" '{rec.lane_root_name}'\n"
                     )
                     rec.log_txt += msg_txt
                     rec.log_error_txt += msg_txt
                     continue
                 # Force auto refresh root lane
-                root_lane_id.action_sync_cards()
+                lane_root_id.action_sync_cards()
                 if not rec.is_root_lane:
-                    lane_query = [("root_lane_id", "=", root_lane_id.id)]
+                    lane_query = [("lane_root_id", "=", lane_root_id.id)]
                     if rec.lane_name:
                         lane_query.append(("title", "=", rec.lane_name))
-                    if rec.parent_lane_name:
+                    if rec.lane_parent_name:
                         lane_query.append(
-                            ("parent_lane_name", "=", rec.parent_lane_name)
+                            ("lane_parent_name", "=", rec.lane_parent_name)
                         )
                     lane_ids = self.env["plan.view.agile.place.lane"].search(
                         lane_query
                     )
                     lst_query = [("lane_id", "in", lane_ids.ids)]
                 else:
-                    lst_query = [("lane_id", "=", root_lane_id.id)]
+                    lst_query = [("lane_id", "=", lane_root_id.id)]
                 if rec.type_card:
                     lst_type_card = rec.type_card.split(";")
                     type_card_ids = self.env[

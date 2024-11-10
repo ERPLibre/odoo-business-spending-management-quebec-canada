@@ -156,13 +156,13 @@ class PlanViewAgilePlaceBoard(models.Model):
                     _logger.error(f"Cannot find lane {lane_id_pvap}")
                     continue
 
-                parent_lane_id_no = dct_lane.get("parentLaneId")
-                if parent_lane_id_no:
-                    parent_lane_id = dct_lane_id_no_lane_id.get(
-                        parent_lane_id_no
+                lane_parent_id_no = dct_lane.get("parentLaneId")
+                if lane_parent_id_no:
+                    lane_parent_id = dct_lane_id_no_lane_id.get(
+                        lane_parent_id_no
                     )
-                    if parent_lane_id:
-                        lane_id.parent_lane_id = parent_lane_id.id
+                    if lane_parent_id:
+                        lane_id.lane_parent_id = lane_parent_id.id
 
             # Force recompute, cause wrong programmation
             lane_ids = self.env["plan.view.agile.place.lane"].search(
@@ -170,9 +170,9 @@ class PlanViewAgilePlaceBoard(models.Model):
             )
             for lane_id in lane_ids:
                 if lane_id.need_update_compute:
-                    # lane_id.root_lane_id.compute()
-                    lane_id._compute_root_lane_id()
-                    # The name need to be computed at the end, depend on root_lane_id
+                    # lane_id.lane_root_id.compute()
+                    lane_id._compute_lane_root_id()
+                    # The name need to be computed at the end, depend on lane_root_id
                     lane_id._compute_name()
                     lane_id.need_update_compute = False
 

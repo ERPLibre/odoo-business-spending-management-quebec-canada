@@ -21,26 +21,40 @@
                         </button>
                     </div>
                     <group>
-                        <field name="title" />
-                        <field name="board_id" />
-                        <field name="sequence" />
-                        <field name="description" />
-                        <field name="is_collapsed" />
-                        <field name="need_update_compute" />
-                        <field name="columns" />
-                        <field name="lane_class_type" />
-                        <field name="lane_id_pvap" />
-                        <field name="lane_type" />
-                        <field name="orientation" />
-                        <field name="parent_lane_id" />
-                        <field name="child_lane_ids" />
-                        <field name="card_ids" />
-                        <field name="root_lane_id" />
-                        <field name="breadcrumb_middle_name" />
-                        <field name="root_lane_name" />
-                        <field name="session_id" />
-                        <field name="count_card" />
+                        <group string="General">
+                            <field name="title" />
+                            <field name="board_id" />
+                            <field name="sequence" />
+                            <field name="description" />
+                            <field name="is_collapsed" />
+                            <field name="need_update_compute" />
+                            <field name="columns" />
+                            <field name="orientation" />
+                            <field name="breadcrumb_middle_name" />
+                            <field name="session_id" />
+                            <field name="count_card" />
+                        </group>
+                        <group string="Lane">
+                            <field name="lane_class_type" />
+                            <field name="lane_id_pvap" />
+                            <field name="lane_type" />
+                            <field name="lane_parent_id" />
+                            <field name="lane_root_id" />
+                            <field name="lane_root_name" />
+                        </group>
                     </group>
+                    <notebook>
+                        <page string="Child lane">
+                            <group>
+                                <field name="lane_child_ids" />
+                            </group>
+                        </page>
+                        <page string="Cards">
+                            <group>
+                                <field name="card_ids" />
+                            </group>
+                        </page>
+                    </notebook>
                 </sheet>
             </form>
         </field>
@@ -116,7 +130,7 @@
                 <field name="title" filter_domain="[('title','ilike',self)]" string="Title" />
                 <filter name="with_card" string="With card" domain="[('count_card','>',0)]" />
                 <group string="Group By" expand="1">
-                    <filter name="parent_lane_id" string="Parent" context="{'group_by':'parent_lane_id'}" />
+                    <filter name="lane_parent_id" string="Parent" context="{'group_by':'lane_parent_id'}" />
                 </group>
             </search>
         </field>
@@ -136,7 +150,7 @@
                 <field name="lane_type" />
                 <field name="orientation" />
                 <field name="count_card" />
-                <field name="parent_lane_id" />
+                <field name="lane_parent_id" />
                 <field name="session_id" />
             </tree>
         </field>

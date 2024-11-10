@@ -38,14 +38,14 @@ class PlanViewAgilePlaceBoard(models.Model):
                     # TODO maybe check it exist before create it
                     lane_id = self.env["plan.view.agile.place.lane"].search(
                         [
-                            ("root_lane_name", "=", process_id.root_lane_name),
+                            ("lane_root_name", "=", process_id.lane_root_name),
                             ("title", "=", process_id.lane_name),
                         ],
                         limit=1,
                     )
                     if not lane_id:
                         _logger.warning(
-                            f"Cannot find lane with root name '{process_id.root_lane_name}' and lane name '{process_id.lane_name}'."
+                            f"Cannot find lane with root name '{process_id.lane_root_name}' and lane name '{process_id.lane_name}'."
                         )
                     else:
                         card_value = {
@@ -127,7 +127,7 @@ class PlanViewAgilePlaceBoard(models.Model):
             for rec in self:
                 card_id = self.env["plan.view.agile.place.card"].search(
                     [
-                        ("root_lane_name", "=", process_id.root_lane_name),
+                        ("lane_root_name", "=", process_id.lane_root_name),
                         ("lane_name", "=", process_id.lane_name),
                         ("name", "=", rec.name),
                     ],

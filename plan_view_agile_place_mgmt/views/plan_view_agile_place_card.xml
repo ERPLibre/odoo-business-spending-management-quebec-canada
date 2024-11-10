@@ -24,7 +24,7 @@
                             <field name="card_id_pvap" />
                         </group>
                         <group string="Lane information">
-                            <field name="root_lane_id" />
+                            <field name="lane_root_id" />
                             <field name="lane_parent_id" />
                             <field name="lane_id" />
                         </group>
@@ -139,7 +139,7 @@
             <search string="Plan view agile place card">
                 <!--                <field name="name" filter_domain="['|', ('name','ilike',self), ('lane_parent_name','ilike',self)]" string="Name" />-->
                 <field name="name" />
-                <field name="root_lane_name" filter_domain="[('root_lane_name','ilike',self)]" />
+                <field name="lane_root_name" filter_domain="[('lane_root_name','ilike',self)]" />
                 <field name="lane_parent_name" />
                 <field name="lane_name" />
                 <group string="Group By" expand="1">
@@ -157,7 +157,7 @@
                 <field name="name" />
                 <field name="board_id" />
                 <field name="card_id_pvap" />
-                <field name="root_lane_id" />
+                <field name="lane_root_id" />
                 <field name="lane_parent_id" />
                 <field name="lane_id" />
                 <field name="session_id" />
