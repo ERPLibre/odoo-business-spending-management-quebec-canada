@@ -79,6 +79,14 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     delay_in_day = fields.Integer()
 
+    is_root_lane = fields.Boolean(
+        help="Enable when the cards to extract is inside the root lane, because a root lane has no parent lane."
+    )
+
+    force_update_after_create = fields.Boolean(
+        help="Sometime, value need to be update after creation, because some compute broke it."
+    )
+
     ignore_weekend = fields.Boolean()
 
     description = fields.Text()
@@ -620,6 +628,11 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     rec.log_txt += msg_txt
                     rec.log_error_txt += msg_txt
             elif rec.algo_key == "create_model":
+                if not rec.root_lane_name:
+                    msg_txt = "WARN Ignore this processus, create_model need a root_lane_name."
+                    rec.log_txt += msg_txt
+                    rec.log_error_txt += msg_txt
+                    continue
                 root_lane_id = self.env["plan.view.agile.place.lane"].search(
                     [("title", "=", rec.root_lane_name)]
                 )
@@ -633,13 +646,20 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     continue
                 # Force auto refresh root lane
                 root_lane_id.action_sync_cards()
-                lane_query = [("root_lane_id", "=", root_lane_id.id)]
-                if rec.lane_name:
-                    lane_query.append(("title", "=", rec.lane_name))
-                lane_ids = self.env["plan.view.agile.place.lane"].search(
-                    lane_query
-                )
-                lst_query = [("lane_id", "in", lane_ids.ids)]
+                if not rec.is_root_lane:
+                    lane_query = [("root_lane_id", "=", root_lane_id.id)]
+                    if rec.lane_name:
+                        lane_query.append(("title", "=", rec.lane_name))
+                    if rec.parent_lane_name:
+                        lane_query.append(
+                            ("parent_lane_name", "=", rec.parent_lane_name)
+                        )
+                    lane_ids = self.env["plan.view.agile.place.lane"].search(
+                        lane_query
+                    )
+                    lst_query = [("lane_id", "in", lane_ids.ids)]
+                else:
+                    lst_query = [("lane_id", "=", root_lane_id.id)]
                 if rec.type_card:
                     lst_type_card = rec.type_card.split(";")
                     type_card_ids = self.env[
@@ -701,14 +721,14 @@ class PlanViewAgilePlaceProcessus(models.Model):
             dct_model_value = json.loads(rec.bind_field)
             for k, v in dct_model_value.items():
                 if v == "name":
-                    name = (
+                    value = (
                         card_id.name
                         if not card_id.name.isupper()
                         else card_id.name.title()
                     )
                 else:
-                    name = getattr(card_id, v)
-                new_model_value[k] = name
+                    value = getattr(card_id, v)
+                new_model_value[k] = value
         name = new_model_value.get("name").strip()
         # Custom Fields
         if not card_id.custom_fields:
@@ -808,6 +828,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
             )
             rec.log_txt += msg_txt
             new_model_id = self.env[rec.model_name].create(new_model_value)
+            if rec.force_update_after_create:
+                new_model_id.write(new_model_value)
             # TODO send id to client, can visualize all created data
             #  or maybe not, too much link into database, maybe create html link
         return new_model_id

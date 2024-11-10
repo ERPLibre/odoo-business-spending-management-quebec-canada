@@ -36,6 +36,7 @@
                             <field name="root_lane_name" />
                             <field name="sub_lane_name" />
                             <field name="type_card" />
+                            <field name="is_root_lane" />
                         </group>
                         <group string="SMS">
                             <field name="sms_summary_phone" />
@@ -61,6 +62,7 @@
                             <field name="force_update_model" />
                         </group>
                         <group string="Extract data">
+                            <field name="force_update_after_create" />
                             <field name="default_value_model" />
                             <field name="bind_custom_field" />
                             <field name="bind_required_field_list" />

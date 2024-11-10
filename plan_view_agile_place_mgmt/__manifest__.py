@@ -22,6 +22,14 @@
     "depends": [
         "hr",
         "contacts",
+        "purchase",
+        "fieldservice",
+        "fieldservice_calendar",
+        "fieldservice_geoengine",
+        "fieldservice_skill",
+        "fieldservice_timeline",
+        "fieldservice_vehicle",
+        "partner_manual_rank",
     ],
     "installable": True,
 }
