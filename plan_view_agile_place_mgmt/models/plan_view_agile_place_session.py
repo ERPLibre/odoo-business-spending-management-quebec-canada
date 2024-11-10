@@ -36,6 +36,14 @@ class PlanViewAgilePlaceSession(models.Model):
         default=False, help="Ignore this functionality if not enable."
     )
 
+    bind_rh_employee_create_enabled = fields.Boolean(
+        default=False, help="Will create employe in kanban agile place."
+    )
+
+    bind_rh_employee_delete_enabled = fields.Boolean(
+        default=False, help="Will delete employe in kanban agile place."
+    )
+
     production_enabled = fields.Boolean(
         default=False,
         help="Informe user this instance is ready for production.",
@@ -206,6 +214,9 @@ class PlanViewAgilePlaceSession(models.Model):
         for rec in self:
             rec.production_enabled = not rec.production_enabled
             rec.sms_enable = rec.production_enabled
+            rec.bind_rh_employee_create_enabled = rec.production_enabled
+            rec.bind_rh_employee_delete_enabled = rec.production_enabled
+
             if not is_first_execution:
                 is_first_execution = True
                 # Enable process over cron

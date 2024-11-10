@@ -5,9 +5,6 @@
         <field name="model">plan.view.agile.place.card</field>
         <field name="arch" type="xml">
             <form string="Titre">
-                <header>
-                    <field name="lane_id" widget="statusbar" />
-                </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
                         <button name="toggle_active" type="object" class="oe_stat_button" icon="fa-archive">
@@ -20,28 +17,39 @@
                             <field name="name" />
                         </h1>
                     </div>
-                    <!--                    <field name="active" invisible="1"/>-->
-                    <!--                    <widget name="web_ribbon" title="Archived" bg_color="bg-danger" attrs="{'invisible': [('active', '=', True)]}"/>-->
                     <group>
-                        <field name="board_id" />
-                        <field name="card_id_pvap" />
-                        <field name="copied_from_card_pvap" />
-                        <field name="card_type_id" />
-                        <field name="lane_id" />
-                        <field name="assigned_users" />
-                        <field name="moved_on" />
-                        <field name="session_id" />
-                        <field name="size" />
-                        <field name="version" />
-                        <field name="lane_name" />
-                        <field name="lane_parent_name" />
-                        <field name="root_lane_id" />
-                        <field name="lane_parent_id" />
-                        <field name="card_details" />
-                        <field name="entete" />
-                        <field name="external_link" />
-                        <field name="description" />
+                        <group string="General">
+                            <field name="session_id" />
+                            <field name="board_id" />
+                            <field name="card_id_pvap" />
+                        </group>
+                        <group string="Lane information">
+                            <field name="root_lane_id" />
+                            <field name="lane_parent_id" />
+                            <field name="lane_id" />
+                        </group>
+                        <group string="Information">
+                            <field name="card_type_id" />
+                            <field name="size" />
+                            <field name="entete" />
+                            <field name="external_link" />
+                            <field name="description" />
+                        </group>
+                        <group string="Card info">
+                            <field name="copied_from_card_pvap" />
+                            <field name="assigned_users" />
+                            <field name="moved_on" />
+                            <field name="version" />
+                            <field name="custom_fields" />
+                        </group>
                     </group>
+                    <notebook>
+                        <page string="Detail">
+                            <group>
+                                <field name="card_details" />
+                            </group>
+                        </page>
+                    </notebook>
                 </sheet>
             </form>
         </field>

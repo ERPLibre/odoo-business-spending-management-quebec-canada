@@ -87,6 +87,17 @@
                                 <field name="request_history_ids" />
                             </group>
                         </page>
+                        <page string="Binding ERP">
+                            <div class="text-warning">
+                                You need to create algorithm process to indicate how doing the binding.
+                            </div>
+                            <group>
+                                <group string="RH">
+                                    <field name="bind_rh_employee_create_enabled" />
+                                    <field name="bind_rh_employee_delete_enabled" />
+                                </group>
+                            </group>
+                        </page>
                     </notebook>
                 </sheet>
             </form>

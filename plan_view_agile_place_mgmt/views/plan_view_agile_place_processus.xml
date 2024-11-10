@@ -48,6 +48,12 @@
                             <field name="copy_to_lane" />
                             <field name="clean_before_card_from_lane" />
                         </group>
+                        <!--                        <group-->
+                        <!--                            string="Binding"-->
+                        <!--                            attrs="{'invisible': [('algo_key', 'not in', ['bind_create_card', 'bind_delete_card'])]}"-->
+                        <!--                        >-->
+                        <!--                            <field name="record_id_i" />-->
+                        <!--                        </group>-->
                         <group string="Schedule">
                             <field name="fake_regex_lane" />
                             <field name="delay_in_day" />
@@ -135,29 +141,8 @@
                                         </strong>
                                     </li>
                                     <li class="mb4">
-                                        <strong>
-                                            <field name="algo_key" />
-                                        </strong>
-                                    </li>
-                                    <li class="mb4">
-                                        <strong>
-                                            <field name="bind_custom_field" />
-                                        </strong>
-                                    </li>
-                                    <li class="mb4">
-                                        <strong>
-                                            <field name="model_name" />
-                                        </strong>
-                                    </li>
-                                    <li class="mb4">
-                                        <strong>
-                                            <field name="parent_lane_name" />
-                                        </strong>
-                                    </li>
-                                    <li class="mb4">
-                                        <strong>
-                                            <field name="root_lane_name" />
-                                        </strong>
+                                        <strong>Algorithme:</strong>
+                                        <field name="algo_key" />
                                     </li>
                                 </ul>
                             </div>

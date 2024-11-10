@@ -26,6 +26,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 "Send reminder SMS schedule condition",
             ),
             ("copy_cards", "Copy cards from lane to lane"),
+            ("bind_create_card", "Create card"),
+            ("bind_delete_card", "Delete card"),
         ],
         required=True,
         default="create_model",
@@ -65,6 +67,11 @@ class PlanViewAgilePlaceProcessus(models.Model):
     )
 
     model_name = fields.Char()
+
+    record_id_i = fields.Integer(
+        string="Record index",
+        help="The record identifiant to be use from binding.",
+    )
 
     lane_name = fields.Char()
 

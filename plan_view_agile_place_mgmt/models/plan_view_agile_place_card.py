@@ -5,8 +5,6 @@
 import datetime
 import json
 
-import requests
-
 from odoo import _, api, fields, models
 
 LEANKIT_URL = "https://MYACCOUNT.leankit.com"
