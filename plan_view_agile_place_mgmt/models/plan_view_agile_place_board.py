@@ -2,6 +2,7 @@
 # © 2021-2024 TechnoLibre (http://www.technolibre.ca)
 # License GPL-3.0 or later (http://www.gnu.org/licenses/gpl)
 
+import datetime
 import logging
 
 from odoo import _, api, fields, models
@@ -57,6 +58,37 @@ class PlanViewAgilePlaceBoard(models.Model):
                     card_type_id = self.env[
                         "plan.view.agile.place.card.type"
                     ].create(value)
+
+            # Create custom field
+            lst_custom_field = rec.session_id.request_api_get_unlimited(
+                f"/io/board/{rec.board_id_pvap}/customfield", "customFields"
+            )
+
+            for dct_custom_field in lst_custom_field:
+                created_on = datetime.datetime.strptime(
+                    dct_custom_field.get("createdOn"),
+                    "%Y-%m-%dT%H:%M:%S%z",
+                ).replace(tzinfo=None)
+                custom_field_value = {
+                    "label": dct_custom_field.get("label"),
+                    "type": dct_custom_field.get("type"),
+                    "index": dct_custom_field.get("index"),
+                    "icon_color": dct_custom_field.get("iconColor"),
+                    "icon_name": dct_custom_field.get("iconName"),
+                    "help_text": dct_custom_field.get("helpText"),
+                    "id_pvap": dct_custom_field.get("id"),
+                    "created_by_pvap": dct_custom_field.get("createdBy"),
+                    "created_on": created_on,
+                }
+                if "choiceConfiguration" in dct_custom_field.keys():
+                    custom_field_value["choices"] = "\n".join(
+                        dct_custom_field.get("choiceConfiguration").get(
+                            "choices"
+                        )
+                    )
+                self.env["plan.view.agile.place.customfield"].create(
+                    custom_field_value
+                )
 
             # Create Lanes
             dct_lane_id_no_lane_id = {}

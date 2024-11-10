@@ -109,9 +109,14 @@ class PlanViewAgilePlaceSession(models.Model):
                     f"Unknown error from server with request '{path}' type"
                     f" '{type_request}' data '{data}'"
                 )
-            end_row = response.get("pageMeta").get("endRow")
-            data["offset"] = end_row
-            total_records = response.get("pageMeta").get("totalRecords")
+            if "pageMeta" in response.keys():
+                end_row = response.get("pageMeta").get("endRow")
+                data["offset"] = end_row
+                total_records = response.get("pageMeta").get("totalRecords")
+            else:
+                # Force to finish it
+                end_row = 0
+                total_records = 0
             lst_data.extend(response.get(data_name))
         return lst_data
 

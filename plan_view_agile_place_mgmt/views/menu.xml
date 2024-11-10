@@ -68,6 +68,14 @@
     />
 
     <menuitem
+        id="view_agile_place_customfield"
+        name="Custom Field"
+        action="plan_view_agile_place_customfield_view_agile_place_customfield_action_window"
+        sequence="5"
+        parent="menu_data"
+    />
+
+    <menuitem
         id="view_agile_place_processus"
         name="Processus"
         action="plan_view_agile_place_processus_view_agile_place_processus_action_window"
