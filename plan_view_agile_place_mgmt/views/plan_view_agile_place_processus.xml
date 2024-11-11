@@ -15,6 +15,7 @@
                         attrs="{'invisible': [('sms_enable', '=', False)]}"
                     />
                     <button name="action_clear_log" string="Clear log" type="object" />
+                    <button name="action_clear_log_depend" string="Clear log with depend" type="object" />
                 </header>
                 <sheet>
                     <div class="oe_title">
@@ -30,6 +31,7 @@
                             <field name="board_id" />
                             <field name="algo_key" />
                             <field name="type_board_depend_ids" widget="many2many_tags" />
+                            <field name="is_disabled" />
                         </group>
                         <group string="Search">
                             <field name="lane_name" />

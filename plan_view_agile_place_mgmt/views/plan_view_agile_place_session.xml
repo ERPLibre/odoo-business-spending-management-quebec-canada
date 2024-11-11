@@ -58,8 +58,18 @@
                             <field name="name" />
                         </h1>
                     </div>
-                    <div class="text-warning">
+                    <div class="alert alert-info">
+                        Reference LeanKit:
                         <a href="https://success.planview.com/Planview_AgilePlace/AgilePlace_API">API documentation</a>
+                    </div>
+                    <div class="alert alert-info">
+                        Guide:
+                        <ul>
+                            <li>First create configuration (missing doc)</li>
+                            <li>Click "Sync Board List"</li>
+                            <li>Associate Board with "Type Board"</li>
+                            <li>Click "Sync board with type"</li>
+                        </ul>
                     </div>
                     <group>
                         <group>

@@ -83,6 +83,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
         help="Enable when the cards to extract is inside the root lane, because a root lane has no parent lane."
     )
 
+    is_disabled = fields.Boolean(
+        help="When true, the processus will not execute."
+    )
+
     compute_model_fsm_location = fields.Boolean(
         help="Associate with model res.partner, will create fsm.location associate with partner"
     )
@@ -191,11 +195,17 @@ class PlanViewAgilePlaceProcessus(models.Model):
             rec.log_txt = ""
             rec.log_error_txt = ""
 
+    def action_clear_log_depend(self):
+        self.action_clear_log()
+        for rec in self:
+            for process_id in rec.depend_process_ids:
+                process_id.action_clear_log_depend()
+
     def action_execute_send_sms(self):
         rw = RandomWordFr()
         group_execution_name = rw.get().get("word")
         for rec in self:
-            if not rec.session_id.sms_enable:
+            if not rec.session_id.sms_enable or rec.is_disabled:
                 continue
 
             summary_final_msg = rec.sms_message_prefix
@@ -289,13 +299,18 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     def action_execute_algo(self, ctx=None, dct_sms_data=None):
         for rec in self:
+            if rec.is_disabled:
+                continue
+
             if rec.log_txt is False:
                 rec.log_txt = ""
             if rec.log_error_txt is False:
                 rec.log_error_txt = ""
 
             if not rec.board_id and rec.type_board_depend_ids:
-                str_board_type = ",".join([a.name for a in rec.type_board_depend_ids])
+                str_board_type = ",".join(
+                    [a.name for a in rec.type_board_depend_ids]
+                )
                 if len(rec.type_board_depend_ids) > 1:
                     _logger.error(
                         "Support only 1 type of board at this moment."
@@ -313,7 +328,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
             user_tz = self.env.user.tz or "UTC"
             user_timezone = timezone(user_tz)
             msg_txt = (
-                f"LOG Execute algo '{rec.algo_key}' -"
+                f"LOG Execute algo '{rec.algo_key}' '{rec.name}' -"
                 f" {datetime.datetime.now().astimezone(user_timezone).strftime('%Y-%m-%d %H:%M:%S')}\n"
             )
             rec.log_txt += msg_txt
@@ -328,6 +343,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     _logger.info(msg_txt)
                     rec.log_txt += msg_txt
                     process_id.action_execute_algo()
+                    rec.log_txt += process_id.log_txt
+                    rec.log_error_txt += process_id.log_error_txt
 
             # Compute variable
             dct_custom_field_to_field_name = {}
@@ -737,6 +754,14 @@ class PlanViewAgilePlaceProcessus(models.Model):
                             # Update partner_id information
                             fsm_location_id.partner_id.type = "contact"
                             fsm_location_id.geo_localize()
+                            # Validate or show an error
+                            if (
+                                not fsm_location_id.partner_latitude
+                                and not fsm_location_id.partner_longitude
+                            ):
+                                msg = f"WAR cannot localize '{fsm_location_id.name}' with address '{fsm_location_id.street}'\n"
+                                rec.log_txt += msg
+                                rec.log_error_txt += msg
 
                     if rec.compute_model_fsm_person:
                         # Create a user associate
@@ -771,10 +796,13 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 rec.log_txt += "\n"
                 rec.log_error_txt += "\n"
 
-            _logger.info(
+            msg_end = (
                 f"End of execution processus '{rec.algo_key}' name"
                 f" '{rec.name}'"
             )
+            _logger.info(msg_end)
+            rec.log_txt += f"{msg_end}\n"
+            rec.log_error_txt += f"{msg_end}\n"
 
     def create_model_from_card(
         self,
@@ -889,6 +917,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 f"LOG Update '{rec.model_name}' with name"
                 f" '{name}' id '{card_id.card_id_pvap}\n"
             )
+            _logger.info(msg_txt)
             rec.log_txt += msg_txt
             new_model_id.write(new_model_value)
         else:
@@ -896,6 +925,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 f"LOG Create '{rec.model_name}' with name"
                 f" '{name}' id '{card_id.card_id_pvap}'\n"
             )
+            _logger.info(msg_txt.strip())
             rec.log_txt += msg_txt
             new_model_id = self.env[rec.model_name].create(new_model_value)
             if rec.force_update_after_create:
