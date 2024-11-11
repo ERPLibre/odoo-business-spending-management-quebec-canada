@@ -131,6 +131,7 @@
                 <filter name="with_card" string="With card" domain="[('count_card','>',0)]" />
                 <group string="Group By" expand="1">
                     <filter name="lane_parent_id" string="Parent" context="{'group_by':'lane_parent_id'}" />
+                    <filter name="board_id" string="Board" context="{'group_by':'board_id'}" />
                 </group>
             </search>
         </field>

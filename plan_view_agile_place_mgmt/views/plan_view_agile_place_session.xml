@@ -11,28 +11,28 @@
                         string="Sync board list"
                         type="object"
                         class="btn-success"
-                        attrs="{'invisible': [('board_selected_id', '!=', False)]}"
+                        attrs="{'invisible': [('board_ids', '!=', [])]}"
                     />
                     <button
                         name="action_sync_board_info"
                         string="Sync board list"
                         type="object"
                         class="oe_highlight"
-                        attrs="{'invisible': [('board_selected_id', '=', False)]}"
+                        attrs="{'invisible': [('board_ids', '=', [])]}"
                     />
                     <button
                         name="action_sync_all"
                         string="Sync all"
                         type="object"
                         class="oe_highlight"
-                        attrs="{'invisible': [('board_selected_id', '!=', False)]}"
+                        attrs="{'invisible': [('board_ids', '=', [])]}"
                     />
                     <button
                         name="action_sync_board"
-                        string="Sync board"
+                        string="Sync board with type"
                         type="object"
                         class="btn-success"
-                        attrs="{'invisible': [('board_selected_id', '=', False)]}"
+                        attrs="{'invisible': ['|',('board_ids', '=', []),('has_board_with_type', '=', False)]}"
                     />
                     <button name="action_clear_all" string="Clear" type="object" class="oe_highlight" />
                     <button
@@ -51,6 +51,7 @@
                 </header>
                 <sheet>
                     <field name="production_enabled" invisible="True" />
+                    <field name="has_board_with_type" invisible="True" />
                     <div class="oe_title">
                         <label for="name" class="oe_edit_only" />
                         <h1>
@@ -62,7 +63,6 @@
                     </div>
                     <group>
                         <group>
-                            <field name="board_selected_id" />
                             <field name="api_token" type="password" password="True" />
                             <field name="has_first_sync" />
                             <field name="sms_enable" />

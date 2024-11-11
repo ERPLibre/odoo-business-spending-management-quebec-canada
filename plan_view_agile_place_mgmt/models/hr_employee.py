@@ -33,7 +33,7 @@ class PlanViewAgilePlaceBoard(models.Model):
                     "Cannot retrieve processus to create card for hr.employee."
                 )
             elif process_id.session_id.bind_rh_employee_create_enabled:
-                board_id = process_id.session_id.board_selected_id
+                board_id = process_id.board_id
                 if board_id:
                     # TODO maybe check it exist before create it
                     lane_id = self.env["plan.view.agile.place.lane"].search(

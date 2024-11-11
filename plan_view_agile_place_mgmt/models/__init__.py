@@ -3,6 +3,7 @@
 from . import (
     hr_employee,
     plan_view_agile_place_board,
+    plan_view_agile_place_board_type,
     plan_view_agile_place_card,
     plan_view_agile_place_card_type,
     plan_view_agile_place_customfield,

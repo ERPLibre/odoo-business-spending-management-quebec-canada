@@ -166,6 +166,13 @@ class PlanViewAgilePlaceProcessus(models.Model):
         help="Optional, search only with this type of card"
     )
 
+    type_board_depend_ids = fields.Many2many(
+        comodel_name="plan.view.agile.place.board.type",
+        relation="type_board_ids_plan_view_agile_place_processus_rel",
+        string="Type Board depend",
+        help="This is optional, the system will check if has depend, if yes, will force to sync this board to operate processus.",
+    )
+
     log_txt = fields.Text(string="Log")
 
     log_error_txt = fields.Text(string="Log error")
@@ -287,19 +294,21 @@ class PlanViewAgilePlaceProcessus(models.Model):
             if rec.log_error_txt is False:
                 rec.log_error_txt = ""
 
-            if not rec.board_id:
-                if rec.session_id and rec.session_id.board_selected_id:
-                    rec.board_id = rec.session_id.board_selected_id.id
-                else:
-                    board_id = self.env["plan.view.agile.place.board"].search(
-                        []
+            if not rec.board_id and rec.type_board_depend_ids:
+                str_board_type = ",".join([a.name for a in rec.type_board_depend_ids])
+                if len(rec.type_board_depend_ids) > 1:
+                    _logger.error(
+                        "Support only 1 type of board at this moment."
                     )
-                    if len(board_id) != 1:
-                        raise exceptions.Warning(
-                            f"Missing board_id for processus {rec.name}"
-                        )
-                    rec.board_id = board_id.id
-
+                for type_board_id in rec.type_board_depend_ids:
+                    for board_id in rec.session_id.board_ids:
+                        if type_board_id in board_id.type_board_ids:
+                            rec.board_id = board_id.id
+                            break
+                if not rec.board_id:
+                    raise ValueError(
+                        f"Cannot find board_id associate with type '{str_board_type}'."
+                    )
             # First log
             user_tz = self.env.user.tz or "UTC"
             user_timezone = timezone(user_tz)

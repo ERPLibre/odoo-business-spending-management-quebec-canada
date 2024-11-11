@@ -25,6 +25,24 @@ class PlanViewAgilePlaceBoard(models.Model):
         string="Session",
     )
 
+    type_board_ids = fields.Many2many(
+        comodel_name="plan.view.agile.place.board.type",
+        relation="type_board_ids_plan_view_agile_place_board_rel",
+        string="Type Board",
+    )
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        res = super().create(vals_list)
+        for rec in res:
+            rec.session_id.search_board_with_type()
+        return res
+
+    def write(self, vals):
+        res = super().write(vals)
+        if "type_board_ids" in vals.keys():
+            self.session_id.search_board_with_type()
+        return res
     def action_sync(self):
         for rec in self:
             status, response = rec.session_id.request_api_get(

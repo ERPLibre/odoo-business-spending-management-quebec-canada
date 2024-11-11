@@ -17,6 +17,8 @@
 
     <menuitem id="menu_processus" name="Processus" sequence="2" parent="plan_view_agile_place_mgmt" />
 
+    <menuitem id="menu_configuration" name="Configuration" sequence="3" parent="plan_view_agile_place_mgmt" />
+
     <!--Child menu-->
 
     <menuitem
@@ -97,5 +99,13 @@
         action="base.ir_cron_act"
         sequence="3"
         parent="menu_processus"
+    />
+
+    <menuitem
+        id="view_board_type"
+        name="Board type"
+        action="plan_view_agile_place_board_type_view_agile_place_board_action_window"
+        sequence="2"
+        parent="menu_configuration"
     />
 </odoo>

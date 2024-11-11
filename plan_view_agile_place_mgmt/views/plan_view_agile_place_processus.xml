@@ -29,6 +29,7 @@
                             <field name="session_id" />
                             <field name="board_id" />
                             <field name="algo_key" />
+                            <field name="type_board_depend_ids" widget="many2many_tags" />
                         </group>
                         <group string="Search">
                             <field name="lane_name" />
@@ -134,6 +135,7 @@
                 <field name="model_name" />
                 <field name="lane_parent_name" />
                 <field name="lane_root_name" />
+                <field name="type_board_depend_ids" />
                 <templates>
                     <t t-name="kanban-box">
                         <div t-attf-class="oe_kanban_global_click">
@@ -147,6 +149,10 @@
                                     <li class="mb4">
                                         <strong>Algorithme:&amp;nbsp;</strong>
                                         <field name="algo_key" />
+                                    </li>
+                                    <li class="mb4">
+                                        <strong>Depend board:&amp;nbsp;</strong>
+                                        <field name="type_board_depend_ids" widget="many2many_tags" />
                                     </li>
                                 </ul>
                             </div>

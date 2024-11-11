@@ -57,11 +57,6 @@ class PlanViewAgilePlaceSession(models.Model):
         default=False, readonly=True, help="Will be True when first sync done."
     )
 
-    board_selected_id = fields.Many2one(
-        comodel_name="plan.view.agile.place.board",
-        string="Selected board",
-    )
-
     board_ids = fields.One2many(
         comodel_name="plan.view.agile.place.board",
         inverse_name="session_id",
@@ -72,6 +67,10 @@ class PlanViewAgilePlaceSession(models.Model):
         comodel_name="plan.view.agile.place.request_history",
         inverse_name="session_id",
         string="Requests",
+    )
+
+    has_board_with_type = fields.Boolean(
+        readonly=True, help="Will be filled by board when type is choose."
     )
 
     def request_api_get(self, path, data=None):
@@ -294,11 +293,20 @@ class PlanViewAgilePlaceSession(models.Model):
 
     def action_sync_all(self):
         for rec in self:
-            for board_id in rec.action_sync_board_info():
+            for board_id in rec.board_ids:
                 # Refresh all board information
                 board_id.action_sync()
 
     def action_sync_board(self):
         for rec in self:
-            # Refresh selected board
-            rec.board_selected_id.action_sync()
+            # Sync board with associate type
+            for board_id in rec.board_ids:
+                if board_id.type_board_ids:
+                    board_id.action_sync()
+
+    def search_board_with_type(self):
+        for rec in self:
+            has_type = False
+            for board_id in rec.board_ids:
+                has_type += bool(board_id.type_board_ids)
+            rec.has_board_with_type = has_type

@@ -10,6 +10,7 @@
         "views/hr_views.xml",
         "views/plan_view_agile_place_customfield.xml",
         "views/plan_view_agile_place_board.xml",
+        "views/plan_view_agile_place_board_type.xml",
         "views/plan_view_agile_place_card.xml",
         "views/plan_view_agile_place_card_type.xml",
         "views/plan_view_agile_place_lane.xml",

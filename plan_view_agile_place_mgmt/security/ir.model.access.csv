@@ -1,5 +1,6 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 plan_view_agile_place_board_access_user_types_/_internal_user,plan_view_agile_place_board Access User types / Internal User,model_plan_view_agile_place_board,base.group_user,1,1,1,1
+plan_view_agile_place_board_type_access_user_types_/_internal_user,plan_view_agile_place_board_type Access User types / Internal User,model_plan_view_agile_place_board_type,base.group_user,1,1,1,1
 plan_view_agile_place_card_access_user_types_/_internal_user,plan_view_agile_place_card Access User types / Internal User,model_plan_view_agile_place_card,base.group_user,1,1,1,1
 plan_view_agile_place_card_type_access_user_types_/_internal_user,plan_view_agile_place_card_type Access User types / Internal User,model_plan_view_agile_place_card_type,base.group_user,1,1,1,1
 plan_view_agile_place_customfield_access_user_types_/_internal_user,plan_view_agile_place_customfield Access User types / Internal User,model_plan_view_agile_place_customfield,base.group_user,1,1,1,1
