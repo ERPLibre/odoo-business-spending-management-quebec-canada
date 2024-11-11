@@ -100,9 +100,19 @@ class PlanViewAgilePlaceCard(models.Model):
 
     version = fields.Integer()
 
+    url_card = fields.Char(compute="_compute_url_card")
+
     @api.returns("self")
     def _default_stage(self):
         return self.env["plan.view.agile.place.lane"].search([], limit=1)
+
+    @api.depends("card_id_pvap", "session_id.name")
+    def _compute_url_card(self):
+        for rec in self:
+            url = ""
+            if rec.session_id and rec.card_id_pvap:
+                url = f"{rec.session_id.name}/card/{rec.card_id_pvap}"
+            rec.url_card = url
 
     # @api.depends("title", "lane_parent_id")
     # def _compute_lane_root_id(self):

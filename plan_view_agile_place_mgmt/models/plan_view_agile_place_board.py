@@ -31,6 +31,8 @@ class PlanViewAgilePlaceBoard(models.Model):
         string="Type Board",
     )
 
+    url_board = fields.Char(compute="_compute_url_board")
+
     @api.model_create_multi
     def create(self, vals_list):
         res = super().create(vals_list)
@@ -43,6 +45,15 @@ class PlanViewAgilePlaceBoard(models.Model):
         if "type_board_ids" in vals.keys():
             self.session_id.search_board_with_type()
         return res
+
+    @api.depends("board_id_pvap", "session_id.name")
+    def _compute_url_board(self):
+        for rec in self:
+            url = ""
+            if rec.session_id and rec.board_id_pvap:
+                url = f"{rec.session_id.name}/board/{rec.board_id_pvap}"
+            rec.url_board = url
+
     def action_sync(self):
         for rec in self:
             status, response = rec.session_id.request_api_get(
