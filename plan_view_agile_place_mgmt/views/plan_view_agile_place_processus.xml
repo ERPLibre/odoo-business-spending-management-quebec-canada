@@ -64,6 +64,8 @@
                         <group string="Extract data">
                             <field name="force_update_after_create" />
                             <field name="default_value_model" />
+                            <field name="compute_model_fsm_location" />
+                            <field name="compute_model_fsm_person" />
                             <field name="bind_custom_field" />
                             <field name="bind_required_field_list" />
                             <field name="bind_field" />
@@ -143,7 +145,7 @@
                                         </strong>
                                     </li>
                                     <li class="mb4">
-                                        <strong>Algorithme:</strong>
+                                        <strong>Algorithme:&amp;nbsp;</strong>
                                         <field name="algo_key" />
                                     </li>
                                 </ul>

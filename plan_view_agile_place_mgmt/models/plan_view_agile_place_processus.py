@@ -83,6 +83,14 @@ class PlanViewAgilePlaceProcessus(models.Model):
         help="Enable when the cards to extract is inside the root lane, because a root lane has no parent lane."
     )
 
+    compute_model_fsm_location = fields.Boolean(
+        help="Associate with model res.partner, will create fsm.location associate with partner"
+    )
+
+    compute_model_fsm_person = fields.Boolean(
+        help="Associate with model hr.employee, will create fsm.person associate with employee"
+    )
+
     force_update_after_create = fields.Boolean(
         help="Sometime, value need to be update after creation, because some compute broke it."
     )
@@ -305,6 +313,11 @@ class PlanViewAgilePlaceProcessus(models.Model):
             # Execute dependencies before
             if rec.depend_process_ids:
                 for process_id in rec.depend_process_ids:
+                    msg_txt = (
+                        f"Begin execution depend algo '{process_id.name}'\n"
+                    )
+                    _logger.info(msg_txt)
+                    rec.log_txt += msg_txt
                     process_id.action_execute_algo()
 
             # Compute variable
@@ -513,7 +526,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                 msg_sms = (
                                     ""
                                     if not rec.sms_message_prefix
-                                    else rec.sms_message_prefix
+                                    else rec.sms_message_prefix + " "
                                 )
                                 msg_summary_sms = ""
                                 # Find contact location
@@ -693,11 +706,59 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     else:
                         lst_existing_name.append(card_id.name)
                     # Create it
-                    rec.create_model_from_card(
+                    model_id = rec.create_model_from_card(
                         card_id,
                         dct_custom_field_to_field_name,
                         lst_bind_required_field_list,
                     )
+                    if rec.compute_model_fsm_location:
+                        # Find associate fsm.location or create it
+                        fsm_location_id = self.env["fsm.location"].search(
+                            [("owner_id", "=", model_id.id)], limit=1
+                        )
+                        # TODO do we need to update geo_localize when exist?
+                        if not fsm_location_id:
+                            fsm_location_value = {
+                                "name": model_id.name,
+                                "owner_id": model_id.id,
+                            }
+                            fsm_location_id = self.env["fsm.location"].create(
+                                fsm_location_value
+                            )
+                            # Update partner_id information
+                            fsm_location_id.partner_id.type = "contact"
+                            fsm_location_id.geo_localize()
+
+                    if rec.compute_model_fsm_person:
+                        # Create a user associate
+                        # hr.employee
+                        # model_id.
+                        user_id = self.env["res.users"].search(
+                            [("name", "=", model_id.name)], limit=1
+                        )
+                        if not user_id:
+                            user_vals = {
+                                "name": model_id.name,
+                                "login": model_id.name,
+                                "email": model_id.name,
+                                "password": model_id.name,
+                            }
+                            user_id = self.env["res.users"].create(user_vals)
+                        model_id.user_id = user_id.id
+                        partner_id = user_id.partner_id
+                        # Find associate fsm.location or create it
+                        fsm_person_id = self.env["fsm.person"].search(
+                            [("partner_id", "=", partner_id.id)], limit=1
+                        )
+                        if not fsm_person_id:
+                            fsm_person_vals = {
+                                "name": model_id.name,
+                                "partner_id": partner_id.id,
+                            }
+                            fsm_person_id = self.env["fsm.person"].create(
+                                fsm_person_vals
+                            )
+
                 rec.log_txt += "\n"
                 rec.log_error_txt += "\n"
 
