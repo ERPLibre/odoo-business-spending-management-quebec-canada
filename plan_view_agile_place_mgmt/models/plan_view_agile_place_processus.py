@@ -4,7 +4,12 @@ import logging
 import re
 
 from pytz import timezone
-from randomwordfr import RandomWordFr
+
+try:
+    from randomwordfr import RandomWordFr
+except ImportError:
+    RandomWordFr = None
+
 
 from odoo import _, api, exceptions, fields, models
 
@@ -202,8 +207,18 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 process_id.action_clear_log_depend()
 
     def action_execute_send_sms(self):
-        rw = RandomWordFr()
-        group_execution_name = rw.get().get("word")
+        if RandomWordFr:
+            rw = RandomWordFr()
+            group_execution_name = (
+                rw.get().get("word")
+                + " "
+                + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            )
+        else:
+            group_execution_name = datetime.datetime.now().strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+
         for rec in self:
             if not rec.session_id.sms_enable or rec.is_disabled:
                 continue
