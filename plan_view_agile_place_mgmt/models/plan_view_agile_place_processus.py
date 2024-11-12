@@ -351,15 +351,23 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
             # Execute dependencies before
             if rec.depend_process_ids:
+                lst_processus_executed = []
                 for process_id in rec.depend_process_ids:
-                    msg_txt = (
-                        f"Begin execution depend algo '{process_id.name}'\n"
-                    )
-                    _logger.info(msg_txt)
-                    rec.log_txt += msg_txt
-                    process_id.action_execute_algo()
-                    rec.log_txt += process_id.log_txt
-                    rec.log_error_txt += process_id.log_error_txt
+                    ctx = dict(self.env.context)
+                    if "lst_processus_executed" in ctx:
+                        lst_processus_executed = ctx["lst_processus_executed"] + lst_processus_executed
+                    if process_id.name not in lst_processus_executed:
+                        lst_processus_executed.append(process_id.name)
+                        msg_txt = f"Begin execution depend algo '{process_id.name}'\n"
+                        _logger.info(msg_txt)
+                        rec.log_txt += msg_txt
+                        process_id.with_context(
+                            lst_processus_executed=lst_processus_executed
+                        ).action_execute_algo()
+                        rec.log_txt += process_id.log_txt
+                        rec.log_error_txt += process_id.log_error_txt
+                    else:
+                        _logger.warning(f"Ignore second execution of process '{process_id.name}'")
 
             # Compute variable
             dct_custom_field_to_field_name = {}
@@ -830,6 +838,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
             new_model_value = json.loads(rec.default_value_model)
         else:
             new_model_value = {}
+        new_model_value["pvap_card_id"] = card_id.id
         if rec.bind_field:
             dct_model_value = json.loads(rec.bind_field)
             for k, v in dct_model_value.items():
@@ -932,7 +941,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 f"LOG Update '{rec.model_name}' with name"
                 f" '{name}' id '{card_id.card_id_pvap}\n"
             )
-            _logger.info(msg_txt)
+            _logger.info(msg_txt.strip())
             rec.log_txt += msg_txt
             new_model_id.write(new_model_value)
         else:

@@ -1,6 +1,8 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl)
 
 from . import (
+    fsm_equipment,
+    fsm_vehicle,
     hr_employee,
     plan_view_agile_place_board,
     plan_view_agile_place_board_type,
@@ -12,4 +14,5 @@ from . import (
     plan_view_agile_place_request_history,
     plan_view_agile_place_session,
     plan_view_agile_place_sms_history,
+    res_partner,
 )
