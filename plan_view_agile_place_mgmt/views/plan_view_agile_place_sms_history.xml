@@ -78,7 +78,7 @@
                                             From
                                             <field name="from_number_real_phone" />
                                             To
-                                            <field name="from_number_real_phone" />
+                                            <field name="to_number_real_phone" />
                                         </strong>
                                     </li>
                                     <li class="text-success float-right mb4" t-if="record.is_sent.raw_value">

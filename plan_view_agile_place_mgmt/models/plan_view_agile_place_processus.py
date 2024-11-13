@@ -24,7 +24,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     algo_key = fields.Selection(
         selection=[
-            ("create_model", "Create Model"),
+            ("create_model_from_card", "Create Model from Card"),
+            ("create_model_from_lane", "Create Model from Lane"),
             ("send_sms_schedule", "Send SMS schedule"),
             (
                 "send_reminder_sms_schedule_condition",
@@ -35,7 +36,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
             ("bind_delete_card", "Delete card"),
         ],
         required=True,
-        default="create_model",
+        default="create_model_from_card",
         readonly=True,
     )
 
@@ -80,7 +81,9 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     lane_name = fields.Char()
 
-    fake_regex_lane = fields.Char()
+    fake_regex_lane = fields.Char(help="Expect {'model': type_card_name}")
+
+    type_card_bind = fields.Char()
 
     delay_in_day = fields.Integer()
 
@@ -355,7 +358,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 for process_id in rec.depend_process_ids:
                     ctx = dict(self.env.context)
                     if "lst_processus_executed" in ctx:
-                        lst_processus_executed = ctx["lst_processus_executed"] + lst_processus_executed
+                        lst_processus_executed = (
+                            ctx["lst_processus_executed"]
+                            + lst_processus_executed
+                        )
                     if process_id.name not in lst_processus_executed:
                         lst_processus_executed.append(process_id.name)
                         msg_txt = f"Begin execution depend algo '{process_id.name}'\n"
@@ -367,7 +373,9 @@ class PlanViewAgilePlaceProcessus(models.Model):
                         rec.log_txt += process_id.log_txt
                         rec.log_error_txt += process_id.log_error_txt
                     else:
-                        _logger.warning(f"Ignore second execution of process '{process_id.name}'")
+                        _logger.warning(
+                            f"Ignore second execution of process '{process_id.name}'"
+                        )
 
             # Compute variable
             dct_custom_field_to_field_name = {}
@@ -461,227 +469,205 @@ class PlanViewAgilePlaceProcessus(models.Model):
             elif rec.algo_key == "send_sms_schedule":
                 lst_filter_field = json.loads(rec.filter_field)
                 if rec.fake_regex_lane == "jour d/m":
-                    lane_ids = self.env["plan.view.agile.place.lane"].search(
-                        [("board_id", "=", rec.board_id.id)]
+                    lane_ids = self._get_lane_from_regex_day(
+                        rec, user_timezone
                     )
-                    regex = (
-                        r"(?P<jour>[A-Z]+)\s+(?P<journee>\d+)/(?P<mois>\d+)"
-                    )
-                    for lane_id in lane_ids:
-                        result = re.search(regex, lane_id.title)
-                        if not result:
-                            continue
-                        # data = {
-                        #     "jour": result.group("jour"),
-                        #     "journee": int(result.group("journee")),
-                        #     "mois": int(result.group("mois")),
-                        # }
-                        next_day = self.return_next_open_day(
-                            datetime.datetime.now().astimezone(user_timezone),
-                            delay_day=rec.delay_in_day,
-                            is_skipping_weekend=rec.ignore_weekend,
-                        )
-                        if next_day.month == int(
-                            result.group("mois")
-                        ) and next_day.day == int(result.group("journee")):
-                            # Find root lane
-                            # Force auto refresh root lane
-                            lane_id.action_sync_cards()
 
-                            lst_query = [
-                                ("board_id", "=", rec.board_id.id),
+                    for lane_id in lane_ids:
+                        # Find root lane
+                        # Force auto refresh root lane
+                        lane_id.action_sync_cards()
+
+                        lst_query = [
+                            ("board_id", "=", rec.board_id.id),
+                            (
+                                "lane_id",
+                                "in",
+                                lane_id.lane_child_ids.ids,
+                            ),
+                        ]
+                        if rec.type_card:
+                            lst_type_card = rec.type_card.split(";")
+                            type_card_ids = self.env[
+                                "plan.view.agile.place.card.type"
+                            ].search(
+                                [
+                                    ("name", "in", lst_type_card),
+                                    ("board_id", "=", rec.board_id.id),
+                                ]
+                            )
+                            lst_query.append(
                                 (
-                                    "lane_id",
+                                    "card_type_id",
                                     "in",
-                                    lane_id.lane_child_ids.ids,
-                                ),
-                            ]
-                            if rec.type_card:
-                                lst_type_card = rec.type_card.split(";")
-                                type_card_ids = self.env[
+                                    type_card_ids.ids,
+                                )
+                            )
+                        card_ids = self.env[
+                            "plan.view.agile.place.card"
+                        ].search(lst_query)
+                        # TODO switch for ready production
+                        i_msg = 0
+                        for card_id in card_ids:
+                            # TODO validate double employee, validate time or raise error if missing time
+                            card_name = card_id.name.strip()
+                            if rec.force_update_model:
+                                employee_id = rec.create_model_from_card(
+                                    card_id,
+                                    dct_custom_field_to_field_name,
+                                    lst_bind_required_field_list,
+                                )
+                            else:
+                                # Find employee
+                                employee_id = self.env["hr.employee"].search(
+                                    [("name", "=", card_name.title())],
+                                    limit=1,
+                                )
+
+                            ignore_this_employee = False
+                            if lst_filter_field:
+                                ignore_this_employee = not any(
+                                    [
+                                        getattr(employee_id, a)
+                                        for a in lst_filter_field
+                                    ]
+                                )
+                            if ignore_this_employee:
+                                continue
+
+                            if not employee_id:
+                                msg_txt = (
+                                    "ERR Missing employee card"
+                                    f" '{card_name}'. Check lane_root"
+                                    f" '{card_id.lane_root_name}',"
+                                    " lane_parent"
+                                    f" '{card_id.lane_parent_name}',"
+                                    f" lane '{card_id.lane_name}'\n"
+                                )
+                                rec.log_txt += msg_txt
+                                rec.log_error_txt += msg_txt
+                                continue
+                            elif not employee_id.work_phone:
+                                msg_txt = (
+                                    "ERR Employee"
+                                    f" '{employee_id.name}' missing"
+                                    " phone number\n"
+                                )
+                                rec.log_txt += msg_txt
+                                rec.log_error_txt += msg_txt
+                                continue
+                            i_msg += 1
+                            msg_sms_log_debug = (
+                                f"PHONE: {employee_id.work_phone}\n"
+                            )
+                            msg_sms = (
+                                ""
+                                if not rec.sms_message_prefix
+                                else rec.sms_message_prefix + " "
+                            )
+                            msg_summary_sms = ""
+                            # Find contact location
+                            date_msg_str = lane_id.title.title()
+                            datetime_msg_str = lane_id.title.title()
+                            msg_time = ""
+                            if card_id.size:
+                                msg_time = f" à {card_id.size}h"
+                                datetime_msg_str += msg_time
+                            msg_sms += (
+                                f"{employee_id.name}, tu travailles le"
+                                f" {datetime_msg_str}, au"
+                                f" {rec.location_type_msg} «{card_id.lane_name}»"
+                            )
+                            msg_summary_sms += f"{employee_id.name} «{card_id.lane_name}»{msg_time}"
+                            partner_id = self.env["res.partner"].search(
+                                [("name", "=", card_id.lane_name)],
+                                limit=1,
+                            )
+                            # Detect msg 1 from card type
+                            if rec.sms_detect_card_type_msg_1:
+                                lst_type_card = (
+                                    rec.sms_detect_card_type_msg_1.split(";")
+                                )
+                                type_card_msg_1_ids = self.env[
                                     "plan.view.agile.place.card.type"
                                 ].search(
                                     [
                                         ("name", "in", lst_type_card),
-                                        ("board_id", "=", rec.board_id.id),
+                                        (
+                                            "board_id",
+                                            "=",
+                                            rec.board_id.id,
+                                        ),
                                     ]
                                 )
-                                lst_query.append(
-                                    (
-                                        "card_type_id",
-                                        "in",
-                                        type_card_ids.ids,
-                                    )
-                                )
-                            card_ids = self.env[
-                                "plan.view.agile.place.card"
-                            ].search(lst_query)
-                            # TODO switch for ready production
-                            i_msg = 0
-                            for card_id in card_ids:
-                                # TODO validate double employee, validate time or raise error if missing time
-                                card_name = card_id.name.strip()
-                                if rec.force_update_model:
-                                    employee_id = rec.create_model_from_card(
-                                        card_id,
-                                        dct_custom_field_to_field_name,
-                                        lst_bind_required_field_list,
-                                    )
-                                else:
-                                    # Find employee
-                                    employee_id = self.env[
-                                        "hr.employee"
-                                    ].search(
-                                        [("name", "=", card_name.title())],
-                                        limit=1,
-                                    )
+                                if type_card_msg_1_ids:
+                                    lst_query = [
+                                        (
+                                            "board_id",
+                                            "=",
+                                            rec.board_id.id,
+                                        ),
+                                        (
+                                            "lane_id",
+                                            "in",
+                                            card_id.lane_id.ids,
+                                        ),
+                                        (
+                                            "card_type_id",
+                                            "in",
+                                            type_card_msg_1_ids.ids,
+                                        ),
+                                    ]
+                                    card_msg_1_ids = self.env[
+                                        "plan.view.agile.place.card"
+                                    ].search(lst_query)
 
-                                ignore_this_employee = False
-                                if lst_filter_field:
-                                    ignore_this_employee = not any(
-                                        [
-                                            getattr(employee_id, a)
-                                            for a in lst_filter_field
-                                        ]
-                                    )
-                                if ignore_this_employee:
-                                    continue
-
-                                if not employee_id:
-                                    msg_txt = (
-                                        "ERR Missing employee card"
-                                        f" '{card_name}'. Check lane_root"
-                                        f" '{card_id.lane_root_name}',"
-                                        " lane_parent"
-                                        f" '{card_id.lane_parent_name}',"
-                                        f" lane '{card_id.lane_name}'\n"
-                                    )
-                                    rec.log_txt += msg_txt
-                                    rec.log_error_txt += msg_txt
-                                    continue
-                                elif not employee_id.work_phone:
-                                    msg_txt = (
-                                        "ERR Employee"
-                                        f" '{employee_id.name}' missing"
-                                        " phone number\n"
-                                    )
-                                    rec.log_txt += msg_txt
-                                    rec.log_error_txt += msg_txt
-                                    continue
-                                i_msg += 1
-                                msg_sms_log_debug = (
-                                    f"PHONE: {employee_id.work_phone}\n"
-                                )
-                                msg_sms = (
-                                    ""
-                                    if not rec.sms_message_prefix
-                                    else rec.sms_message_prefix + " "
-                                )
-                                msg_summary_sms = ""
-                                # Find contact location
-                                date_msg_str = lane_id.title.title()
-                                datetime_msg_str = lane_id.title.title()
-                                msg_time = ""
-                                if card_id.size:
-                                    msg_time = f" à {card_id.size}h"
-                                    datetime_msg_str += msg_time
-                                msg_sms += (
-                                    f"{employee_id.name}, tu travailles le"
-                                    f" {datetime_msg_str}, au"
-                                    f" {rec.location_type_msg} «{card_id.lane_name}»"
-                                )
-                                msg_summary_sms += f"{employee_id.name} «{card_id.lane_name}»{msg_time}"
-                                partner_id = self.env["res.partner"].search(
-                                    [("name", "=", card_id.lane_name)],
-                                    limit=1,
-                                )
-                                # Detect msg 1 from card type
-                                if rec.sms_detect_card_type_msg_1:
-                                    lst_type_card = (
-                                        rec.sms_detect_card_type_msg_1.split(
-                                            ";"
+                                    if len(card_msg_1_ids) > 1:
+                                        msg_txt = (
+                                            "ERR Double card"
+                                            f" '{lst_type_card}' into"
+                                            " lane"
+                                            f" '{card_id.lane_name}'"
                                         )
-                                    )
-                                    type_card_msg_1_ids = self.env[
-                                        "plan.view.agile.place.card.type"
-                                    ].search(
-                                        [
-                                            ("name", "in", lst_type_card),
-                                            (
-                                                "board_id",
-                                                "=",
-                                                rec.board_id.id,
-                                            ),
-                                        ]
-                                    )
-                                    if type_card_msg_1_ids:
-                                        lst_query = [
-                                            (
-                                                "board_id",
-                                                "=",
-                                                rec.board_id.id,
-                                            ),
-                                            (
-                                                "lane_id",
-                                                "in",
-                                                card_id.lane_id.ids,
-                                            ),
-                                            (
-                                                "card_type_id",
-                                                "in",
-                                                type_card_msg_1_ids.ids,
-                                            ),
-                                        ]
-                                        card_msg_1_ids = self.env[
-                                            "plan.view.agile.place.card"
-                                        ].search(lst_query)
-
-                                        if len(card_msg_1_ids) > 1:
-                                            msg_txt = (
-                                                "ERR Double card"
-                                                f" '{lst_type_card}' into"
-                                                " lane"
-                                                f" '{card_id.lane_name}'"
+                                        rec.log_txt += msg_txt
+                                        rec.log_error_txt += msg_txt
+                                    if card_msg_1_ids:
+                                        if card_msg_1_ids.size:
+                                            msg_coule = (
+                                                " + Coulée à"
+                                                f" {card_msg_1_ids.size}h."
                                             )
-                                            rec.log_txt += msg_txt
-                                            rec.log_error_txt += msg_txt
-                                        if card_msg_1_ids:
-                                            if card_msg_1_ids.size:
-                                                msg_coule = (
-                                                    " + Coulée à"
-                                                    f" {card_msg_1_ids.size}h."
-                                                )
-                                            else:
-                                                msg_coule = " + Coulée."
-                                            msg_sms += msg_coule
-                                            msg_summary_sms += msg_coule
-                                if partner_id:
-                                    street_map = partner_id.street.replace(
-                                        " ", "%20"
-                                    )
-                                    msg_sms += (
-                                        "\nÀ l'adresse suivante : \n\n"
-                                        f"{partner_id.street}\n\nhttps://www.google.ca/maps/place/{street_map}"
-                                    )
-                                # Detect
-                                # TODO detect coulee type
-                                # detect taille coule + taille actuel
-
-                                msg_txt = (
-                                    f"\nSMS({i_msg}) {msg_sms_log_debug}"
-                                    f"«\n{msg_sms}\n»\n"
+                                        else:
+                                            msg_coule = " + Coulée."
+                                        msg_sms += msg_coule
+                                        msg_summary_sms += msg_coule
+                            if partner_id:
+                                street_map = partner_id.street.replace(
+                                    " ", "%20"
                                 )
-                                rec.log_txt += msg_txt
+                                msg_sms += (
+                                    "\nÀ l'adresse suivante : \n\n"
+                                    f"{partner_id.street}\n\nhttps://www.google.ca/maps/place/{street_map}"
+                                )
+                            # Detect
+                            # TODO detect coulee type
+                            # detect taille coule + taille actuel
 
-                                if dct_sms_data:
-                                    dct_sms_data["lst_data"].append(
-                                        {
-                                            "to": employee_id.work_phone,
-                                            "body": msg_sms,
-                                            "summary": msg_summary_sms,
-                                            "date": date_msg_str,
-                                        }
-                                    )
+                            msg_txt = (
+                                f"\nSMS({i_msg}) {msg_sms_log_debug}"
+                                f"«\n{msg_sms}\n»\n"
+                            )
+                            rec.log_txt += msg_txt
+
+                            if dct_sms_data:
+                                dct_sms_data["lst_data"].append(
+                                    {
+                                        "to": employee_id.work_phone,
+                                        "body": msg_sms,
+                                        "summary": msg_summary_sms,
+                                        "date": date_msg_str,
+                                    }
+                                )
                 else:
                     msg_txt = (
                         f"ERR processus '{rec.name}' missing field"
@@ -689,9 +675,108 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     )
                     rec.log_txt += msg_txt
                     rec.log_error_txt += msg_txt
-            elif rec.algo_key == "create_model":
+            elif rec.algo_key == "create_model_from_lane":
+                # This will find the lane_root
+                # TODO problème avec utc?
+                monday_day = self.return_monday_day(
+                    datetime.datetime.now().astimezone(user_timezone),
+                ).replace(hour=0, minute=0, second=0, microsecond=0)
+                lane_ids = self._get_lane_from_regex_week(rec, user_timezone)
+                if len(lane_ids) > 1:
+                    multi_lane_name = ",".join([a.title for a in lane_ids])
+                    msg_txt = f"ERR Find {len(lane_ids)} lanes with the regex '{multi_lane_name}'.\n"
+                    rec.log_txt += msg_txt
+                    rec.log_error_txt += msg_txt
+                    _logger.error(msg_txt.strip())
+                elif len(lane_ids) == 0:
+                    msg_txt = (
+                        f"ERR Cannot found lane with regex of next day.\n"
+                    )
+                    rec.log_txt += msg_txt
+                    rec.log_error_txt += msg_txt
+                    _logger.error(msg_txt.strip())
+                    continue
+                lane_root_id = lane_ids[0]
+                card_ids = self.env["plan.view.agile.place.card"].search(
+                    [("lane_root_id", "=", lane_root_id.id)]
+                )
+                for card_id in card_ids:
+                    # TODO bug name, fix that!
+                    # location_id = self.env["fsm.location"].search(
+                    #     [("name", "like", card_id.lane_name)], limit=1
+                    # )
+                    location_ids = self.env["fsm.location"].search([])
+                    location_id = None
+                    for a_location_id in location_ids:
+                        if a_location_id.name[:5] == card_id.lane_name[:5]:
+                            location_id = a_location_id
+                    if not location_id:
+                        msg_txt = f"WARN Cannot found fsm.location with name '{card_id.lane_name}'.\n"
+                        rec.log_txt += msg_txt
+                        rec.log_error_txt += msg_txt
+                        _logger.warning(msg_txt.strip())
+                        continue
+                    # Get weekdate
+                    regex = (
+                        r"(?P<jour>[A-Z]+)\s+(?P<journee>\d+)/(?P<mois>\d+)"
+                    )
+                    result = re.search(regex, card_id.lane_parent_name)
+                    diff_date = int(result.group("journee")) - monday_day.day
+                    # TODO this is an hack, need to retrieve the exact day with month and day
+                    actual_day = monday_day + datetime.timedelta(
+                        days=diff_date
+                    )
+                    next_day = actual_day + datetime.timedelta(days=1)
+                    fsm_order_id = self.env["fsm.order"].search(
+                        [
+                            ("location_id", "=", location_id.id),
+                            ("scheduled_date_start", ">=", actual_day),
+                            ("scheduled_date_start", "<", next_day),
+                        ],
+                        limit=1,
+                    )
+                    # TODO +5 to fix UTC
+                    actual_day_time_work = actual_day + datetime.timedelta(
+                        hours=7 + 5
+                    )
+                    if not fsm_order_id:
+                        # Create a new one
+                        fsm_order_vals = {
+                            "name": card_id.lane_name,
+                            "location_id": location_id.id,
+                            "scheduled_date_start": actual_day_time_work.replace(
+                                tzinfo=None
+                            ),
+                            "scheduled_duration": 6,
+                        }
+                        fsm_order_id = self.env["fsm.order"].create(
+                            fsm_order_vals
+                        )
+                    # Add this card
+                    json_type_card_bind = json.loads(rec.type_card_bind)
+                    lst_card_type_name = json_type_card_bind.get(
+                        "fsm.person"
+                    ).split(";")
+                    if lst_card_type_name:
+                        for card_type_name in lst_card_type_name:
+                            card_type_id = self.env[
+                                "plan.view.agile.place.card.type"
+                            ].search([("name", "=", card_type_name)], limit=1)
+                            if (
+                                card_type_id
+                                and card_id.card_type_id == card_type_id
+                            ):
+                                fsm_person_id = self.env["fsm.person"].search(
+                                    [("name", "=", card_id.name.title())],
+                                    limit=1,
+                                )
+                                if fsm_person_id:
+                                    fsm_order_id.write(
+                                        {"person_ids": [(4, fsm_person_id.id)]}
+                                    )
+            elif rec.algo_key == "create_model_from_card":
                 if not rec.lane_root_name:
-                    msg_txt = "WARN Ignore this processus, create_model need a lane_root_name."
+                    msg_txt = "WARN Ignore this processus, create_model_from_card need a lane_root_name."
                     rec.log_txt += msg_txt
                     rec.log_error_txt += msg_txt
                     continue
@@ -808,9 +893,11 @@ class PlanViewAgilePlaceProcessus(models.Model):
                             [("partner_id", "=", partner_id.id)], limit=1
                         )
                         if not fsm_person_id:
+                            # TODO this is hardcoded, need to use mapping
                             fsm_person_vals = {
                                 "name": model_id.name,
                                 "partner_id": partner_id.id,
+                                "phone": model_id.work_phone,
                             }
                             fsm_person_id = self.env["fsm.person"].create(
                                 fsm_person_vals
@@ -826,6 +913,69 @@ class PlanViewAgilePlaceProcessus(models.Model):
             _logger.info(msg_end)
             rec.log_txt += f"{msg_end}\n"
             rec.log_error_txt += f"{msg_end}\n"
+
+    def _get_lane_from_regex_day(self, rec, user_timezone):
+        find_lane_ids = self.env["plan.view.agile.place.lane"]
+        lane_ids = self.env["plan.view.agile.place.lane"].search(
+            [("board_id", "=", rec.board_id.id)]
+        )
+        regex = r"(?P<jour>[A-Z]+)\s+(?P<journee>\d+)/(?P<mois>\d+)"
+        for lane_id in lane_ids:
+            result = re.search(regex, lane_id.title)
+            if not result:
+                continue
+            # data = {
+            #     "jour": result.group("jour"),
+            #     "journee": int(result.group("journee")),
+            #     "mois": int(result.group("mois")),
+            # }
+            next_day = self.return_next_open_day(
+                datetime.datetime.now().astimezone(user_timezone),
+                delay_day=rec.delay_in_day,
+                is_skipping_weekend=rec.ignore_weekend,
+            )
+            if next_day.month == int(
+                result.group("mois")
+            ) and next_day.day == int(result.group("journee")):
+                find_lane_ids += lane_id
+        return find_lane_ids
+
+    def _get_lane_from_regex_week(self, rec, user_timezone):
+        # TODO use odoo traduction
+        mois_en_francais = {
+            "January": "Janvier",
+            "February": "Février",
+            "March": "Mars",
+            "April": "Avril",
+            "May": "Mai",
+            "June": "Juin",
+            "July": "Juillet",
+            "August": "Août",
+            "September": "Septembre",
+            "October": "Octobre",
+            "November": "Novembre",
+            "December": "Décembre",
+        }
+        find_lane_ids = self.env["plan.view.agile.place.lane"]
+        lane_ids = self.env["plan.view.agile.place.lane"].search(
+            [("board_id", "=", rec.board_id.id)]
+        )
+        regex = r"(?P<journee>\d{2})\s+(?P<mois>\w+)\s+(?P<annee>\d{4})"
+        for lane_id in lane_ids:
+            result = re.search(regex, lane_id.title)
+            if not result:
+                continue
+            monday_day = self.return_monday_day(
+                datetime.datetime.now().astimezone(user_timezone),
+            )
+            if (
+                mois_en_francais[monday_day.strftime("%B")]
+                == result.group("mois").title()
+                and monday_day.day == int(result.group("journee"))
+                and monday_day.year == int(result.group("annee"))
+            ):
+                find_lane_ids += lane_id
+        return find_lane_ids
 
     def create_model_from_card(
         self,
@@ -959,15 +1109,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
         return new_model_id
 
     @staticmethod
-    def return_next_open_day(date, delay_day=1, is_skipping_weekend=True):
-        # TODO support weekday, check next day from calendar into system
-        prochain_jour = date + datetime.timedelta(days=delay_day)
-
-        if is_skipping_weekend:
-            while prochain_jour.weekday() in (
-                5,
-                6,
-            ):  # 5 = saturday, 6 = sunday
-                prochain_jour += datetime.timedelta(days=delay_day)
-
-        return prochain_jour
+    def return_monday_day(date_to_find, delay_week=0):
+        jour_semaine = date_to_find.weekday()
+        lundi = date_to_find - datetime.timedelta(days=jour_semaine)
+        return lundi

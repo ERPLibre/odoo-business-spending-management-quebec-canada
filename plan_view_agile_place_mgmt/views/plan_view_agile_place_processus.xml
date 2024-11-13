@@ -73,6 +73,7 @@
                             <field name="bind_required_field_list" />
                             <field name="bind_field" />
                             <field name="model_name" />
+                            <field name="type_card_bind" />
                             <field name="ignore_warning_from_name" />
                             <field name="filter_field" />
                         </group>

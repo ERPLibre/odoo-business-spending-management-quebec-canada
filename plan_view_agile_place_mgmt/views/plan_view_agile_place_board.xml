@@ -102,9 +102,9 @@
         <field name="arch" type="xml">
             <tree>
                 <field name="name" />
+                <field name="type_board_ids" widget="many2many_tags" />
                 <field name="board_id_pvap" />
                 <field name="session_id" />
-                <field name="type_board_ids" widget="many2many_tags" />
             </tree>
         </field>
     </record>
