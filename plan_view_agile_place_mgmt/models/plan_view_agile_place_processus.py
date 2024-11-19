@@ -2,6 +2,7 @@ import datetime
 import json
 import logging
 import re
+import time
 from urllib.parse import quote
 
 from pytz import timezone
@@ -322,6 +323,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
             if rec.is_disabled:
                 continue
 
+            start_time = time.time()
+
             if rec.log_txt is False:
                 rec.log_txt = ""
             if rec.log_error_txt is False:
@@ -355,12 +358,14 @@ class PlanViewAgilePlaceProcessus(models.Model):
             )
             rec.log_txt += msg_txt
             rec.log_error_txt += msg_txt
+            _logger.info(msg_txt.strip())
+            ctx = dict(self.env.context)
+            ctx.update({"lst_sync_lane_id_pvap": []})
 
             # Execute dependencies before
             if rec.depend_process_ids:
                 lst_processus_executed = []
                 for process_id in rec.depend_process_ids:
-                    ctx = dict(self.env.context)
                     if "lst_processus_executed" in ctx:
                         lst_processus_executed = (
                             ctx["lst_processus_executed"]
@@ -371,9 +376,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
                         msg_txt = f"Begin execution depend algo '{process_id.name}'\n"
                         _logger.info(msg_txt)
                         rec.log_txt += msg_txt
-                        process_id.with_context(
-                            lst_processus_executed=lst_processus_executed
-                        ).action_execute_algo()
+                        ctx.update(
+                            {"lst_processus_executed": lst_processus_executed}
+                        )
+                        process_id.with_context(ctx).action_execute_algo()
                         rec.log_txt += process_id.log_txt
                         rec.log_error_txt += process_id.log_error_txt
                     else:
@@ -531,6 +537,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                     ]
                                 )
                             if ignore_this_employee:
+                                rec.add_log_time_execution(start_time)
                                 continue
 
                             if not employee_id:
@@ -544,6 +551,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                 )
                                 rec.log_txt += msg_txt
                                 rec.log_error_txt += msg_txt
+                                _logger.error(msg_txt.strip())
+                                rec.add_log_time_execution(start_time)
                                 continue
                             elif not employee_id.work_phone:
                                 msg_txt = (
@@ -553,6 +562,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                 )
                                 rec.log_txt += msg_txt
                                 rec.log_error_txt += msg_txt
+                                _logger.error(msg_txt.strip())
+                                rec.add_log_time_execution(start_time)
                                 continue
                             i_msg += 1
                             msg_sms_log_debug = (
@@ -634,6 +645,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                         )
                                         rec.log_txt += msg_txt
                                         rec.log_error_txt += msg_txt
+                                        _logger.error(msg_txt.strip())
                                     if card_msg_1_ids:
                                         if card_msg_1_ids.size:
                                             msg_coule = (
@@ -676,6 +688,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     )
                     rec.log_txt += msg_txt
                     rec.log_error_txt += msg_txt
+                    _logger.error(msg_txt.strip())
             elif rec.algo_key == "create_model_from_lane":
                 # This will find the lane_root
                 # TODO problème avec utc?
@@ -696,6 +709,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     rec.log_txt += msg_txt
                     rec.log_error_txt += msg_txt
                     _logger.error(msg_txt.strip())
+                    rec.add_log_time_execution(start_time)
                     continue
                 rec.lane_root_name = lane_ids[0].title
                 card_ids = rec.search_cards_from_processus()
@@ -715,6 +729,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                         rec.log_txt += msg_txt
                         rec.log_error_txt += msg_txt
                         _logger.warning(msg_txt.strip())
+                        rec.add_log_time_execution(start_time)
                         continue
                     # Get weekdate
                     regex = (
@@ -778,6 +793,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     msg_txt = "WARN Ignore this processus, create_model_from_card need a lane_root_name."
                     rec.log_txt += msg_txt
                     rec.log_error_txt += msg_txt
+                    _logger.warning(msg_txt.strip())
+                    rec.add_log_time_execution(start_time)
                     continue
 
                 card_ids = rec.search_cards_from_processus()
@@ -796,6 +813,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
                             )
                             rec.log_txt += msg_txt
                             rec.log_error_txt += msg_txt
+                            _logger.warning(msg_txt.strip())
+                        rec.add_log_time_execution(start_time)
                         continue
                     else:
                         lst_existing_name.append(card_id.name)
@@ -830,6 +849,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                 msg = f"WAR cannot localize '{fsm_location_id.name}' with address '{fsm_location_id.street}'\n"
                                 rec.log_txt += msg
                                 rec.log_error_txt += msg
+                                _logger.warning(msg_txt.strip())
 
                     if rec.compute_model_fsm_person:
                         # Create a user associate
@@ -868,11 +888,12 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
             msg_end = (
                 f"End of execution processus '{rec.algo_key}' name"
-                f" '{rec.name}'"
+                f" '{rec.name}' {rec.get_str_time_execution(start_time)}\n"
             )
-            _logger.info(msg_end)
-            rec.log_txt += f"{msg_end}\n"
-            rec.log_error_txt += f"{msg_end}\n"
+            _logger.info(msg_end.strip())
+            rec.log_txt += f"{msg_end}"
+            rec.log_error_txt += f"{msg_end}"
+            rec.add_log_time_execution(start_time)
 
     def _get_lane_from_regex_day(self, rec, user_timezone):
         find_lane_ids = self.env["plan.view.agile.place.lane"]
@@ -1145,3 +1166,16 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 prochain_jour += datetime.timedelta(days=delay_day)
 
         return prochain_jour
+
+    @staticmethod
+    def get_str_time_execution(start_time):
+        end_time = time.time()
+        execution_time = end_time - start_time
+        return f"Temps d'exécution : {execution_time:.3f} secondes"
+
+    def add_log_time_execution(self, start_time):
+        msg_txt = "\nINFO " + self.get_str_time_execution(start_time) + "\n"
+        for rec in self:
+            rec.log_txt += msg_txt
+            rec.log_error_txt += msg_txt
+            _logger.info(msg_txt.strip())

@@ -246,8 +246,6 @@ class PlanViewAgilePlaceCard(models.Model):
         return res
 
     def sync_pvap_cards(self, board_id, from_lane=None):
-        # TODO add mechanism to sync only if not sync since last execution
-        # TODO add mechanism to force sync
         # from_lane will do partial update
         # Search all under lane with from_lane
         session_id = board_id.session_id
@@ -259,7 +257,24 @@ class PlanViewAgilePlaceCard(models.Model):
             lane_to_extract_ids = from_lane.get_list_child_lane_from_lane(
                 add_itself=True
             )
-            lst_pvap_lane = [a.lane_id_pvap for a in lane_to_extract_ids]
+            # check if already sync from cache
+            self.env.context = dict(self.env.context)
+            lst_sync_lane_id_pvap = self.env.context.get(
+                "lst_sync_lane_id_pvap", []
+            )
+            lst_pvap_lane = [
+                a.lane_id_pvap
+                for a in lane_to_extract_ids
+                if a.lane_id_pvap not in lst_sync_lane_id_pvap
+            ]
+            if len(lst_pvap_lane) != len(lane_to_extract_ids):
+                _logger.info(
+                    f"Cache {len(lane_to_extract_ids) - len(lst_pvap_lane)} lanes"
+                )
+            lst_sync_lane_id_pvap.extend(lst_pvap_lane)
+            self.env.context.update(
+                {"lst_sync_lane_id_pvap": lst_sync_lane_id_pvap}
+            )
 
         # Get all cards
         data = {
