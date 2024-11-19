@@ -128,6 +128,7 @@ class HREmployee(models.Model):
                 "Cannot retrieve processus to create card for hr.employee."
             )
         elif process_id.session_id.bind_rh_employee_create_enabled:
+            card_ids = self.env["plan.view.agile.place.card"]
             for rec in self:
                 card_id = self.env["plan.view.agile.place.card"].search(
                     [
@@ -137,20 +138,13 @@ class HREmployee(models.Model):
                     ],
                     limit=1,
                 )
+
                 if not card_id:
                     _logger.warning(
                         f"Cannot find card name '{rec.name}' to delete it."
                     )
                 else:
-                    # This will delete the employee card
-                    data_delete = {"cardIds": [card_id.card_id_pvap]}
-                    result = process_id.session_id.request_api_delete(
-                        "/io/card/", data=data_delete
-                    )
-                    if str(result[0])[0] != "2":
-                        _logger.error(
-                            f"Receive request {result[0]} from delete card employee."
-                        )
-                        # raise exceptions.Warning(
-                        #     f"Receive request {result[0]} from delete card employee."
-                        # )
+                    card_ids += card_id.id
+            if card_ids.exists():
+                card_ids.enabled_bind = True
+                card_ids.unlink()

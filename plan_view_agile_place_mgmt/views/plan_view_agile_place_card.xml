@@ -21,8 +21,11 @@
                         <group string="General">
                             <field name="session_id" />
                             <field name="board_id" />
-                            <field name="card_id_pvap" />
                             <field name="url_card" widget="url" />
+                        </group>
+                        <group string="Bind">
+                            <field name="card_id_pvap" />
+                            <field name="enabled_bind" />
                         </group>
                         <group string="Lane information">
                             <field name="lane_root_id" />

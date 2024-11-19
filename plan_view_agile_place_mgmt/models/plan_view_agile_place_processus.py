@@ -2,6 +2,7 @@ import datetime
 import json
 import logging
 import re
+from urllib.parse import quote
 
 from pytz import timezone
 
@@ -32,8 +33,9 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 "Send reminder SMS schedule condition",
             ),
             ("copy_cards", "Copy cards from lane to lane"),
-            ("bind_create_card", "Create card"),
-            ("bind_delete_card", "Delete card"),
+            ("delete_cards", "Delete cards"),
+            ("bind_create_card", "Bind Create card"),
+            ("bind_delete_card", "Bind Delete card"),
         ],
         required=True,
         default="create_model_from_card",
@@ -343,8 +345,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
                         f"Cannot find board_id associate with type '{str_board_type}'."
                     )
             # First log
-            user_tz = self.env.user.tz or "UTC"
-            user_timezone = timezone(user_tz)
+            user_timezone = timezone(self.env.user.tz or "UTC")
+            hour_now = datetime.datetime.now(user_timezone)
+            delay_timezone = hour_now.utcoffset().total_seconds() / 3600
+            diff_hour_timezone = int(delay_timezone)
             msg_txt = (
                 f"LOG Execute algo '{rec.algo_key}' '{rec.name}' -"
                 f" {datetime.datetime.now().astimezone(user_timezone).strftime('%Y-%m-%d %H:%M:%S')}\n"
@@ -415,20 +419,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     card_to_delete_ids = self.env[
                         "plan.view.agile.place.card"
                     ].search([("lane_id", "in", lane_to_ids.ids)])
-                    array_card_pvap = [
-                        a.card_id_pvap for a in card_to_delete_ids
-                    ]
-                    if array_card_pvap:
-                        data_delete = {"cardIds": array_card_pvap}
-                        result = rec.board_id.session_id.request_api_delete(
-                            "/io/card/", data=data_delete
-                        )
-                        if str(result[0])[0] != "2":
-                            raise exceptions.Warning(
-                                f"Receive request {result[0]} from delete all"
-                                " cards from specific lane."
-                            )
-                        card_to_delete_ids.unlink()
+                    card_to_delete_ids.enabled_bind = True
+                    card_to_delete_ids.unlink()
 
                 # Get lane from and lane to
                 if not rec.copy_from_lane:
@@ -465,6 +457,12 @@ class PlanViewAgilePlaceProcessus(models.Model):
             elif rec.algo_key == "send_reminder_sms_schedule_condition":
                 # TODO maybe can search employee information
                 pass
+
+            elif rec.algo_key == "delete_cards":
+                card_ids = rec.search_cards_from_processus()
+                if card_ids.exists():
+                    card_ids.enabled_bind = True
+                    card_ids.unlink()
 
             elif rec.algo_key == "send_sms_schedule":
                 lst_filter_field = json.loads(rec.filter_field)
@@ -583,6 +581,11 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                 [("name", "=", card_id.lane_name)],
                                 limit=1,
                             )
+                            if not partner_id:
+                                msg_txt = f"ERR missing partner associate with card {card_id.lane_name}\n"
+                                rec.log_txt += msg_txt
+                                rec.log_error_txt += msg_txt
+                                _logger.error(msg_txt.strip())
                             # Detect msg 1 from card type
                             if rec.sms_detect_card_type_msg_1:
                                 lst_type_card = (
@@ -642,9 +645,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                         msg_sms += msg_coule
                                         msg_summary_sms += msg_coule
                             if partner_id:
-                                street_map = partner_id.street.replace(
-                                    " ", "%20"
-                                )
+                                street_map = quote(partner_id.street)
                                 msg_sms += (
                                     "\nÀ l'adresse suivante : \n\n"
                                     f"{partner_id.street}\n\nhttps://www.google.ca/maps/place/{street_map}"
@@ -696,10 +697,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     rec.log_error_txt += msg_txt
                     _logger.error(msg_txt.strip())
                     continue
-                lane_root_id = lane_ids[0]
-                card_ids = self.env["plan.view.agile.place.card"].search(
-                    [("lane_root_id", "=", lane_root_id.id)]
-                )
+                rec.lane_root_name = lane_ids[0].title
+                card_ids = rec.search_cards_from_processus()
                 for card_id in card_ids:
                     # TODO bug name, fix that!
                     # location_id = self.env["fsm.location"].search(
@@ -708,6 +707,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     location_ids = self.env["fsm.location"].search([])
                     location_id = None
                     for a_location_id in location_ids:
+                        # TODO this is not good, hardcoded from data client, need a dynamic way
                         if a_location_id.name[:5] == card_id.lane_name[:5]:
                             location_id = a_location_id
                     if not location_id:
@@ -735,9 +735,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
                         ],
                         limit=1,
                     )
-                    # TODO +5 to fix UTC
                     actual_day_time_work = actual_day + datetime.timedelta(
-                        hours=7 + 5
+                        hours=7 + diff_hour_timezone
                     )
                     if not fsm_order_id:
                         # Create a new one
@@ -780,47 +779,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     rec.log_txt += msg_txt
                     rec.log_error_txt += msg_txt
                     continue
-                lane_root_id = self.env["plan.view.agile.place.lane"].search(
-                    [("title", "=", rec.lane_root_name)]
-                )
-                if not lane_root_id:
-                    msg_txt = (
-                        f"ERR processus '{rec.name}' root lane name"
-                        f" '{rec.lane_root_name}'\n"
-                    )
-                    rec.log_txt += msg_txt
-                    rec.log_error_txt += msg_txt
-                    continue
-                # Force auto refresh root lane
-                lane_root_id.action_sync_cards()
-                if not rec.is_root_lane:
-                    lane_query = [("lane_root_id", "=", lane_root_id.id)]
-                    if rec.lane_name:
-                        lane_query.append(("title", "=", rec.lane_name))
-                    if rec.lane_parent_name:
-                        lane_query.append(
-                            ("lane_parent_name", "=", rec.lane_parent_name)
-                        )
-                    lane_ids = self.env["plan.view.agile.place.lane"].search(
-                        lane_query
-                    )
-                    lst_query = [("lane_id", "in", lane_ids.ids)]
-                else:
-                    lst_query = [("lane_id", "=", lane_root_id.id)]
-                if rec.type_card:
-                    lst_type_card = rec.type_card.split(";")
-                    type_card_ids = self.env[
-                        "plan.view.agile.place.card.type"
-                    ].search(
-                        [
-                            ("name", "in", lst_type_card),
-                            ("board_id", "=", rec.board_id.id),
-                        ]
-                    )
-                    lst_query.append(("card_type_id", "in", type_card_ids.ids))
-                card_ids = self.env["plan.view.agile.place.card"].search(
-                    lst_query
-                )
+
+                card_ids = rec.search_cards_from_processus()
 
                 lst_existing_name = []
                 for card_id in card_ids:
@@ -929,6 +889,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
             #     "journee": int(result.group("journee")),
             #     "mois": int(result.group("mois")),
             # }
+
             next_day = self.return_next_open_day(
                 datetime.datetime.now().astimezone(user_timezone),
                 delay_day=rec.delay_in_day,
@@ -1108,8 +1069,79 @@ class PlanViewAgilePlaceProcessus(models.Model):
             #  or maybe not, too much link into database, maybe create html link
         return new_model_id
 
+    def search_cards_from_processus(self, sync_cards=True):
+        # This method sync card before search it
+        card_ids = self.env["plan.view.agile.place.card"]
+        for rec in self:
+            lane_root_id = self.env["plan.view.agile.place.lane"].search(
+                [("title", "=", rec.lane_root_name)]
+            )
+            if not lane_root_id:
+                msg_txt = (
+                    f"ERR processus '{rec.name}' root lane name"
+                    f" '{rec.lane_root_name}'\n"
+                )
+                rec.log_txt += msg_txt
+                rec.log_error_txt += msg_txt
+                continue
+            # Force auto refresh root lane
+            if sync_cards:
+                msg_txt = (
+                    f"INFO sync cards from processus '{rec.name}' root lane name"
+                    f" '{rec.lane_root_name}'\n"
+                )
+                rec.log_txt += msg_txt
+                _logger.info(msg_txt.strip())
+
+                lane_root_id.action_sync_cards()
+
+            if not rec.is_root_lane:
+                lane_query = [("lane_root_id", "=", lane_root_id.id)]
+                if rec.lane_name:
+                    lane_query.append(("title", "=", rec.lane_name))
+                if rec.lane_parent_name:
+                    lane_query.append(
+                        ("lane_parent_name", "=", rec.lane_parent_name)
+                    )
+                lane_ids = self.env["plan.view.agile.place.lane"].search(
+                    lane_query
+                )
+                lst_query = [("lane_id", "in", lane_ids.ids)]
+            else:
+                lst_query = [("lane_id", "=", lane_root_id.id)]
+
+            if rec.type_card:
+                lst_type_card = rec.type_card.split(";")
+                type_card_ids = self.env[
+                    "plan.view.agile.place.card.type"
+                ].search(
+                    [
+                        ("name", "in", lst_type_card),
+                        ("board_id", "=", rec.board_id.id),
+                    ]
+                )
+                lst_query.append(("card_type_id", "in", type_card_ids.ids))
+            card_ids += self.env["plan.view.agile.place.card"].search(
+                lst_query
+            )
+        return card_ids
+
     @staticmethod
     def return_monday_day(date_to_find, delay_week=0):
         jour_semaine = date_to_find.weekday()
         lundi = date_to_find - datetime.timedelta(days=jour_semaine)
         return lundi
+
+    @staticmethod
+    def return_next_open_day(date, delay_day=1, is_skipping_weekend=True):
+        # TODO support weekday, check next day from calendar into system
+        prochain_jour = date + datetime.timedelta(days=delay_day)
+
+        if is_skipping_weekend:
+            while prochain_jour.weekday() in (
+                5,
+                6,
+            ):  # 5 = saturday, 6 = sunday
+                prochain_jour += datetime.timedelta(days=delay_day)
+
+        return prochain_jour

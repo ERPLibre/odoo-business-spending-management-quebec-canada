@@ -22,6 +22,10 @@ class PlanViewAgilePlaceCard(models.Model):
         help="Set active to false to hide the card without deleting it.",
     )
 
+    enabled_bind = fields.Boolean(
+        help="A card is automatic bind when it's enable. By default, no card will be delete on external source.",
+    )
+
     board_id = fields.Many2one(
         comodel_name="plan.view.agile.place.board",
         required=True,
@@ -212,7 +216,38 @@ class PlanViewAgilePlaceCard(models.Model):
                     continue
         return status
 
+    def unlink(self):
+        lst_card_id_pvap = []
+        session_id = None
+        for rec in self:
+            if not rec.card_id_pvap:
+                # Ignore, not existing in remote
+                continue
+            if not session_id:
+                session_id = rec.session_id
+            if rec.enabled_bind:
+                lst_card_id_pvap.append(rec.card_id_pvap)
+        # Delete for all bind card
+        if lst_card_id_pvap and session_id:
+            data_delete = {"cardIds": lst_card_id_pvap}
+            result = session_id.request_api_delete(
+                "/io/card/", data=data_delete
+            )
+            if str(result[0])[0] != "2":
+                raise ValueError(
+                    f"Receive request {result[0]} from delete all"
+                    " cards from specific lane."
+                )
+        else:
+            _logger.warning(
+                "System asks to delete card, but no one is associate with external source."
+            )
+        res = super().unlink()
+        return res
+
     def sync_pvap_cards(self, board_id, from_lane=None):
+        # TODO add mechanism to sync only if not sync since last execution
+        # TODO add mechanism to force sync
         # from_lane will do partial update
         # Search all under lane with from_lane
         session_id = board_id.session_id
