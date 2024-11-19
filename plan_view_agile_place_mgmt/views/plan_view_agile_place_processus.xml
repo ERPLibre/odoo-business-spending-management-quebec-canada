@@ -64,6 +64,13 @@
                             <field name="ignore_weekend" />
                             <field name="force_update_model" />
                         </group>
+                        <group string="Create card and new board">
+                            <field name="new_board_name" />
+                            <field name="type_template_board_id" />
+                            <field name="model_fetch_record" />
+                            <field name="model_filter_hr_empoyee_job_type" />
+                            <field name="process_execute_after_ids" widget="many2many_tags" />
+                        </group>
                         <group string="Extract data">
                             <field name="force_update_after_create" />
                             <field name="default_value_model" />

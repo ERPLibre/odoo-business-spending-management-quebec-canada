@@ -69,7 +69,11 @@ class PlanViewAgilePlaceBoard(models.Model):
                 card_type_id = self.env[
                     "plan.view.agile.place.card.type"
                 ].search(
-                    [("card_type_id_pvap", "=", card_type_id_pvap)], limit=1
+                    [
+                        ("card_type_id_pvap", "=", card_type_id_pvap),
+                        ("board_id", "=", rec.id),
+                    ],
+                    limit=1,
                 )
                 if card_type_id:
                     # Update it
@@ -108,6 +112,7 @@ class PlanViewAgilePlaceBoard(models.Model):
                     "id_pvap": dct_custom_field.get("id"),
                     "created_by_pvap": dct_custom_field.get("createdBy"),
                     "created_on": created_on,
+                    "board_id": rec.id,
                 }
                 if "choiceConfiguration" in dct_custom_field.keys():
                     custom_field_value["choices"] = "\n".join(
@@ -147,7 +152,10 @@ class PlanViewAgilePlaceBoard(models.Model):
                 # wipLimit
 
                 lane_id = self.env["plan.view.agile.place.lane"].search(
-                    [("lane_id_pvap", "=", lane_id_pvap)], limit=1
+                    [
+                        ("lane_id_pvap", "=", lane_id_pvap),
+                        ("board_id", "=", rec.id),
+                    ]
                 )
                 if lane_id:
                     # Update it
@@ -179,7 +187,10 @@ class PlanViewAgilePlaceBoard(models.Model):
             for dct_lane in response.get("lanes"):
                 lane_id_pvap = dct_lane.get("id")
                 lane_id = self.env["plan.view.agile.place.lane"].search(
-                    [("lane_id_pvap", "=", lane_id_pvap)], limit=1
+                    [
+                        ("lane_id_pvap", "=", lane_id_pvap),
+                        ("board_id", "=", rec.id),
+                    ]
                 )
                 if not lane_id:
                     _logger.error(f"Cannot find lane {lane_id_pvap}")

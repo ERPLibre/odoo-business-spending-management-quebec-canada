@@ -134,6 +134,7 @@
                 <field name="index" />
                 <field name="type" />
                 <field name="choices" />
+                <field name="board_id" />
             </tree>
         </field>
     </record>

@@ -29,3 +29,9 @@ class PlanViewAgilePlaceCustomfield(models.Model):
     type = fields.Char()
 
     choices = fields.Text(help="Separate list by \n")
+
+    board_id = fields.Many2one(
+        comodel_name="plan.view.agile.place.board",
+        required=True,
+        string="Board",
+    )

@@ -351,23 +351,32 @@ class PlanViewAgilePlaceCard(models.Model):
             else:
                 custom_fields = False
 
+            board_id = self.env["plan.view.agile.place.board"].search(
+                [("board_id_pvap", "=", board_id_pvap)], limit=1
+            )
+
             card_type_id = self.env["plan.view.agile.place.card.type"].search(
-                [("card_type_id_pvap", "=", type_id_pvap)], limit=1
+                [
+                    ("card_type_id_pvap", "=", type_id_pvap),
+                    ("board_id", "=", board_id.id),
+                ]
             )
 
             lane_id = self.env["plan.view.agile.place.lane"].search(
-                [("lane_id_pvap", "=", lane_id_pvap)], limit=1
-            )
-
-            board_id = self.env["plan.view.agile.place.board"].search(
-                [("board_id_pvap", "=", board_id_pvap)], limit=1
+                [
+                    ("lane_id_pvap", "=", lane_id_pvap),
+                    ("board_id", "=", board_id.id),
+                ]
             )
 
             lst_card_pvap_sync.append(card_id_pvap)
 
             # Search if exist or create it
             card_id = self.env["plan.view.agile.place.card"].search(
-                [("card_id_pvap", "=", card_id_pvap)], limit=1
+                [
+                    ("card_id_pvap", "=", card_id_pvap),
+                    ("board_id", "=", board_id.id),
+                ]
             )
             if card_id:
                 # Update it, except card_id_pvap and session_id

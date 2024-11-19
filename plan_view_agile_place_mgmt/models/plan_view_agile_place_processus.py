@@ -26,6 +26,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     algo_key = fields.Selection(
         selection=[
+            ("create_card_from_model", "Build cards into PVAP"),
+            ("create_new_board", "Create new board"),
             ("create_model_from_card", "Create Model from Card"),
             ("create_model_from_lane", "Create Model from Lane"),
             ("send_sms_schedule", "Send SMS schedule"),
@@ -76,6 +78,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
     )
 
     model_name = fields.Char()
+
+    model_fetch_record = fields.Char()
+
+    model_filter_hr_empoyee_job_type = fields.Char()
 
     record_id_i = fields.Integer(
         string="Record index",
@@ -181,10 +187,20 @@ class PlanViewAgilePlaceProcessus(models.Model):
         help="Optional, search only with this type of card"
     )
 
+    new_board_name = fields.Char(
+        help="The name of the new board, need a %s inside for the date"
+    )
+
+    type_template_board_id = fields.Many2one(
+        comodel_name="plan.view.agile.place.board.type",
+        string="Type Board depend",
+        help="Will duplicate this board and fill it.",
+    )
+
     type_board_depend_ids = fields.Many2many(
         comodel_name="plan.view.agile.place.board.type",
         relation="type_board_ids_plan_view_agile_place_processus_rel",
-        string="Type Board depend",
+        string="Type template Board",
         help="This is optional, the system will check if has depend, if yes, will force to sync this board to operate processus.",
     )
 
@@ -199,6 +215,15 @@ class PlanViewAgilePlaceProcessus(models.Model):
         column2="process_depend_id2",
         string="Depend Process",
         help="Will execute depend process before execute this process.",
+    )
+
+    process_execute_after_ids = fields.Many2many(
+        comodel_name="plan.view.agile.place.processus",
+        relation="plan_view_agile_place_processus_execute_after",
+        column1="process_id1",
+        column2="process_depend_id2",
+        string="Process execute after",
+        help="Will execute process after execute this process.",
     )
 
     def action_clear_log(self):
@@ -414,7 +439,12 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 lane_to_query = [
                     ("lane_root_name", "=", rec.lane_root_name),
                     ("lane_parent_name", "=", rec.lane_parent_name),
-                    ("title", "in", rec.copy_to_lane.split(";")),
+                    (
+                        "title",
+                        "in",
+                        rec.copy_to_lane.split(";"),
+                        ("board_id", "=", rec.board_id.id),
+                    ),
                 ]
                 lane_to_ids = self.env["plan.view.agile.place.lane"].search(
                     lane_to_query
@@ -424,7 +454,12 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     # get all cards to delete
                     card_to_delete_ids = self.env[
                         "plan.view.agile.place.card"
-                    ].search([("lane_id", "in", lane_to_ids.ids)])
+                    ].search(
+                        [
+                            ("lane_id", "in", lane_to_ids.ids),
+                            ("board_id", "=", rec.board_id.id),
+                        ]
+                    )
                     card_to_delete_ids.enabled_bind = True
                     card_to_delete_ids.unlink()
 
@@ -438,6 +473,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                         ("lane_root_name", "=", rec.lane_root_name),
                         ("lane_name", "=", copy_from_lane),
                         ("lane_parent_name", "=", rec.lane_parent_name),
+                        ("board_id", "=", rec.board_id.id),
                     ]
 
                     card_from_ids = self.env[
@@ -775,7 +811,12 @@ class PlanViewAgilePlaceProcessus(models.Model):
                         for card_type_name in lst_card_type_name:
                             card_type_id = self.env[
                                 "plan.view.agile.place.card.type"
-                            ].search([("name", "=", card_type_name)], limit=1)
+                            ].search(
+                                [
+                                    ("name", "=", card_type_name),
+                                    ("board_id", "=", rec.board_id.id),
+                                ]
+                            )
                             if (
                                 card_type_id
                                 and card_id.card_type_id == card_type_id
@@ -788,6 +829,100 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                     fsm_order_id.write(
                                         {"person_ids": [(4, fsm_person_id.id)]}
                                     )
+            elif rec.algo_key == "create_new_board":
+                # Algorithm description :
+                # 1. duplicate board with all cards
+                # 2. fill the board
+                date_new_timezone = datetime.datetime.now().astimezone(
+                    user_timezone
+                )
+                str_date_new_timezone = date_new_timezone.strftime(
+                    "%Y/%m/%d %H:%M:%S"
+                )
+                new_board_name = rec.new_board_name % str_date_new_timezone
+
+                # Find board template
+                board_template_id = self.env[
+                    "plan.view.agile.place.board"
+                ].search(
+                    [("type_board_ids", "in", rec.type_template_board_id.ids)]
+                )
+
+                if not board_template_id:
+                    msg_txt = f"ERR Cannot find board type '{rec.type_template_board_id.name}' to duplicate it.\n"
+                    rec.log_txt += msg_txt
+                    rec.log_error_txt += msg_txt
+                    _logger.error(msg_txt.strip())
+                    rec.add_log_time_execution(start_time)
+                    continue
+
+                title = new_board_name
+                if not rec.session_id.production_enabled:
+                    title = f"TEST {title}"
+
+                data = {
+                    "title": title,
+                    "fromBoardId": board_template_id.board_id_pvap,
+                    "includeCards": True,
+                    "includeExistingUsers": True,
+                    "excludeCompletedAndArchiveViolations": True,
+                    "baseWipOnCardSize": True,
+                }
+
+                status, response = rec.session_id.request_api_post(
+                    "/io/board", data=data
+                )
+                if str(status)[0] != "2":
+                    msg_txt = f"ERR Cannot create board.\n"
+                    rec.log_txt += msg_txt
+                    rec.log_error_txt += msg_txt
+                    _logger.error(msg_txt.strip())
+                    rec.add_log_time_execution(start_time)
+                    continue
+                board_value = {
+                    "name": title,
+                    "session_id": rec.session_id.id,
+                    "board_id_pvap": response.get("id"),
+                    "type_board_ids": [
+                        (6, 0, rec.board_id.type_board_ids.ids)
+                    ],
+                }
+                board_id = self.env["plan.view.agile.place.board"].create(
+                    board_value
+                )
+                board_id.action_sync()
+
+                # Execute processus of adding cards
+                for process_id in rec.process_execute_after_ids:
+                    process_id.board_id = board_id.id
+                    process_id.action_execute_algo()
+
+            elif rec.algo_key == "create_card_from_model":
+                if (
+                    rec.model_name == "hr.employee"
+                    and rec.model_filter_hr_empoyee_job_type
+                ):
+                    job_id = self.env["hr.job"].search(
+                        [("name", "=", rec.model_filter_hr_empoyee_job_type)]
+                    )
+                    if job_id:
+                        record_ids = self.env[rec.model_name].search(
+                            [("job_id", "=", job_id.id)]
+                        )
+                    else:
+                        record_ids = None
+                else:
+                    record_ids = self.env[rec.model_name].search(
+                        eval(rec.model_fetch_record)
+                    )
+                if not record_ids:
+                    msg_txt = f"ERR Cannot found card.\n"
+                    rec.log_txt += msg_txt
+                    rec.log_error_txt += msg_txt
+                    _logger.error(msg_txt.strip())
+                    rec.add_log_time_execution(start_time)
+                    continue
+                record_ids.generate_pvap_card(rec)
             elif rec.algo_key == "create_model_from_card":
                 if not rec.lane_root_name:
                     msg_txt = "WARN Ignore this processus, create_model_from_card need a lane_root_name."
@@ -1064,6 +1199,25 @@ class PlanViewAgilePlaceProcessus(models.Model):
                         rec.log_txt += msg_txt
                         rec.log_error_txt += msg_txt
 
+        # Refactor new_model_value for type many2one
+        for key, value in new_model_value.items():
+            if (
+                self.env[rec.model_name]._fields[key].type == "many2one"
+                and type(value) is str
+            ):
+                related_model_name = (
+                    self.env[rec.model_name]._fields[key].comodel_name
+                )
+                # TODO name is suppose to be the rec_name
+                rec_find_id = self.env[related_model_name].search(
+                    [("name", "=", value)], limit=1
+                )
+                if not rec_find_id:
+                    rec_find_id = self.env[related_model_name].create(
+                        {"name": value}
+                    )
+                new_model_value[key] = rec_find_id.id
+
         # Update or create
         new_model_id = self.env[rec.model_name].search(
             [("name", "=", name)], limit=1
@@ -1095,7 +1249,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
         card_ids = self.env["plan.view.agile.place.card"]
         for rec in self:
             lane_root_id = self.env["plan.view.agile.place.lane"].search(
-                [("title", "=", rec.lane_root_name)]
+                [
+                    ("title", "=", rec.lane_root_name),
+                    ("board_id", "=", rec.board_id.id),
+                ]
             )
             if not lane_root_id:
                 msg_txt = (
@@ -1117,7 +1274,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 lane_root_id.action_sync_cards()
 
             if not rec.is_root_lane:
-                lane_query = [("lane_root_id", "=", lane_root_id.id)]
+                lane_query = [
+                    ("lane_root_id", "=", lane_root_id.id),
+                    ("board_id", "=", rec.board_id.id),
+                ]
                 if rec.lane_name:
                     lane_query.append(("title", "=", rec.lane_name))
                 if rec.lane_parent_name:
@@ -1142,6 +1302,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     ]
                 )
                 lst_query.append(("card_type_id", "in", type_card_ids.ids))
+            lst_query.append(("board_id", "=", rec.board_id.id))
             card_ids += self.env["plan.view.agile.place.card"].search(
                 lst_query
             )
