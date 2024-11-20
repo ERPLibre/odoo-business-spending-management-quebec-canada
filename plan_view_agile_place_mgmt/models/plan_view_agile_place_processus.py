@@ -81,6 +81,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     model_fetch_record = fields.Char()
 
+    duplicate_multiple_time = fields.Integer(
+        default=1, help="Will repeat the duplication if higher then 1"
+    )
+
     model_filter_hr_empoyee_job_type = fields.Char()
 
     record_id_i = fields.Integer(
@@ -95,6 +99,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
     type_card_bind = fields.Char()
 
     delay_in_day = fields.Integer()
+
+    ignore_run_depend_processus = fields.Boolean(
+        help="Enable to accelerate development to ignore execute update processus dependency."
+    )
 
     is_root_lane = fields.Boolean(
         help="Enable when the cards to extract is inside the root lane, because a root lane has no parent lane."
@@ -355,7 +363,11 @@ class PlanViewAgilePlaceProcessus(models.Model):
             if rec.log_error_txt is False:
                 rec.log_error_txt = ""
 
-            if not rec.board_id and rec.type_board_depend_ids:
+            if (
+                not rec.board_id
+                and rec.type_board_depend_ids
+                and not rec.ignore_run_depend_processus
+            ):
                 str_board_type = ",".join(
                     [a.name for a in rec.type_board_depend_ids]
                 )
@@ -1244,9 +1256,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
             #  or maybe not, too much link into database, maybe create html link
         return new_model_id
 
-    def search_cards_from_processus(self, sync_cards=True):
-        # This method sync card before search it
-        card_ids = self.env["plan.view.agile.place.card"]
+    def search_lanes_from_processus(self, sync_cards=True, limit=-1):
         for rec in self:
             lane_root_id = self.env["plan.view.agile.place.lane"].search(
                 [
@@ -1279,17 +1289,31 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     ("board_id", "=", rec.board_id.id),
                 ]
                 if rec.lane_name:
-                    lane_query.append(("title", "=", rec.lane_name))
+                    lst_lane_name = rec.lane_name.split(";")
+                    lane_query.append(("title", "in", lst_lane_name))
                 if rec.lane_parent_name:
+                    lst_lane_parent_name = rec.lane_parent_name.split(";")
                     lane_query.append(
-                        ("lane_parent_name", "=", rec.lane_parent_name)
+                        ("lane_parent_name", "in", lst_lane_parent_name)
                     )
                 lane_ids = self.env["plan.view.agile.place.lane"].search(
                     lane_query
                 )
-                lst_query = [("lane_id", "in", lane_ids.ids)]
             else:
-                lst_query = [("lane_id", "=", lane_root_id.id)]
+                lane_ids = lane_root_id
+
+            if limit > 0:
+                return lane_ids[:limit]
+
+            return lane_ids
+
+    def search_cards_from_processus(self, sync_cards=True):
+        # This method sync card before search it
+        card_ids = self.env["plan.view.agile.place.card"]
+        for rec in self:
+            lane_ids = rec.search_lanes_from_processus(sync_cards=sync_cards)
+
+            lst_query = [("lane_id", "in", lane_ids.ids)]
 
             if rec.type_card:
                 lst_type_card = rec.type_card.split(";")

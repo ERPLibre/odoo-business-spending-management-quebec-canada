@@ -32,6 +32,7 @@
                             <field name="algo_key" />
                             <field name="type_board_depend_ids" widget="many2many_tags" />
                             <field name="is_disabled" />
+                            <field name="ignore_run_depend_processus" />
                         </group>
                         <group string="Search">
                             <field name="lane_name" />
@@ -69,6 +70,7 @@
                             <field name="type_template_board_id" />
                             <field name="model_fetch_record" />
                             <field name="model_filter_hr_empoyee_job_type" />
+                            <field name="duplicate_multiple_time" />
                             <field name="process_execute_after_ids" widget="many2many_tags" />
                         </group>
                         <group string="Extract data">

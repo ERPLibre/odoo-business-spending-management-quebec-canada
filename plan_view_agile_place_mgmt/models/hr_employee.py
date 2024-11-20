@@ -35,25 +35,9 @@ class HREmployee(models.Model):
                 _logger.warning("You need to select a board.")
                 continue
 
-            # TODO maybe check it exist before create it
-            if process_id.is_root_lane:
-                lane_id = self.env["plan.view.agile.place.lane"].search(
-                    [
-                        ("title", "=", process_id.lane_root_name),
-                        ("board_id", "=", board_id.id),
-                    ],
-                    limit=1,
-                )
-            else:
-                lane_id = self.env["plan.view.agile.place.lane"].search(
-                    [
-                        ("lane_root_name", "=", process_id.lane_root_name),
-                        ("title", "=", process_id.lane_name),
-                        ("board_id", "=", board_id.id),
-                    ],
-                    limit=1,
-                )
-            if not lane_id:
+            lane_ids = process_id.search_lanes_from_processus(sync_cards=False)
+
+            if not lane_ids:
                 _logger.warning(
                     f"Cannot find lane with root name '{process_id.lane_root_name}' and lane name '{process_id.lane_name}'."
                 )
@@ -63,7 +47,6 @@ class HREmployee(models.Model):
                 "name": rec.name,
                 "board_id": board_id.id,
                 "session_id": process_id.session_id.id,
-                "lane_id": lane_id.id,
             }
 
             lst_custom_fields = []
@@ -110,7 +93,12 @@ class HREmployee(models.Model):
             if card_type_id:
                 card_value["card_type_id"] = card_type_id.id
                 card_value["entete"] = card_type_id.name
-            lst_card_value.append(card_value)
+
+            for i in range(process_id.duplicate_multiple_time):
+                for lane_id in lane_ids:
+                    card_value["lane_id"] = lane_id.id
+                    lst_card_value.append(card_value.copy())
+
         self.env["plan.view.agile.place.card"].create(lst_card_value)
 
     @api.model_create_multi
