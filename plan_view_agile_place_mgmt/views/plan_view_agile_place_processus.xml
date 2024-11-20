@@ -33,6 +33,7 @@
                             <field name="type_board_depend_ids" widget="many2many_tags" />
                             <field name="is_disabled" />
                             <field name="ignore_run_depend_processus" />
+                            <field name="force_sync_before_algo" />
                         </group>
                         <group string="Search">
                             <field name="lane_name" />
@@ -54,9 +55,12 @@
                             <field name="algo_rename" />
                         </group>
                         <group string="Copy">
-                            <field name="copy_from_lane" />
+                            <field name="board_copy_from_id" />
+                            <field name="copy_to_root_lane" />
+                            <field name="copy_to_parent_lane" />
                             <field name="copy_to_lane" />
-                            <field name="clean_before_card_from_lane" />
+                            <field name="copy_is_root_lane_lane" />
+                            <field name="clean_before_card_into_copy_to_lane" />
                         </group>
                         <!--                        <group-->
                         <!--                            string="Binding"-->

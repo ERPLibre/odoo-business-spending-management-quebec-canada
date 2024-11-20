@@ -41,6 +41,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
             ),
             ("rename_lane", "Renommer des lanes"),
             ("copy_cards", "Copy cards from lane to lane"),
+            (
+                "copy_cards_from_board",
+                "Copy cards from board to another board",
+            ),
             ("delete_cards", "Delete cards"),
             ("bind_create_card", "Bind Create card"),
             ("bind_delete_card", "Bind Delete card"),
@@ -112,6 +116,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     delay_in_day = fields.Integer()
 
+    force_sync_before_algo = fields.Boolean(
+        help="When True, will force sync into algorithm."
+    )
+
     ignore_run_depend_processus = fields.Boolean(
         help="Enable to accelerate development to ignore execute update processus dependency."
     )
@@ -157,12 +165,21 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     lane_root_name = fields.Char()
 
-    copy_from_lane = fields.Char()
+    board_copy_from_id = fields.Many2one(
+        comodel_name="plan.view.agile.place.board",
+        string="Board to copy",
+    )
 
     copy_to_lane = fields.Char()
 
-    clean_before_card_from_lane = fields.Boolean(
-        help="Will delete all card when using from_lane"
+    copy_to_parent_lane = fields.Char()
+
+    copy_to_root_lane = fields.Char()
+
+    copy_is_root_lane_lane = fields.Boolean()
+
+    clean_before_card_into_copy_to_lane = fields.Boolean(
+        help="Will delete all card when using into copy_to_lane"
     )
 
     sms_enable = fields.Boolean(related="session_id.sms_enable")
@@ -378,27 +395,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
             if rec.log_error_txt is False:
                 rec.log_error_txt = ""
 
-            if (
-                not rec.board_id
-                and rec.type_board_depend_ids
-                and not rec.ignore_run_depend_processus
-            ):
-                str_board_type = ",".join(
-                    [a.name for a in rec.type_board_depend_ids]
-                )
-                if len(rec.type_board_depend_ids) > 1:
-                    _logger.error(
-                        "Support only 1 type of board at this moment."
-                    )
-                for type_board_id in rec.type_board_depend_ids:
-                    for board_id in rec.session_id.board_ids:
-                        if type_board_id in board_id.type_board_ids:
-                            rec.board_id = board_id.id
-                            break
-                if not rec.board_id:
-                    raise ValueError(
-                        f"Cannot find board_id associate with type '{str_board_type}'."
-                    )
+            rec.fill_board_id()
+
             # First log
             user_timezone = timezone(self.env.user.tz or "UTC")
             hour_now = datetime.datetime.now(user_timezone)
@@ -415,7 +413,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
             ctx.update({"lst_sync_lane_id_pvap": []})
 
             # Execute dependencies before
-            if rec.depend_process_ids:
+            if rec.depend_process_ids and not rec.ignore_run_depend_processus:
                 lst_processus_executed = []
                 for process_id in rec.depend_process_ids:
                     if "lst_processus_executed" in ctx:
@@ -451,77 +449,85 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     rec.bind_required_field_list
                 )
 
-            if rec.algo_key == "copy_cards":
-                # print(rec.copy_to_lane)
-                # print(rec.copy_from_lane)
-                # print(rec.lane_root_name)
-                # print(rec.type_card)
-                # print(rec.lane_parent_name)
-
-                # TODO do refresh data for from lane et to lane
-
-                if not rec.copy_to_lane:
-                    # TODO raise error
-                    pass
-                lane_to_query = [
-                    ("lane_root_name", "=", rec.lane_root_name),
-                    ("lane_parent_name", "=", rec.lane_parent_name),
-                    (
-                        "title",
-                        "in",
-                        rec.copy_to_lane.split(";"),
-                        ("board_id", "=", rec.board_id.id),
-                    ),
-                ]
-                lane_to_ids = self.env["plan.view.agile.place.lane"].search(
-                    lane_to_query
+            if rec.algo_key == "copy_cards_from_board":
+                rec.fill_board_id(use_from_board=True, raise_error=False)
+            elif rec.algo_key == "copy_cards":
+                lane_from_copy_ids = rec.search_lanes_from_processus(
+                    sync_cards=rec.force_sync_before_algo
+                )
+                board_to_copy = (
+                    rec.board_copy_from_id
+                    if rec.board_copy_from_id
+                    else rec.board_id
+                )
+                lane_to_copy_ids = rec.search_lanes(
+                    rec.name,
+                    board_to_copy,
+                    rec.copy_to_root_lane,
+                    lane_parent_name=rec.copy_to_parent_lane,
+                    is_root_lane=rec.copy_is_root_lane_lane,
+                    lane_name=rec.copy_to_lane,
+                    sync_cards=rec.force_sync_before_algo,
+                    log_txt=rec.log_txt,
+                    log_error_txt=rec.log_error_txt,
                 )
 
-                if rec.clean_before_card_from_lane:
+                if not lane_from_copy_ids:
+                    msg_txt = (
+                        "ERR Cannot find lane, check search lane variable.\n"
+                    )
+                    rec.log_txt += msg_txt
+                    rec.log_error_txt += msg_txt
+                    _logger.error(msg_txt.strip())
+                    rec.add_log_time_execution(start_time)
+                    continue
+                if not lane_to_copy_ids:
+                    msg_txt = "ERR Cannot find lane to copy, check search lane copy variable.\n"
+                    rec.log_txt += msg_txt
+                    rec.log_error_txt += msg_txt
+                    _logger.error(msg_txt.strip())
+                    rec.add_log_time_execution(start_time)
+                    continue
+
+                if rec.clean_before_card_into_copy_to_lane:
                     # get all cards to delete
                     card_to_delete_ids = self.env[
                         "plan.view.agile.place.card"
                     ].search(
                         [
-                            ("lane_id", "in", lane_to_ids.ids),
+                            ("lane_id", "in", lane_to_copy_ids.ids),
                             ("board_id", "=", rec.board_id.id),
                         ]
                     )
-                    card_to_delete_ids.enabled_bind = True
-                    card_to_delete_ids.unlink()
+                    if card_to_delete_ids:
+                        card_to_delete_ids.enabled_bind = True
+                        card_to_delete_ids.unlink()
 
-                # Get lane from and lane to
-                if not rec.copy_from_lane:
-                    # TODO raise error
-                    pass
-                lst_copy_from_lane = rec.copy_from_lane.split(";")
-                for copy_from_lane in lst_copy_from_lane:
-                    card_from_query = [
-                        ("lane_root_name", "=", rec.lane_root_name),
-                        ("lane_name", "=", copy_from_lane),
-                        ("lane_parent_name", "=", rec.lane_parent_name),
+                # Get all cards to copy
+                card_to_copy_ids = self.env[
+                    "plan.view.agile.place.card"
+                ].search(
+                    [
+                        ("lane_id", "in", lane_from_copy_ids.ids),
                         ("board_id", "=", rec.board_id.id),
                     ]
-
-                    card_from_ids = self.env[
-                        "plan.view.agile.place.card"
-                    ].search(card_from_query)
-                    for lane_to_id in lane_to_ids:
-                        for card_id in card_from_ids:
-                            data = {
-                                "copied_from_card_pvap": card_id.card_id_pvap,
-                                "board_id": card_id.board_id.id,
-                                "name": card_id.name,
-                                "lane_id": lane_to_id.id,
-                                "size": card_id.size,
-                                "card_type_id": card_id.card_type_id.id,
-                                "entete": card_id.entete,
-                                "custom_fields": card_id.custom_fields,
-                                "description": card_id.description,
-                                "assigned_users": card_id.assigned_users,
-                                "session_id": rec.session_id.id,
-                            }
-                            self.env["plan.view.agile.place.card"].create(data)
+                )
+                for lane_to_copy_id in lane_to_copy_ids:
+                    for card_to_copy_id in card_to_copy_ids:
+                        data = {
+                            "copied_from_card_pvap": card_to_copy_id.card_id_pvap,
+                            "board_id": lane_to_copy_id.board_id.id,
+                            "name": card_to_copy_id.name,
+                            "lane_id": lane_to_copy_id.id,
+                            "size": card_to_copy_id.size,
+                            "card_type_id": card_to_copy_id.card_type_id.id,
+                            "entete": card_to_copy_id.entete,
+                            "custom_fields": card_to_copy_id.custom_fields,
+                            "description": card_to_copy_id.description,
+                            "assigned_users": card_to_copy_id.assigned_users,
+                            "session_id": rec.session_id.id,
+                        }
+                        self.env["plan.view.agile.place.card"].create(data)
 
             elif rec.algo_key == "send_reminder_sms_schedule_condition":
                 # TODO maybe can search employee information
@@ -922,6 +928,12 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 # Execute processus of adding cards
                 for process_id in rec.process_execute_after_ids:
                     process_id.board_id = board_id.id
+
+                    # # For copy, the copy_from_board is actuel board
+                    # if process_id.algo_key == "copy_cards_from_board":
+                    #     # Need to search this official board
+                    #     process_id.board_copy_from_id =
+
                     process_id.action_execute_algo()
 
             elif rec.algo_key == "create_card_from_model":
@@ -1536,6 +1548,44 @@ class PlanViewAgilePlaceProcessus(models.Model):
             return lane_ids[:limit]
 
         return lane_ids
+
+    def fill_board_id(self, use_from_board=False, raise_error=True):
+        for rec in self:
+            if (
+                (use_from_board and rec.board_copy_from_id)
+                or (not use_from_board and rec.board_id)
+                or not rec.type_board_depend_ids
+            ):
+                # Nothing to fill
+                continue
+            str_board_type = ",".join(
+                [a.name for a in rec.type_board_depend_ids]
+            )
+            if len(rec.type_board_depend_ids) > 1:
+                msg_txt = "ERR Support only 1 type of board at this moment.\n"
+                rec.log_txt += msg_txt
+                rec.log_error_txt += msg_txt
+                _logger.error(msg_txt.strip())
+
+            for type_board_id in rec.type_board_depend_ids:
+                for board_id in rec.session_id.board_ids:
+                    if type_board_id in board_id.type_board_ids:
+                        if use_from_board:
+                            rec.board_copy_from_id = board_id.id
+                        else:
+                            rec.board_id = board_id.id
+                        break
+
+            if (not rec.board_id and not use_from_board) or (
+                not rec.board_copy_from_id and use_from_board
+            ):
+                msg_txt = f"ERR Cannot find board_id associate with type '{str_board_type}'.\n"
+                if raise_error:
+                    raise ValueError(msg_txt.strip())
+                else:
+                    rec.log_txt += msg_txt
+                    rec.log_error_txt += msg_txt
+                    _logger.error(msg_txt.strip())
 
     def search_cards_from_processus(self, sync_cards=True):
         # This method sync card before search it

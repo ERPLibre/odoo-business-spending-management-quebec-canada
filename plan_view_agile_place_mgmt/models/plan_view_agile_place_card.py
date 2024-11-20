@@ -235,7 +235,7 @@ class PlanViewAgilePlaceCard(models.Model):
             )
             if str(result[0])[0] != "2":
                 raise ValueError(
-                    f"Receive request {result[0]} from delete all"
+                    f"Receive request {result[0]} '{result[1]}' from delete all"
                     " cards from specific lane."
                 )
         else:
