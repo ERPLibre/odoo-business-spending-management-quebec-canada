@@ -35,3 +35,9 @@ class PlanViewAgilePlaceCustomfield(models.Model):
         required=True,
         string="Board",
     )
+
+    session_id = fields.Many2one(
+        comodel_name="plan.view.agile.place.session",
+        string="Session",
+        related="board_id.session_id",
+    )

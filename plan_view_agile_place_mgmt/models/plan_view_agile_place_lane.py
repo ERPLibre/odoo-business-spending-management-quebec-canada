@@ -2,7 +2,11 @@
 # © 2021-2024 TechnoLibre (http://www.technolibre.ca)
 # License GPL-3.0 or later (http://www.gnu.org/licenses/gpl)
 
+import logging
+
 from odoo import _, api, fields, models
+
+_logger = logging.getLogger(__name__)
 
 
 class PlanViewAgilePlaceLane(models.Model):
@@ -142,3 +146,26 @@ class PlanViewAgilePlaceLane(models.Model):
     def get_list_pvap_child_lane_from_lane(self, add_itself=False):
         lane_ids = self.get_list_child_lane_from_lane(add_itself=add_itself)
         return [a.lane_id_pvap for a in lane_ids]
+
+    def write(self, vals):
+        status = super().write(vals)
+        if not status:
+            return status
+        for rec in self:
+            if not rec.lane_id_pvap:
+                continue
+            if not self.env.context.get("enable_sync_lane"):
+                continue
+            data = {
+                "title": rec.title,
+            }
+            status, response = rec.session_id.request_api_patch(
+                f"/io/board/{rec.board_id.board_id_pvap}/lane/{rec.lane_id_pvap}",
+                data=data,
+            )
+            if str(status)[0] != "2":
+                _logger.error(
+                    f"Cannot rename lane status {status} : " + str(response)
+                )
+                continue
+        return status

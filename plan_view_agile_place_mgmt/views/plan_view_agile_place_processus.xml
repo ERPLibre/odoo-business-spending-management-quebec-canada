@@ -38,7 +38,6 @@
                             <field name="lane_name" />
                             <field name="lane_parent_name" />
                             <field name="lane_root_name" />
-                            <!--                            <field name="sub_lane_name" />-->
                             <field name="type_card" />
                             <field name="is_root_lane" />
                         </group>
@@ -47,6 +46,12 @@
                             <field name="sms_message_prefix" />
                             <field name="sms_detect_card_type_msg_1" />
                             <field name="location_type_msg" />
+                        </group>
+                        <group string="Rename">
+                            <field name="rename_card_pattern" />
+                            <field name="rename_week_lane_name_pattern" />
+                            <field name="rename_week_lane_name_icon" />
+                            <field name="algo_rename" />
                         </group>
                         <group string="Copy">
                             <field name="copy_from_lane" />
@@ -223,7 +228,6 @@
                 <field name="bind_custom_field" />
                 <field name="model_name" />
                 <field name="lane_root_name" />
-                <!--                <field name="sub_lane_name" />-->
                 <field name="lane_parent_name" />
                 <field name="type_card" />
             </tree>

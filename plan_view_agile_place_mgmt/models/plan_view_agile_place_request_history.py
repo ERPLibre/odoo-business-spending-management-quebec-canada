@@ -35,6 +35,7 @@ class PlanViewAgilePlaceRequestHistory(models.Model):
             ("get", "GET"),
             ("post", "POST"),
             ("delete", "DELETE"),
+            ("patch", "PATCH"),
         ],
         required=True,
         default="get",

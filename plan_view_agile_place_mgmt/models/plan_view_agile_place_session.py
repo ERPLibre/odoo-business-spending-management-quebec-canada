@@ -81,6 +81,9 @@ class PlanViewAgilePlaceSession(models.Model):
             path, "get", data_name, data=data, is_param=True
         )
 
+    def request_api_patch(self, path, data=None):
+        return self._request_api(path, "patch", data=data)
+
     def request_api_post(self, path, data=None):
         return self._request_api(path, "post", data=data)
 
@@ -126,10 +129,10 @@ class PlanViewAgilePlaceSession(models.Model):
             cb_type_request = requests.post
         elif type_request == "delete":
             cb_type_request = requests.delete
+        elif type_request == "patch":
+            cb_type_request = requests.patch
         else:
-            raise exceptions.Warning(
-                f"Cannot support type request '{type_request}'"
-            )
+            raise ValueError(f"Cannot support type request '{type_request}'")
 
         headers = {
             "Content-Type": "application/json",
@@ -200,6 +203,9 @@ class PlanViewAgilePlaceSession(models.Model):
 
     def action_clear_all(self):
         for rec in self:
+            self.env["plan.view.agile.place.customfield"].search(
+                [("session_id", "=", rec.id)]
+            ).unlink()
             self.env["plan.view.agile.place.card"].search(
                 [("session_id", "=", rec.id)]
             ).unlink()

@@ -35,6 +35,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 "send_reminder_sms_schedule_condition",
                 "Send reminder SMS schedule condition",
             ),
+            ("rename_lane", "Renommer des lanes"),
             ("copy_cards", "Copy cards from lane to lane"),
             ("delete_cards", "Delete cards"),
             ("bind_create_card", "Bind Create card"),
@@ -43,6 +44,13 @@ class PlanViewAgilePlaceProcessus(models.Model):
         required=True,
         default="create_model_from_card",
         readonly=True,
+    )
+
+    algo_rename = fields.Selection(
+        selection=[
+            ("schedule_week_template", "Schedule week template"),
+            ("schedule_week_field_service", "Schedule week field service"),
+        ],
     )
 
     session_id = fields.Many2one(
@@ -184,12 +192,15 @@ class PlanViewAgilePlaceProcessus(models.Model):
         string="Board",
     )
 
-    # sub_lane_name = fields.Char(
-    #     help=(
-    #         "NOT SUPPORTED Optional, will search only into this lane and"
-    #         " childs lane"
-    #     )
-    # )
+    rename_card_pattern = fields.Char(help="The pattern need to contain '%s'")
+
+    rename_week_lane_name_pattern = fields.Char(
+        help="The pattern need to contain '%s'"
+    )
+
+    rename_week_lane_name_icon = fields.Char(
+        help="Put your ascii and will be show before lane name"
+    )
 
     type_card = fields.Char(
         help="Optional, search only with this type of card"
@@ -935,6 +946,158 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     rec.add_log_time_execution(start_time)
                     continue
                 record_ids.generate_pvap_card(rec)
+            elif rec.algo_key == "rename_lane":
+                if not rec.lane_root_name:
+                    msg_txt = "WARN Ignore this processus, create_model_from_card need a lane_root_name.\n"
+                    rec.log_txt += msg_txt
+                    rec.log_error_txt += msg_txt
+                    _logger.warning(msg_txt.strip())
+                    rec.add_log_time_execution(start_time)
+                    continue
+
+                if rec.algo_rename not in [
+                    "schedule_week_field_service",
+                    "schedule_week_template",
+                ]:
+                    msg_txt = f"WARN Ignore this processus, don't support algo rename '{rec.algo_rename}'.\n"
+                    rec.log_txt += msg_txt
+                    rec.log_error_txt += msg_txt
+                    _logger.warning(msg_txt.strip())
+                    rec.add_log_time_execution(start_time)
+                    continue
+
+                last_week_day = self.return_next_open_day(
+                    datetime.datetime.now().astimezone(user_timezone),
+                    delay_day=rec.delay_in_day - 7,
+                )
+                last_week_day_monday = self.return_monday_day(last_week_day)
+                current_day = last_week_day_monday
+                current_week_day = last_week_day_monday
+
+                if rec.rename_week_lane_name_icon:
+                    lst_icon = rec.rename_week_lane_name_icon.split(";")
+                else:
+                    lst_icon = []
+
+                root_name_list = rec.lane_root_name.split(";")
+                parent_name_list = rec.lane_parent_name.split(";")
+                dct_week_card = {}
+                for i_week, root_name in enumerate(root_name_list):
+                    dct_day_card = {}
+                    lane_week_id = rec.search_lanes(
+                        rec.name,
+                        rec.board_id,
+                        root_name,
+                        is_root_lane=True,
+                        sync_cards=False,
+                    )
+                    if not lane_week_id:
+                        msg_txt = f"ERR cannot find lane week '{root_name}'.\n"
+                        rec.log_txt += msg_txt
+                        rec.log_error_txt += msg_txt
+                        _logger.warning(msg_txt.strip())
+                        rec.add_log_time_execution(start_time)
+                        continue
+                    dct_week_card[root_name] = {
+                        "days": dct_day_card,
+                        "week_card_id": lane_week_id,
+                    }
+                    for i_day, parent_name in enumerate(parent_name_list):
+                        lane_day_id = rec.search_lanes(
+                            rec.name,
+                            rec.board_id,
+                            root_name,
+                            lane_name=parent_name,
+                            sync_cards=False,
+                        )
+                        if not lane_day_id:
+                            msg_txt = (
+                                f"ERR cannot find lane day '{root_name}'.\n"
+                            )
+                            rec.log_txt += msg_txt
+                            rec.log_error_txt += msg_txt
+                            _logger.warning(msg_txt.strip())
+                            rec.add_log_time_execution(start_time)
+                            continue
+
+                        lane_ids = rec.search_lanes(
+                            rec.name,
+                            rec.board_id,
+                            lane_root_name=root_name,
+                            lane_parent_name=parent_name,
+                            sync_cards=False,
+                            order="sequence asc",
+                        )
+                        dct_day_card[parent_name] = {
+                            "chantier": lane_ids,
+                            "day_card_id": lane_day_id,
+                        }
+                        if rec.algo_rename == "schedule_week_field_service":
+                            fsm_location_ids = self.env["fsm.location"].search(
+                                [],
+                                order="name asc",
+                            )
+                        else:
+                            fsm_location_ids = self.env["fsm.location"]
+
+                        # Begin compute here
+                        for no_lane, lane_id in enumerate(lane_ids):
+                            if "%s" in rec.rename_card_pattern:
+                                new_name = rec.rename_card_pattern % str(
+                                    no_lane
+                                ).zfill(4)
+                            else:
+                                new_name = rec.rename_card_pattern
+                            if (
+                                rec.algo_rename
+                                == "schedule_week_field_service"
+                                and fsm_location_ids
+                                and len(fsm_location_ids) > no_lane
+                            ):
+                                new_name = fsm_location_ids[no_lane].name
+
+                            if lane_id.title != new_name:
+                                lane_id.with_context(
+                                    {"enable_sync_lane": True}
+                                ).title = new_name
+
+                        if rec.algo_rename == "schedule_week_field_service":
+                            lane_day_id.with_context(
+                                {"enable_sync_lane": True}
+                            ).title = f"{parent_name} {current_day.day}/{current_day.month}"
+
+                        current_day += datetime.timedelta(days=1)
+
+                    if (
+                        rec.algo_rename == "schedule_week_field_service"
+                        and rec.rename_week_lane_name_pattern
+                    ):
+                        if "%s" in rec.rename_week_lane_name_pattern:
+                            value_pattern = f"{current_week_day.day} {self._get_month_fr(ttype='str', value=current_week_day.month - 1).upper()} {current_week_day.year}"
+                            lane_week_new_name = (
+                                rec.rename_week_lane_name_pattern
+                                % value_pattern
+                            )
+                        else:
+                            lane_week_new_name = (
+                                rec.rename_week_lane_name_pattern
+                            )
+                        if lst_icon:
+                            lane_week_new_name = f"{lst_icon[i_week if i_week < len(lst_icon) else -1]} {lane_week_new_name}"
+                        lane_week_id.with_context(
+                            {"enable_sync_lane": True}
+                        ).title = lane_week_new_name
+
+                    current_week_day += datetime.timedelta(weeks=1)
+
+                if not dct_week_card:
+                    msg_txt = f"ERR Cannot find lane to rename it of processus '{rec.name}'\n."
+                    rec.log_txt += msg_txt
+                    rec.log_error_txt += msg_txt
+                    _logger.warning(msg_txt.strip())
+                    rec.add_log_time_execution(start_time)
+                    continue
+
             elif rec.algo_key == "create_model_from_card":
                 if not rec.lane_root_name:
                     msg_txt = "WARN Ignore this processus, create_model_from_card need a lane_root_name."
@@ -1069,9 +1232,27 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 find_lane_ids += lane_id
         return find_lane_ids
 
-    def _get_lane_from_regex_week(self, rec, user_timezone):
+    def _get_month_fr(self, ttype="dict", value=0):
         # TODO use odoo traduction
-        mois_en_francais = {
+        lst_value = [
+            "Janvier",
+            "Février",
+            "Mars",
+            "Avril",
+            "Mai",
+            "Juin",
+            "Juillet",
+            "Août",
+            "Septembre",
+            "Octobre",
+            "Novembre",
+            "Décembre",
+        ]
+        if ttype == "list":
+            return lst_value
+        elif ttype == "str":
+            return lst_value[value]
+        return {
             "January": "Janvier",
             "February": "Février",
             "March": "Mars",
@@ -1085,6 +1266,9 @@ class PlanViewAgilePlaceProcessus(models.Model):
             "November": "Novembre",
             "December": "Décembre",
         }
+
+    def _get_lane_from_regex_week(self, rec, user_timezone):
+        mois_en_francais = self._get_month_fr()
         find_lane_ids = self.env["plan.view.agile.place.lane"]
         lane_ids = self.env["plan.view.agile.place.lane"].search(
             [("board_id", "=", rec.board_id.id)]
@@ -1256,56 +1440,98 @@ class PlanViewAgilePlaceProcessus(models.Model):
             #  or maybe not, too much link into database, maybe create html link
         return new_model_id
 
-    def search_lanes_from_processus(self, sync_cards=True, limit=-1):
+    def search_lanes_from_processus(
+        self, sync_cards=True, limit=-1, order=None
+    ):
         for rec in self:
-            lane_root_id = self.env["plan.view.agile.place.lane"].search(
-                [
-                    ("title", "=", rec.lane_root_name),
-                    ("board_id", "=", rec.board_id.id),
-                ]
+            return rec.search_lanes(
+                rec.name,
+                rec.board_id,
+                rec.lane_root_name,
+                lane_parent_name=rec.lane_parent_name,
+                is_root_lane=rec.is_root_lane,
+                lane_name=rec.lane_name,
+                sync_cards=sync_cards,
+                limit=limit,
+                order=order,
+                log_txt=rec.log_txt,
+                log_error_txt=rec.log_error_txt,
             )
-            if not lane_root_id:
-                msg_txt = (
-                    f"ERR processus '{rec.name}' root lane name"
-                    f" '{rec.lane_root_name}'\n"
-                )
-                rec.log_txt += msg_txt
-                rec.log_error_txt += msg_txt
-                continue
-            # Force auto refresh root lane
-            if sync_cards:
-                msg_txt = (
-                    f"INFO sync cards from processus '{rec.name}' root lane name"
-                    f" '{rec.lane_root_name}'\n"
-                )
-                rec.log_txt += msg_txt
-                _logger.info(msg_txt.strip())
 
-                lane_root_id.action_sync_cards()
+    def search_lanes(
+        self,
+        process_name,
+        board_id,
+        lane_root_name,
+        lane_parent_name=None,
+        lane_name=None,
+        is_root_lane=False,
+        sync_cards=True,
+        limit=-1,
+        order=None,
+        log_txt=None,
+        log_error_txt=None,
+    ):
+        self.ensure_one()
+        lst_title_root = lane_root_name.split(";")
+        # TODO maybe a root has not parent
+        lane_root_ids = self.env["plan.view.agile.place.lane"].search(
+            [
+                ("title", "in", lst_title_root),
+                ("board_id", "=", board_id.id),
+            ]
+        )
+        if not lane_root_ids:
+            msg_txt = (
+                f"ERR processus '{process_name}' root lane name"
+                f" '{lane_root_name}'\n"
+            )
+            if log_txt:
+                log_txt += msg_txt
+            if log_error_txt:
+                log_error_txt += msg_txt
+            return self.env["plan.view.agile.place.lane"]
+        # Force auto refresh root lane
+        if sync_cards:
+            msg_txt = (
+                f"INFO sync cards from processus '{process_name}' root lane name"
+                f" '{lane_root_name}'\n"
+            )
+            if log_txt:
+                log_txt += msg_txt
+            _logger.info(msg_txt.strip())
 
-            if not rec.is_root_lane:
-                lane_query = [
-                    ("lane_root_id", "=", lane_root_id.id),
-                    ("board_id", "=", rec.board_id.id),
-                ]
-                if rec.lane_name:
-                    lst_lane_name = rec.lane_name.split(";")
-                    lane_query.append(("title", "in", lst_lane_name))
-                if rec.lane_parent_name:
-                    lst_lane_parent_name = rec.lane_parent_name.split(";")
-                    lane_query.append(
-                        ("lane_parent_name", "in", lst_lane_parent_name)
-                    )
+            lane_root_ids.action_sync_cards()
+
+        if is_root_lane:
+            lane_ids = lane_root_ids
+        else:
+            lane_query = [
+                ("board_id", "=", board_id.id),
+                ("lane_root_id", "in", lane_root_ids.ids),
+            ]
+
+            if lane_name:
+                lst_lane_name = lane_name.split(";")
+                lane_query.append(("title", "in", lst_lane_name))
+            if lane_parent_name:
+                lst_lane_parent_name = lane_parent_name.split(";")
+                lane_query.append(
+                    ("lane_parent_name", "in", lst_lane_parent_name)
+                )
+            if order:
+                lane_ids = self.env["plan.view.agile.place.lane"].search(
+                    lane_query, order=order
+                )
+            else:
                 lane_ids = self.env["plan.view.agile.place.lane"].search(
                     lane_query
                 )
-            else:
-                lane_ids = lane_root_id
 
-            if limit > 0:
-                return lane_ids[:limit]
+        if limit > 0:
+            return lane_ids[:limit]
 
-            return lane_ids
+        return lane_ids
 
     def search_cards_from_processus(self, sync_cards=True):
         # This method sync card before search it
