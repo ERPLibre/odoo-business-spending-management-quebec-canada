@@ -16,7 +16,7 @@ class PlanViewAgilePlaceLane(models.Model):
 
     name = fields.Char(readonly=True)
 
-    breadcrumb_middle_name = fields.Text(
+    breadcrumb_middle_name = fields.Char(
         help="Will be use to search sub_lane", readonly=True
     )
 
@@ -45,6 +45,11 @@ class PlanViewAgilePlaceLane(models.Model):
 
     lane_parent_name = fields.Char(
         string="Parent Lane name", related="lane_parent_id.title"
+    )
+
+    lane_sub_name = fields.Char(
+        string="Sub Lane name",
+        help="/root/lane1/lane2/lane3, the sub_lane is lane1/lane2",
     )
 
     lane_child_ids = fields.One2many(
@@ -115,13 +120,16 @@ class PlanViewAgilePlaceLane(models.Model):
                 rec.lane_root_id = False
             lane_id = False
             lane_parent_id = rec.lane_parent_id
-            breadcrumb_middle_name = ""
+            lst_breadcrumb = []
             while lane_parent_id:
-                breadcrumb_middle_name += f"{lane_parent_id.title}\n"
+                # Calculate sub_lane
+                lst_breadcrumb.append(lane_parent_id.title)
                 lane_id = lane_parent_id
                 lane_parent_id = lane_parent_id.lane_parent_id
 
-            rec.breadcrumb_middle_name = breadcrumb_middle_name
+            rec.breadcrumb_middle_name = "/".join(lst_breadcrumb[::-1])
+            if len(lst_breadcrumb) > 1:
+                rec.lane_sub_name = "/".join(lst_breadcrumb[1::-1])
             rec.lane_root_id = False if not lane_id else lane_id.id
 
     def action_sync_cards(self):

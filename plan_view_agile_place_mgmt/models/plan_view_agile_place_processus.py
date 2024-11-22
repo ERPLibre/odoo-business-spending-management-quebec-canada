@@ -30,6 +30,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     algo_key = fields.Selection(
         selection=[
+            ("multi_process", "Bundle multi-process"),
             ("create_card_from_model", "Build cards into PVAP"),
             ("create_new_board", "Create new board"),
             ("create_model_from_card", "Create Model from Card"),
@@ -163,6 +164,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     lane_parent_name = fields.Char()
 
+    lane_sub_name = fields.Char()
+
     lane_root_name = fields.Char()
 
     board_copy_from_id = fields.Many2one(
@@ -174,9 +177,20 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     copy_to_parent_lane = fields.Char()
 
+    copy_to_sub_lane = fields.Char()
+
     copy_to_root_lane = fields.Char()
 
-    copy_is_root_lane_lane = fields.Boolean()
+    copy_is_root_lane = fields.Boolean()
+
+    validate_copy_lane_number = fields.Integer(
+        default=-1,
+        help="Will show error if validation fail, to count the lane to copy.",
+    )
+
+    copy_multiple_time = fields.Integer(
+        default=1, help="Will repeat the copy if higher then 1"
+    )
 
     clean_before_card_into_copy_to_lane = fields.Boolean(
         help="Will delete all card when using into copy_to_lane"
@@ -465,7 +479,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     board_to_copy,
                     rec.copy_to_root_lane,
                     lane_parent_name=rec.copy_to_parent_lane,
-                    is_root_lane=rec.copy_is_root_lane_lane,
+                    lane_sub_name=rec.copy_to_sub_lane,
+                    is_root_lane=rec.copy_is_root_lane,
                     lane_name=rec.copy_to_lane,
                     sync_cards=rec.force_sync_before_algo,
                     log_txt=rec.log_txt,
@@ -488,6 +503,14 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     _logger.error(msg_txt.strip())
                     rec.add_log_time_execution(start_time)
                     continue
+                if (
+                    rec.validate_copy_lane_number > 0
+                    and len(lane_to_copy_ids) < rec.validate_copy_lane_number
+                ):
+                    msg_txt = f"WAR Expected {rec.validate_copy_lane_number} lane_to_copy and got {len(lane_to_copy_ids)}.\n"
+                    rec.log_txt += msg_txt
+                    rec.log_error_txt += msg_txt
+                    _logger.error(msg_txt.strip())
 
                 if rec.clean_before_card_into_copy_to_lane:
                     # get all cards to delete
@@ -514,20 +537,21 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 )
                 for lane_to_copy_id in lane_to_copy_ids:
                     for card_to_copy_id in card_to_copy_ids:
-                        data = {
-                            "copied_from_card_pvap": card_to_copy_id.card_id_pvap,
-                            "board_id": lane_to_copy_id.board_id.id,
-                            "name": card_to_copy_id.name,
-                            "lane_id": lane_to_copy_id.id,
-                            "size": card_to_copy_id.size,
-                            "card_type_id": card_to_copy_id.card_type_id.id,
-                            "entete": card_to_copy_id.entete,
-                            "custom_fields": card_to_copy_id.custom_fields,
-                            "description": card_to_copy_id.description,
-                            "assigned_users": card_to_copy_id.assigned_users,
-                            "session_id": rec.session_id.id,
-                        }
-                        self.env["plan.view.agile.place.card"].create(data)
+                        for i in range(rec.copy_multiple_time):
+                            data = {
+                                "copied_from_card_pvap": card_to_copy_id.card_id_pvap,
+                                "board_id": lane_to_copy_id.board_id.id,
+                                "name": card_to_copy_id.name,
+                                "lane_id": lane_to_copy_id.id,
+                                "size": card_to_copy_id.size,
+                                "card_type_id": card_to_copy_id.card_type_id.id,
+                                "entete": card_to_copy_id.entete,
+                                "custom_fields": card_to_copy_id.custom_fields,
+                                "description": card_to_copy_id.description,
+                                "assigned_users": card_to_copy_id.assigned_users,
+                                "session_id": rec.session_id.id,
+                            }
+                            self.env["plan.view.agile.place.card"].create(data)
 
             elif rec.algo_key == "send_reminder_sms_schedule_condition":
                 # TODO maybe can search employee information
@@ -1465,6 +1489,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 rec.board_id,
                 rec.lane_root_name,
                 lane_parent_name=rec.lane_parent_name,
+                lane_sub_name=rec.lane_sub_name,
                 is_root_lane=rec.is_root_lane,
                 lane_name=rec.lane_name,
                 sync_cards=sync_cards,
@@ -1480,6 +1505,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
         board_id,
         lane_root_name,
         lane_parent_name=None,
+        lane_sub_name=None,
         lane_name=None,
         is_root_lane=False,
         sync_cards=True,
@@ -1535,6 +1561,9 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 lane_query.append(
                     ("lane_parent_name", "in", lst_lane_parent_name)
                 )
+            if lane_sub_name:
+                lst_lane_sub_name = lane_sub_name.split(";")
+                lane_query.append(("lane_sub_name", "in", lst_lane_sub_name))
             if order:
                 lane_ids = self.env["plan.view.agile.place.lane"].search(
                     lane_query, order=order
