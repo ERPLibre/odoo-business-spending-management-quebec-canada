@@ -1265,6 +1265,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
             for lane_to_copy_id in lane_to_copy_ids:
                 for card_to_copy_id in card_to_copy_ids:
                     for i in range(rec.copy_multiple_time):
+                        # Custom Fields
+                        if not card_to_copy_id.custom_fields:
+                            card_to_copy_id.update_card_details()
+
                         data = {
                             "copied_from_card_pvap": card_to_copy_id.card_id_pvap,
                             "board_id": lane_to_copy_id.board_id.id,
@@ -1273,7 +1277,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                             "size": card_to_copy_id.size,
                             "card_type_id": card_to_copy_id.card_type_id.id,
                             "entete": card_to_copy_id.entete,
-                            "custom_fields": card_to_copy_id.custom_fields,
+                            "custom_fields": str(json.loads(card_to_copy_id.custom_fields)),
                             "description": card_to_copy_id.description,
                             "assigned_users": card_to_copy_id.assigned_users,
                             "session_id": rec.session_id.id,

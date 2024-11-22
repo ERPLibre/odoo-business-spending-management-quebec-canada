@@ -172,6 +172,7 @@ class PlanViewAgilePlaceCard(models.Model):
             # TODO miss active, moved_on, version, externalLinks,
             if rec.custom_fields:
                 data["customFields"] = eval(rec.custom_fields)
+                # rec.custom_fields = ""
             if rec.description:
                 data["description"] = rec.description
             if rec.entete:
@@ -284,7 +285,6 @@ class PlanViewAgilePlaceCard(models.Model):
         }
         if lst_pvap_lane:
             data["lanes"] = ",".join(lst_pvap_lane)
-        is_include_custom_fields = False
         lst_cards = session_id.request_api_get_unlimited(
             "/io/card", "cards", data=data
         )
@@ -346,10 +346,11 @@ class PlanViewAgilePlaceCard(models.Model):
             else:
                 external_link = ""
 
-            if is_include_custom_fields:
-                custom_fields = json.dumps(dct_card.get("customFields"))
-            else:
-                custom_fields = False
+            # Force update at the end
+            # if "customFields" in dct_card.keys():
+            #     custom_fields = json.dumps(dct_card.get("customFields"))
+            # else:
+            #     custom_fields = False
 
             board_id = self.env["plan.view.agile.place.board"].search(
                 [("board_id_pvap", "=", board_id_pvap)], limit=1
@@ -390,8 +391,8 @@ class PlanViewAgilePlaceCard(models.Model):
                     card_id.size = size
                 if version != card_id.version:
                     card_id.version = version
-                if custom_fields != card_id.custom_fields:
-                    card_id.custom_fields = custom_fields
+                # if custom_fields != card_id.custom_fields:
+                #     card_id.custom_fields = custom_fields
                 if description != card_id.description:
                     card_id.description = description
                 if assigned_users != card_id.assigned_users:
@@ -416,7 +417,7 @@ class PlanViewAgilePlaceCard(models.Model):
                     "size": size,
                     "version": version,
                     "session_id": session_id.id,
-                    "custom_fields": custom_fields,
+                    # "custom_fields": custom_fields,
                     "description": description,
                     "assigned_users": assigned_users,
                     "entete": entete,
@@ -426,6 +427,11 @@ class PlanViewAgilePlaceCard(models.Model):
                 card_id = self.env["plan.view.agile.place.card"].create(
                     card_value
                 )
+
+            # Force sync card details
+            # Not running update_card_details for all cards, too much time execution
+            # We will update it for specific cards
+            # card_id.update_card_details()
 
         card_to_delete_ids = self.env["plan.view.agile.place.card"]
         for card_id in all_card_ids:
