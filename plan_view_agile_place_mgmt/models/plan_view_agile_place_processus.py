@@ -466,775 +466,36 @@ class PlanViewAgilePlaceProcessus(models.Model):
             if rec.algo_key == "copy_cards_from_board":
                 rec.fill_board_id(use_from_board=True, raise_error=False)
             elif rec.algo_key == "copy_cards":
-                lane_from_copy_ids = rec.search_lanes_from_processus(
-                    sync_cards=rec.force_sync_before_algo
-                )
-                board_to_copy = (
-                    rec.board_copy_from_id
-                    if rec.board_copy_from_id
-                    else rec.board_id
-                )
-                lane_to_copy_ids = rec.search_lanes(
-                    rec.name,
-                    board_to_copy,
-                    rec.copy_to_root_lane,
-                    lane_parent_name=rec.copy_to_parent_lane,
-                    lane_sub_name=rec.copy_to_sub_lane,
-                    is_root_lane=rec.copy_is_root_lane,
-                    lane_name=rec.copy_to_lane,
-                    sync_cards=rec.force_sync_before_algo,
-                    log_txt=rec.log_txt,
-                    log_error_txt=rec.log_error_txt,
-                )
-
-                if not lane_from_copy_ids:
-                    msg_txt = (
-                        "ERR Cannot find lane, check search lane variable.\n"
-                    )
-                    rec.log_txt += msg_txt
-                    rec.log_error_txt += msg_txt
-                    _logger.error(msg_txt.strip())
-                    rec.add_log_time_execution(start_time)
-                    continue
-                if not lane_to_copy_ids:
-                    msg_txt = "ERR Cannot find lane to copy, check search lane copy variable.\n"
-                    rec.log_txt += msg_txt
-                    rec.log_error_txt += msg_txt
-                    _logger.error(msg_txt.strip())
-                    rec.add_log_time_execution(start_time)
-                    continue
-                if (
-                    rec.validate_copy_lane_number > 0
-                    and len(lane_to_copy_ids) < rec.validate_copy_lane_number
-                ):
-                    msg_txt = f"WAR Expected {rec.validate_copy_lane_number} lane_to_copy and got {len(lane_to_copy_ids)}.\n"
-                    rec.log_txt += msg_txt
-                    rec.log_error_txt += msg_txt
-                    _logger.error(msg_txt.strip())
-
-                if rec.clean_before_card_into_copy_to_lane:
-                    # get all cards to delete
-                    card_to_delete_ids = self.env[
-                        "plan.view.agile.place.card"
-                    ].search(
-                        [
-                            ("lane_id", "in", lane_to_copy_ids.ids),
-                            ("board_id", "=", rec.board_id.id),
-                        ]
-                    )
-                    if card_to_delete_ids:
-                        card_to_delete_ids.enabled_bind = True
-                        card_to_delete_ids.unlink()
-
-                # Get all cards to copy
-                card_to_copy_ids = self.env[
-                    "plan.view.agile.place.card"
-                ].search(
-                    [
-                        ("lane_id", "in", lane_from_copy_ids.ids),
-                        ("board_id", "=", rec.board_id.id),
-                    ]
-                )
-                for lane_to_copy_id in lane_to_copy_ids:
-                    for card_to_copy_id in card_to_copy_ids:
-                        for i in range(rec.copy_multiple_time):
-                            data = {
-                                "copied_from_card_pvap": card_to_copy_id.card_id_pvap,
-                                "board_id": lane_to_copy_id.board_id.id,
-                                "name": card_to_copy_id.name,
-                                "lane_id": lane_to_copy_id.id,
-                                "size": card_to_copy_id.size,
-                                "card_type_id": card_to_copy_id.card_type_id.id,
-                                "entete": card_to_copy_id.entete,
-                                "custom_fields": card_to_copy_id.custom_fields,
-                                "description": card_to_copy_id.description,
-                                "assigned_users": card_to_copy_id.assigned_users,
-                                "session_id": rec.session_id.id,
-                            }
-                            self.env["plan.view.agile.place.card"].create(data)
-
+                rec.algo_copy_cards(start_time)
             elif rec.algo_key == "send_reminder_sms_schedule_condition":
                 # TODO maybe can search employee information
                 pass
-
             elif rec.algo_key == "delete_cards":
-                card_ids = rec.search_cards_from_processus()
-                if card_ids.exists():
-                    card_ids.enabled_bind = True
-                    card_ids.unlink()
-
+                rec.algo_delete_cards()
             elif rec.algo_key == "send_sms_schedule":
-                lst_filter_field = json.loads(rec.filter_field)
-                if rec.fake_regex_lane == "jour d/m":
-                    lane_ids = self._get_lane_from_regex_day(
-                        rec, user_timezone
-                    )
-
-                    for lane_id in lane_ids:
-                        # Find root lane
-                        # Force auto refresh root lane
-                        lane_id.action_sync_cards()
-
-                        lst_query = [
-                            ("board_id", "=", rec.board_id.id),
-                            (
-                                "lane_id",
-                                "in",
-                                lane_id.lane_child_ids.ids,
-                            ),
-                        ]
-                        if rec.type_card:
-                            lst_type_card = rec.type_card.split(";")
-                            type_card_ids = self.env[
-                                "plan.view.agile.place.card.type"
-                            ].search(
-                                [
-                                    ("name", "in", lst_type_card),
-                                    ("board_id", "=", rec.board_id.id),
-                                ]
-                            )
-                            lst_query.append(
-                                (
-                                    "card_type_id",
-                                    "in",
-                                    type_card_ids.ids,
-                                )
-                            )
-                        card_ids = self.env[
-                            "plan.view.agile.place.card"
-                        ].search(lst_query)
-                        # TODO switch for ready production
-                        i_msg = 0
-                        for card_id in card_ids:
-                            # TODO validate double employee, validate time or raise error if missing time
-                            card_name = card_id.name.strip()
-                            if rec.force_update_model:
-                                employee_id = rec.create_model_from_card(
-                                    card_id,
-                                    dct_custom_field_to_field_name,
-                                    lst_bind_required_field_list,
-                                )
-                            else:
-                                # Find employee
-                                employee_id = self.env["hr.employee"].search(
-                                    [("name", "=", card_name.title())],
-                                    limit=1,
-                                )
-
-                            ignore_this_employee = False
-                            if lst_filter_field:
-                                ignore_this_employee = not any(
-                                    [
-                                        getattr(employee_id, a)
-                                        for a in lst_filter_field
-                                    ]
-                                )
-                            if ignore_this_employee:
-                                rec.add_log_time_execution(start_time)
-                                continue
-
-                            if not employee_id:
-                                msg_txt = (
-                                    "ERR Missing employee card"
-                                    f" '{card_name}'. Check lane_root"
-                                    f" '{card_id.lane_root_name}',"
-                                    " lane_parent"
-                                    f" '{card_id.lane_parent_name}',"
-                                    f" lane '{card_id.lane_name}'\n"
-                                )
-                                rec.log_txt += msg_txt
-                                rec.log_error_txt += msg_txt
-                                _logger.error(msg_txt.strip())
-                                rec.add_log_time_execution(start_time)
-                                continue
-                            elif not employee_id.work_phone:
-                                msg_txt = (
-                                    "ERR Employee"
-                                    f" '{employee_id.name}' missing"
-                                    " phone number\n"
-                                )
-                                rec.log_txt += msg_txt
-                                rec.log_error_txt += msg_txt
-                                _logger.error(msg_txt.strip())
-                                rec.add_log_time_execution(start_time)
-                                continue
-                            i_msg += 1
-                            msg_sms_log_debug = (
-                                f"PHONE: {employee_id.work_phone}\n"
-                            )
-                            msg_sms = (
-                                ""
-                                if not rec.sms_message_prefix
-                                else rec.sms_message_prefix + " "
-                            )
-                            msg_summary_sms = ""
-                            # Find contact location
-                            date_msg_str = lane_id.title.title()
-                            datetime_msg_str = lane_id.title.title()
-                            msg_time = ""
-                            if card_id.size:
-                                msg_time = f" à {card_id.size}h"
-                                datetime_msg_str += msg_time
-                            msg_sms += (
-                                f"{employee_id.name}, tu travailles le"
-                                f" {datetime_msg_str}, au"
-                                f" {rec.location_type_msg} «{card_id.lane_name}»"
-                            )
-                            msg_summary_sms += f"{employee_id.name} «{card_id.lane_name}»{msg_time}"
-                            partner_id = self.env["res.partner"].search(
-                                [("name", "=", card_id.lane_name)],
-                                limit=1,
-                            )
-                            if not partner_id:
-                                msg_txt = f"ERR missing partner associate with card {card_id.lane_name}\n"
-                                rec.log_txt += msg_txt
-                                rec.log_error_txt += msg_txt
-                                _logger.error(msg_txt.strip())
-                            # Detect msg 1 from card type
-                            if rec.sms_detect_card_type_msg_1:
-                                lst_type_card = (
-                                    rec.sms_detect_card_type_msg_1.split(";")
-                                )
-                                type_card_msg_1_ids = self.env[
-                                    "plan.view.agile.place.card.type"
-                                ].search(
-                                    [
-                                        ("name", "in", lst_type_card),
-                                        (
-                                            "board_id",
-                                            "=",
-                                            rec.board_id.id,
-                                        ),
-                                    ]
-                                )
-                                if type_card_msg_1_ids:
-                                    lst_query = [
-                                        (
-                                            "board_id",
-                                            "=",
-                                            rec.board_id.id,
-                                        ),
-                                        (
-                                            "lane_id",
-                                            "in",
-                                            card_id.lane_id.ids,
-                                        ),
-                                        (
-                                            "card_type_id",
-                                            "in",
-                                            type_card_msg_1_ids.ids,
-                                        ),
-                                    ]
-                                    card_msg_1_ids = self.env[
-                                        "plan.view.agile.place.card"
-                                    ].search(lst_query)
-
-                                    if len(card_msg_1_ids) > 1:
-                                        msg_txt = (
-                                            "ERR Double card"
-                                            f" '{lst_type_card}' into"
-                                            " lane"
-                                            f" '{card_id.lane_name}'"
-                                        )
-                                        rec.log_txt += msg_txt
-                                        rec.log_error_txt += msg_txt
-                                        _logger.error(msg_txt.strip())
-                                    if card_msg_1_ids:
-                                        if card_msg_1_ids.size:
-                                            msg_coule = (
-                                                " + Coulée à"
-                                                f" {card_msg_1_ids.size}h."
-                                            )
-                                        else:
-                                            msg_coule = " + Coulée."
-                                        msg_sms += msg_coule
-                                        msg_summary_sms += msg_coule
-                            if partner_id:
-                                street_map = quote(partner_id.street)
-                                msg_sms += (
-                                    "\nÀ l'adresse suivante : \n\n"
-                                    f"{partner_id.street}\n\nhttps://www.google.ca/maps/place/{street_map}"
-                                )
-                            # Detect
-                            # TODO detect coulee type
-                            # detect taille coule + taille actuel
-
-                            msg_txt = (
-                                f"\nSMS({i_msg}) {msg_sms_log_debug}"
-                                f"«\n{msg_sms}\n»\n"
-                            )
-                            rec.log_txt += msg_txt
-
-                            if dct_sms_data:
-                                dct_sms_data["lst_data"].append(
-                                    {
-                                        "to": employee_id.work_phone,
-                                        "body": msg_sms,
-                                        "summary": msg_summary_sms,
-                                        "date": date_msg_str,
-                                    }
-                                )
-                else:
-                    msg_txt = (
-                        f"ERR processus '{rec.name}' missing field"
-                        " 'fake_regex_lane'\n"
-                    )
-                    rec.log_txt += msg_txt
-                    rec.log_error_txt += msg_txt
-                    _logger.error(msg_txt.strip())
+                rec.algo_send_sms_schedule(
+                    start_time,
+                    user_timezone,
+                    dct_custom_field_to_field_name,
+                    lst_bind_required_field_list,
+                    dct_sms_data,
+                )
             elif rec.algo_key == "create_model_from_lane":
-                # This will find the lane_root
-                # TODO problème avec utc?
-                monday_day = self.return_monday_day(
-                    datetime.datetime.now().astimezone(user_timezone),
-                ).replace(hour=0, minute=0, second=0, microsecond=0)
-                lane_ids = self._get_lane_from_regex_week(rec, user_timezone)
-                if len(lane_ids) > 1:
-                    multi_lane_name = ",".join([a.title for a in lane_ids])
-                    msg_txt = f"ERR Find {len(lane_ids)} lanes with the regex '{multi_lane_name}'.\n"
-                    rec.log_txt += msg_txt
-                    rec.log_error_txt += msg_txt
-                    _logger.error(msg_txt.strip())
-                elif len(lane_ids) == 0:
-                    msg_txt = (
-                        f"ERR Cannot found lane with regex of next day.\n"
-                    )
-                    rec.log_txt += msg_txt
-                    rec.log_error_txt += msg_txt
-                    _logger.error(msg_txt.strip())
-                    rec.add_log_time_execution(start_time)
-                    continue
-                rec.lane_root_name = lane_ids[0].title
-                card_ids = rec.search_cards_from_processus()
-                for card_id in card_ids:
-                    # TODO bug name, fix that!
-                    # location_id = self.env["fsm.location"].search(
-                    #     [("name", "like", card_id.lane_name)], limit=1
-                    # )
-                    location_ids = self.env["fsm.location"].search([])
-                    location_id = None
-                    for a_location_id in location_ids:
-                        # TODO this is not good, hardcoded from data client, need a dynamic way
-                        if a_location_id.name[:5] == card_id.lane_name[:5]:
-                            location_id = a_location_id
-                    if not location_id:
-                        msg_txt = f"WARN Cannot found fsm.location with name '{card_id.lane_name}'.\n"
-                        rec.log_txt += msg_txt
-                        rec.log_error_txt += msg_txt
-                        _logger.warning(msg_txt.strip())
-                        rec.add_log_time_execution(start_time)
-                        continue
-                    # Get weekdate
-                    regex = (
-                        r"(?P<jour>[A-Z]+)\s+(?P<journee>\d+)/(?P<mois>\d+)"
-                    )
-                    result = re.search(regex, card_id.lane_parent_name)
-                    diff_date = int(result.group("journee")) - monday_day.day
-                    # TODO this is an hack, need to retrieve the exact day with month and day
-                    actual_day = monday_day + datetime.timedelta(
-                        days=diff_date
-                    )
-                    next_day = actual_day + datetime.timedelta(days=1)
-                    fsm_order_id = self.env["fsm.order"].search(
-                        [
-                            ("location_id", "=", location_id.id),
-                            ("scheduled_date_start", ">=", actual_day),
-                            ("scheduled_date_start", "<", next_day),
-                        ],
-                        limit=1,
-                    )
-                    actual_day_time_work = actual_day + datetime.timedelta(
-                        hours=7 + diff_hour_timezone
-                    )
-                    if not fsm_order_id:
-                        # Create a new one
-                        fsm_order_vals = {
-                            "name": card_id.lane_name,
-                            "location_id": location_id.id,
-                            "scheduled_date_start": actual_day_time_work.replace(
-                                tzinfo=None
-                            ),
-                            "scheduled_duration": 6,
-                        }
-                        fsm_order_id = self.env["fsm.order"].create(
-                            fsm_order_vals
-                        )
-                    # Add this card
-                    json_type_card_bind = json.loads(rec.type_card_bind)
-                    lst_card_type_name = json_type_card_bind.get(
-                        "fsm.person"
-                    ).split(";")
-                    if lst_card_type_name:
-                        for card_type_name in lst_card_type_name:
-                            card_type_id = self.env[
-                                "plan.view.agile.place.card.type"
-                            ].search(
-                                [
-                                    ("name", "=", card_type_name),
-                                    ("board_id", "=", rec.board_id.id),
-                                ]
-                            )
-                            if (
-                                card_type_id
-                                and card_id.card_type_id == card_type_id
-                            ):
-                                fsm_person_id = self.env["fsm.person"].search(
-                                    [("name", "=", card_id.name.title())],
-                                    limit=1,
-                                )
-                                if fsm_person_id:
-                                    fsm_order_id.write(
-                                        {"person_ids": [(4, fsm_person_id.id)]}
-                                    )
+                rec.algo_create_model_from_lane(
+                    start_time, user_timezone, diff_hour_timezone
+                )
             elif rec.algo_key == "create_new_board":
-                # Algorithm description :
-                # 1. duplicate board with all cards
-                # 2. fill the board
-                date_new_timezone = datetime.datetime.now().astimezone(
-                    user_timezone
-                )
-                str_date_new_timezone = date_new_timezone.strftime(
-                    "%Y/%m/%d %H:%M:%S"
-                )
-                new_board_name = rec.new_board_name % str_date_new_timezone
-
-                # Find board template
-                board_template_id = self.env[
-                    "plan.view.agile.place.board"
-                ].search(
-                    [("type_board_ids", "in", rec.type_template_board_id.ids)]
-                )
-
-                if not board_template_id:
-                    msg_txt = f"ERR Cannot find board type '{rec.type_template_board_id.name}' to duplicate it.\n"
-                    rec.log_txt += msg_txt
-                    rec.log_error_txt += msg_txt
-                    _logger.error(msg_txt.strip())
-                    rec.add_log_time_execution(start_time)
-                    continue
-
-                title = new_board_name
-                if not rec.session_id.production_enabled:
-                    title = f"TEST {title}"
-
-                data = {
-                    "title": title,
-                    "fromBoardId": board_template_id.board_id_pvap,
-                    "includeCards": True,
-                    "includeExistingUsers": True,
-                    "excludeCompletedAndArchiveViolations": True,
-                    "baseWipOnCardSize": True,
-                }
-
-                status, response = rec.session_id.request_api_post(
-                    "/io/board", data=data
-                )
-                if str(status)[0] != "2":
-                    msg_txt = f"ERR Cannot create board.\n"
-                    rec.log_txt += msg_txt
-                    rec.log_error_txt += msg_txt
-                    _logger.error(msg_txt.strip())
-                    rec.add_log_time_execution(start_time)
-                    continue
-                board_value = {
-                    "name": title,
-                    "session_id": rec.session_id.id,
-                    "board_id_pvap": response.get("id"),
-                    "type_board_ids": [
-                        (6, 0, rec.board_id.type_board_ids.ids)
-                    ],
-                }
-                board_id = self.env["plan.view.agile.place.board"].create(
-                    board_value
-                )
-                board_id.action_sync()
-
-                # Execute processus of adding cards
-                for process_id in rec.process_execute_after_ids:
-                    process_id.board_id = board_id.id
-
-                    # # For copy, the copy_from_board is actuel board
-                    # if process_id.algo_key == "copy_cards_from_board":
-                    #     # Need to search this official board
-                    #     process_id.board_copy_from_id =
-
-                    process_id.action_execute_algo()
-
+                rec.algo_create_new_board(start_time, user_timezone)
             elif rec.algo_key == "create_card_from_model":
-                if (
-                    rec.model_name == "hr.employee"
-                    and rec.model_filter_hr_empoyee_job_type
-                ):
-                    job_id = self.env["hr.job"].search(
-                        [("name", "=", rec.model_filter_hr_empoyee_job_type)]
-                    )
-                    if job_id:
-                        record_ids = self.env[rec.model_name].search(
-                            [("job_id", "=", job_id.id)]
-                        )
-                    else:
-                        record_ids = None
-                else:
-                    record_ids = self.env[rec.model_name].search(
-                        eval(rec.model_fetch_record)
-                    )
-                if not record_ids:
-                    msg_txt = f"ERR Cannot found card.\n"
-                    rec.log_txt += msg_txt
-                    rec.log_error_txt += msg_txt
-                    _logger.error(msg_txt.strip())
-                    rec.add_log_time_execution(start_time)
-                    continue
-                record_ids.generate_pvap_card(rec)
+                rec.algo_create_card_from_model(start_time)
             elif rec.algo_key == "rename_lane":
-                if not rec.lane_root_name:
-                    msg_txt = "WARN Ignore this processus, create_model_from_card need a lane_root_name.\n"
-                    rec.log_txt += msg_txt
-                    rec.log_error_txt += msg_txt
-                    _logger.warning(msg_txt.strip())
-                    rec.add_log_time_execution(start_time)
-                    continue
-
-                if rec.algo_rename not in [
-                    "schedule_week_field_service",
-                    "schedule_week_template",
-                ]:
-                    msg_txt = f"WARN Ignore this processus, don't support algo rename '{rec.algo_rename}'.\n"
-                    rec.log_txt += msg_txt
-                    rec.log_error_txt += msg_txt
-                    _logger.warning(msg_txt.strip())
-                    rec.add_log_time_execution(start_time)
-                    continue
-
-                last_week_day = self.return_next_open_day(
-                    datetime.datetime.now().astimezone(user_timezone),
-                    delay_day=rec.delay_in_day - 7,
-                )
-                last_week_day_monday = self.return_monday_day(last_week_day)
-                current_day = last_week_day_monday
-                current_week_day = last_week_day_monday
-
-                if rec.rename_week_lane_name_icon:
-                    lst_icon = rec.rename_week_lane_name_icon.split(";")
-                else:
-                    lst_icon = []
-
-                root_name_list = rec.lane_root_name.split(";")
-                parent_name_list = rec.lane_parent_name.split(";")
-                dct_week_card = {}
-                for i_week, root_name in enumerate(root_name_list):
-                    dct_day_card = {}
-                    lane_week_id = rec.search_lanes(
-                        rec.name,
-                        rec.board_id,
-                        root_name,
-                        is_root_lane=True,
-                        sync_cards=False,
-                    )
-                    if not lane_week_id:
-                        msg_txt = f"ERR cannot find lane week '{root_name}'.\n"
-                        rec.log_txt += msg_txt
-                        rec.log_error_txt += msg_txt
-                        _logger.warning(msg_txt.strip())
-                        rec.add_log_time_execution(start_time)
-                        continue
-                    dct_week_card[root_name] = {
-                        "days": dct_day_card,
-                        "week_card_id": lane_week_id,
-                    }
-                    for i_day, parent_name in enumerate(parent_name_list):
-                        lane_day_id = rec.search_lanes(
-                            rec.name,
-                            rec.board_id,
-                            root_name,
-                            lane_name=parent_name,
-                            sync_cards=False,
-                        )
-                        if not lane_day_id:
-                            msg_txt = (
-                                f"ERR cannot find lane day '{root_name}'.\n"
-                            )
-                            rec.log_txt += msg_txt
-                            rec.log_error_txt += msg_txt
-                            _logger.warning(msg_txt.strip())
-                            rec.add_log_time_execution(start_time)
-                            continue
-
-                        lane_ids = rec.search_lanes(
-                            rec.name,
-                            rec.board_id,
-                            lane_root_name=root_name,
-                            lane_parent_name=parent_name,
-                            sync_cards=False,
-                            order="sequence asc",
-                        )
-                        dct_day_card[parent_name] = {
-                            "chantier": lane_ids,
-                            "day_card_id": lane_day_id,
-                        }
-                        if rec.algo_rename == "schedule_week_field_service":
-                            fsm_location_ids = self.env["fsm.location"].search(
-                                [],
-                                order="name asc",
-                            )
-                        else:
-                            fsm_location_ids = self.env["fsm.location"]
-
-                        # Begin compute here
-                        for no_lane, lane_id in enumerate(lane_ids):
-                            if "%s" in rec.rename_card_pattern:
-                                new_name = rec.rename_card_pattern % str(
-                                    no_lane
-                                ).zfill(4)
-                            else:
-                                new_name = rec.rename_card_pattern
-                            if (
-                                rec.algo_rename
-                                == "schedule_week_field_service"
-                                and fsm_location_ids
-                                and len(fsm_location_ids) > no_lane
-                            ):
-                                new_name = fsm_location_ids[no_lane].name
-
-                            if lane_id.title != new_name:
-                                lane_id.with_context(
-                                    {"enable_sync_lane": True}
-                                ).title = new_name
-
-                        if rec.algo_rename == "schedule_week_field_service":
-                            lane_day_id.with_context(
-                                {"enable_sync_lane": True}
-                            ).title = f"{parent_name} {current_day.day}/{current_day.month}"
-
-                        current_day += datetime.timedelta(days=1)
-
-                    if (
-                        rec.algo_rename == "schedule_week_field_service"
-                        and rec.rename_week_lane_name_pattern
-                    ):
-                        if "%s" in rec.rename_week_lane_name_pattern:
-                            value_pattern = f"{current_week_day.day} {self._get_month_fr(ttype='str', value=current_week_day.month - 1).upper()} {current_week_day.year}"
-                            lane_week_new_name = (
-                                rec.rename_week_lane_name_pattern
-                                % value_pattern
-                            )
-                        else:
-                            lane_week_new_name = (
-                                rec.rename_week_lane_name_pattern
-                            )
-                        if lst_icon:
-                            lane_week_new_name = f"{lst_icon[i_week if i_week < len(lst_icon) else -1]} {lane_week_new_name}"
-                        lane_week_id.with_context(
-                            {"enable_sync_lane": True}
-                        ).title = lane_week_new_name
-
-                    current_week_day += datetime.timedelta(weeks=1)
-
-                if not dct_week_card:
-                    msg_txt = f"ERR Cannot find lane to rename it of processus '{rec.name}'\n."
-                    rec.log_txt += msg_txt
-                    rec.log_error_txt += msg_txt
-                    _logger.warning(msg_txt.strip())
-                    rec.add_log_time_execution(start_time)
-                    continue
-
+                rec.algo_rename_lane(start_time, user_timezone)
             elif rec.algo_key == "create_model_from_card":
-                if not rec.lane_root_name:
-                    msg_txt = "WARN Ignore this processus, create_model_from_card need a lane_root_name."
-                    rec.log_txt += msg_txt
-                    rec.log_error_txt += msg_txt
-                    _logger.warning(msg_txt.strip())
-                    rec.add_log_time_execution(start_time)
-                    continue
-
-                card_ids = rec.search_cards_from_processus()
-
-                lst_existing_name = []
-                for card_id in card_ids:
-                    # Check doublon from card
-                    if card_id.name in lst_existing_name:
-                        if (
-                            not card_id.name
-                            in rec.ignore_warning_from_name.split(";")
-                        ):
-                            msg_txt = (
-                                f"WAR '{rec.model_name}' Ignore duplicate name"
-                                f" '{card_id.name}'\n"
-                            )
-                            rec.log_txt += msg_txt
-                            rec.log_error_txt += msg_txt
-                            _logger.warning(msg_txt.strip())
-                        rec.add_log_time_execution(start_time)
-                        continue
-                    else:
-                        lst_existing_name.append(card_id.name)
-                    # Create it
-                    model_id = rec.create_model_from_card(
-                        card_id,
-                        dct_custom_field_to_field_name,
-                        lst_bind_required_field_list,
-                    )
-                    if rec.compute_model_fsm_location:
-                        # Find associate fsm.location or create it
-                        fsm_location_id = self.env["fsm.location"].search(
-                            [("owner_id", "=", model_id.id)], limit=1
-                        )
-                        # TODO do we need to update geo_localize when exist?
-                        if not fsm_location_id:
-                            fsm_location_value = {
-                                "name": model_id.name,
-                                "owner_id": model_id.id,
-                            }
-                            fsm_location_id = self.env["fsm.location"].create(
-                                fsm_location_value
-                            )
-                            # Update partner_id information
-                            fsm_location_id.partner_id.type = "contact"
-                            fsm_location_id.geo_localize()
-                            # Validate or show an error
-                            if (
-                                not fsm_location_id.partner_latitude
-                                and not fsm_location_id.partner_longitude
-                            ):
-                                msg = f"WAR cannot localize '{fsm_location_id.name}' with address '{fsm_location_id.street}'\n"
-                                rec.log_txt += msg
-                                rec.log_error_txt += msg
-                                _logger.warning(msg_txt.strip())
-
-                    if rec.compute_model_fsm_person:
-                        # Create a user associate
-                        # hr.employee
-                        # model_id.
-                        user_id = self.env["res.users"].search(
-                            [("name", "=", model_id.name)], limit=1
-                        )
-                        if not user_id:
-                            user_vals = {
-                                "name": model_id.name,
-                                "login": model_id.name,
-                                "email": model_id.name,
-                                "password": model_id.name,
-                            }
-                            user_id = self.env["res.users"].create(user_vals)
-                        model_id.user_id = user_id.id
-                        partner_id = user_id.partner_id
-                        # Find associate fsm.location or create it
-                        fsm_person_id = self.env["fsm.person"].search(
-                            [("partner_id", "=", partner_id.id)], limit=1
-                        )
-                        if not fsm_person_id:
-                            # TODO this is hardcoded, need to use mapping
-                            fsm_person_vals = {
-                                "name": model_id.name,
-                                "partner_id": partner_id.id,
-                                "phone": model_id.work_phone,
-                            }
-                            fsm_person_id = self.env["fsm.person"].create(
-                                fsm_person_vals
-                            )
-
-                rec.log_txt += "\n"
-                rec.log_error_txt += "\n"
+                rec.algo_create_model_from_card(
+                    start_time,
+                    dct_custom_field_to_field_name,
+                    lst_bind_required_field_list,
+                )
 
             msg_end = (
                 f"End of execution processus '{rec.algo_key}' name"
@@ -1244,6 +505,780 @@ class PlanViewAgilePlaceProcessus(models.Model):
             rec.log_txt += f"{msg_end}"
             rec.log_error_txt += f"{msg_end}"
             rec.add_log_time_execution(start_time)
+
+    def algo_create_model_from_card(
+        self,
+        start_time,
+        dct_custom_field_to_field_name,
+        lst_bind_required_field_list,
+    ):
+        for rec in self:
+            if not rec.lane_root_name:
+                msg_txt = "WARN Ignore this processus, create_model_from_card need a lane_root_name."
+                rec.log_txt += msg_txt
+                rec.log_error_txt += msg_txt
+                _logger.warning(msg_txt.strip())
+                rec.add_log_time_execution(start_time)
+                continue
+
+            card_ids = rec.search_cards_from_processus()
+
+            lst_existing_name = []
+            for card_id in card_ids:
+                # Check doublon from card
+                if card_id.name in lst_existing_name:
+                    if not card_id.name in rec.ignore_warning_from_name.split(
+                        ";"
+                    ):
+                        msg_txt = (
+                            f"WAR '{rec.model_name}' Ignore duplicate name"
+                            f" '{card_id.name}'\n"
+                        )
+                        rec.log_txt += msg_txt
+                        rec.log_error_txt += msg_txt
+                        _logger.warning(msg_txt.strip())
+                    rec.add_log_time_execution(start_time)
+                    continue
+                else:
+                    lst_existing_name.append(card_id.name)
+                # Create it
+                model_id = rec.create_model_from_card(
+                    card_id,
+                    dct_custom_field_to_field_name,
+                    lst_bind_required_field_list,
+                )
+                if rec.compute_model_fsm_location:
+                    # Find associate fsm.location or create it
+                    fsm_location_id = self.env["fsm.location"].search(
+                        [("owner_id", "=", model_id.id)], limit=1
+                    )
+                    # TODO do we need to update geo_localize when exist?
+                    if not fsm_location_id:
+                        fsm_location_value = {
+                            "name": model_id.name,
+                            "owner_id": model_id.id,
+                        }
+                        fsm_location_id = self.env["fsm.location"].create(
+                            fsm_location_value
+                        )
+                        # Update partner_id information
+                        fsm_location_id.partner_id.type = "contact"
+                        fsm_location_id.geo_localize()
+                        # Validate or show an error
+                        if (
+                            not fsm_location_id.partner_latitude
+                            and not fsm_location_id.partner_longitude
+                        ):
+                            msg = f"WAR cannot localize '{fsm_location_id.name}' with address '{fsm_location_id.street}'\n"
+                            rec.log_txt += msg
+                            rec.log_error_txt += msg
+                            _logger.warning(msg_txt.strip())
+
+                if rec.compute_model_fsm_person:
+                    # Create a user associate
+                    # hr.employee
+                    # model_id.
+                    user_id = self.env["res.users"].search(
+                        [("name", "=", model_id.name)], limit=1
+                    )
+                    if not user_id:
+                        user_vals = {
+                            "name": model_id.name,
+                            "login": model_id.name,
+                            "email": model_id.name,
+                            "password": model_id.name,
+                        }
+                        user_id = self.env["res.users"].create(user_vals)
+                    model_id.user_id = user_id.id
+                    partner_id = user_id.partner_id
+                    # Find associate fsm.location or create it
+                    fsm_person_id = self.env["fsm.person"].search(
+                        [("partner_id", "=", partner_id.id)], limit=1
+                    )
+                    if not fsm_person_id:
+                        # TODO this is hardcoded, need to use mapping
+                        fsm_person_vals = {
+                            "name": model_id.name,
+                            "partner_id": partner_id.id,
+                            "phone": model_id.work_phone,
+                        }
+                        fsm_person_id = self.env["fsm.person"].create(
+                            fsm_person_vals
+                        )
+
+            rec.log_txt += "\n"
+            rec.log_error_txt += "\n"
+
+    def algo_rename_lane(self, start_time, user_timezone):
+        for rec in self:
+            if not rec.lane_root_name:
+                msg_txt = "WARN Ignore this processus, create_model_from_card need a lane_root_name.\n"
+                rec.log_txt += msg_txt
+                rec.log_error_txt += msg_txt
+                _logger.warning(msg_txt.strip())
+                rec.add_log_time_execution(start_time)
+                continue
+
+            if rec.algo_rename not in [
+                "schedule_week_field_service",
+                "schedule_week_template",
+            ]:
+                msg_txt = f"WARN Ignore this processus, don't support algo rename '{rec.algo_rename}'.\n"
+                rec.log_txt += msg_txt
+                rec.log_error_txt += msg_txt
+                _logger.warning(msg_txt.strip())
+                rec.add_log_time_execution(start_time)
+                continue
+
+            last_week_day = self.return_next_open_day(
+                datetime.datetime.now().astimezone(user_timezone),
+                delay_day=rec.delay_in_day - 7,
+            )
+            last_week_day_monday = self.return_monday_day(last_week_day)
+            current_day = last_week_day_monday
+            current_week_day = last_week_day_monday
+
+            if rec.rename_week_lane_name_icon:
+                lst_icon = rec.rename_week_lane_name_icon.split(";")
+            else:
+                lst_icon = []
+
+            root_name_list = rec.lane_root_name.split(";")
+            parent_name_list = rec.lane_parent_name.split(";")
+            dct_week_card = {}
+            for i_week, root_name in enumerate(root_name_list):
+                dct_day_card = {}
+                lane_week_id = rec.search_lanes(
+                    rec.name,
+                    rec.board_id,
+                    root_name,
+                    is_root_lane=True,
+                    sync_cards=False,
+                )
+                if not lane_week_id:
+                    msg_txt = f"ERR cannot find lane week '{root_name}'.\n"
+                    rec.log_txt += msg_txt
+                    rec.log_error_txt += msg_txt
+                    _logger.warning(msg_txt.strip())
+                    rec.add_log_time_execution(start_time)
+                    continue
+                dct_week_card[root_name] = {
+                    "days": dct_day_card,
+                    "week_card_id": lane_week_id,
+                }
+                for i_day, parent_name in enumerate(parent_name_list):
+                    lane_day_id = rec.search_lanes(
+                        rec.name,
+                        rec.board_id,
+                        root_name,
+                        lane_name=parent_name,
+                        sync_cards=False,
+                    )
+                    if not lane_day_id:
+                        msg_txt = f"ERR cannot find lane day '{root_name}'.\n"
+                        rec.log_txt += msg_txt
+                        rec.log_error_txt += msg_txt
+                        _logger.warning(msg_txt.strip())
+                        rec.add_log_time_execution(start_time)
+                        continue
+
+                    lane_ids = rec.search_lanes(
+                        rec.name,
+                        rec.board_id,
+                        lane_root_name=root_name,
+                        lane_parent_name=parent_name,
+                        sync_cards=False,
+                        order="sequence asc",
+                    )
+                    dct_day_card[parent_name] = {
+                        "chantier": lane_ids,
+                        "day_card_id": lane_day_id,
+                    }
+                    if rec.algo_rename == "schedule_week_field_service":
+                        fsm_location_ids = self.env["fsm.location"].search(
+                            [],
+                            order="name asc",
+                        )
+                    else:
+                        fsm_location_ids = self.env["fsm.location"]
+
+                    # Begin compute here
+                    for no_lane, lane_id in enumerate(lane_ids):
+                        if "%s" in rec.rename_card_pattern:
+                            new_name = rec.rename_card_pattern % str(
+                                no_lane
+                            ).zfill(4)
+                        else:
+                            new_name = rec.rename_card_pattern
+                        if (
+                            rec.algo_rename == "schedule_week_field_service"
+                            and fsm_location_ids
+                            and len(fsm_location_ids) > no_lane
+                        ):
+                            new_name = fsm_location_ids[no_lane].name
+
+                        if lane_id.title != new_name:
+                            lane_id.with_context(
+                                {"enable_sync_lane": True}
+                            ).title = new_name
+
+                    if rec.algo_rename == "schedule_week_field_service":
+                        lane_day_id.with_context(
+                            {"enable_sync_lane": True}
+                        ).title = f"{parent_name} {current_day.day}/{current_day.month}"
+
+                    current_day += datetime.timedelta(days=1)
+
+                if (
+                    rec.algo_rename == "schedule_week_field_service"
+                    and rec.rename_week_lane_name_pattern
+                ):
+                    if "%s" in rec.rename_week_lane_name_pattern:
+                        value_pattern = f"{current_week_day.day} {self._get_month_fr(ttype='str', value=current_week_day.month - 1).upper()} {current_week_day.year}"
+                        lane_week_new_name = (
+                            rec.rename_week_lane_name_pattern % value_pattern
+                        )
+                    else:
+                        lane_week_new_name = rec.rename_week_lane_name_pattern
+                    if lst_icon:
+                        lane_week_new_name = f"{lst_icon[i_week if i_week < len(lst_icon) else -1]} {lane_week_new_name}"
+                    lane_week_id.with_context(
+                        {"enable_sync_lane": True}
+                    ).title = lane_week_new_name
+
+                current_week_day += datetime.timedelta(weeks=1)
+
+            if not dct_week_card:
+                msg_txt = f"ERR Cannot find lane to rename it of processus '{rec.name}'\n."
+                rec.log_txt += msg_txt
+                rec.log_error_txt += msg_txt
+                _logger.warning(msg_txt.strip())
+                rec.add_log_time_execution(start_time)
+                continue
+
+    def algo_create_card_from_model(self, start_time):
+        for rec in self:
+            if (
+                rec.model_name == "hr.employee"
+                and rec.model_filter_hr_empoyee_job_type
+            ):
+                job_id = self.env["hr.job"].search(
+                    [("name", "=", rec.model_filter_hr_empoyee_job_type)]
+                )
+                if job_id:
+                    record_ids = self.env[rec.model_name].search(
+                        [("job_id", "=", job_id.id)]
+                    )
+                else:
+                    record_ids = None
+            else:
+                record_ids = self.env[rec.model_name].search(
+                    eval(rec.model_fetch_record)
+                )
+            if not record_ids:
+                msg_txt = f"ERR Cannot found card.\n"
+                rec.log_txt += msg_txt
+                rec.log_error_txt += msg_txt
+                _logger.error(msg_txt.strip())
+                rec.add_log_time_execution(start_time)
+                continue
+            record_ids.generate_pvap_card(rec)
+
+    def algo_create_new_board(
+        self,
+        start_time,
+        user_timezone,
+    ):
+        for rec in self:
+            # Algorithm description :
+            # 1. duplicate board with all cards
+            # 2. fill the board
+            date_new_timezone = datetime.datetime.now().astimezone(
+                user_timezone
+            )
+            str_date_new_timezone = date_new_timezone.strftime(
+                "%Y/%m/%d %H:%M:%S"
+            )
+            new_board_name = rec.new_board_name % str_date_new_timezone
+
+            # Find board template
+            board_template_id = self.env["plan.view.agile.place.board"].search(
+                [("type_board_ids", "in", rec.type_template_board_id.ids)]
+            )
+
+            if not board_template_id:
+                msg_txt = f"ERR Cannot find board type '{rec.type_template_board_id.name}' to duplicate it.\n"
+                rec.log_txt += msg_txt
+                rec.log_error_txt += msg_txt
+                _logger.error(msg_txt.strip())
+                rec.add_log_time_execution(start_time)
+                continue
+
+            title = new_board_name
+            if not rec.session_id.production_enabled:
+                title = f"TEST {title}"
+
+            data = {
+                "title": title,
+                "fromBoardId": board_template_id.board_id_pvap,
+                "includeCards": True,
+                "includeExistingUsers": True,
+                "excludeCompletedAndArchiveViolations": True,
+                "baseWipOnCardSize": True,
+            }
+
+            status, response = rec.session_id.request_api_post(
+                "/io/board", data=data
+            )
+            if str(status)[0] != "2":
+                msg_txt = f"ERR Cannot create board.\n"
+                rec.log_txt += msg_txt
+                rec.log_error_txt += msg_txt
+                _logger.error(msg_txt.strip())
+                rec.add_log_time_execution(start_time)
+                continue
+            board_value = {
+                "name": title,
+                "session_id": rec.session_id.id,
+                "board_id_pvap": response.get("id"),
+                "type_board_ids": [(6, 0, rec.board_id.type_board_ids.ids)],
+            }
+            board_id = self.env["plan.view.agile.place.board"].create(
+                board_value
+            )
+            board_id.action_sync()
+
+            # Execute processus of adding cards
+            for process_id in rec.process_execute_after_ids:
+                process_id.board_id = board_id.id
+
+                # # For copy, the copy_from_board is actuel board
+                # if process_id.algo_key == "copy_cards_from_board":
+                #     # Need to search this official board
+                #     process_id.board_copy_from_id =
+
+                process_id.action_execute_algo()
+
+    def algo_create_model_from_lane(
+        self,
+        start_time,
+        user_timezone,
+        diff_hour_timezone,
+    ):
+        for rec in self:
+            # This will find the lane_root
+            # TODO problème avec utc?
+            monday_day = self.return_monday_day(
+                datetime.datetime.now().astimezone(user_timezone),
+            ).replace(hour=0, minute=0, second=0, microsecond=0)
+            lane_ids = self._get_lane_from_regex_week(rec, user_timezone)
+            if len(lane_ids) > 1:
+                multi_lane_name = ",".join([a.title for a in lane_ids])
+                msg_txt = f"ERR Find {len(lane_ids)} lanes with the regex '{multi_lane_name}'.\n"
+                rec.log_txt += msg_txt
+                rec.log_error_txt += msg_txt
+                _logger.error(msg_txt.strip())
+            elif len(lane_ids) == 0:
+                msg_txt = f"ERR Cannot found lane with regex of next day.\n"
+                rec.log_txt += msg_txt
+                rec.log_error_txt += msg_txt
+                _logger.error(msg_txt.strip())
+                rec.add_log_time_execution(start_time)
+                continue
+            rec.lane_root_name = lane_ids[0].title
+            card_ids = rec.search_cards_from_processus()
+            for card_id in card_ids:
+                # TODO bug name, fix that!
+                # location_id = self.env["fsm.location"].search(
+                #     [("name", "like", card_id.lane_name)], limit=1
+                # )
+                location_ids = self.env["fsm.location"].search([])
+                location_id = None
+                for a_location_id in location_ids:
+                    # TODO this is not good, hardcoded from data client, need a dynamic way
+                    if a_location_id.name[:5] == card_id.lane_name[:5]:
+                        location_id = a_location_id
+                if not location_id:
+                    msg_txt = f"WARN Cannot found fsm.location with name '{card_id.lane_name}'.\n"
+                    rec.log_txt += msg_txt
+                    rec.log_error_txt += msg_txt
+                    _logger.warning(msg_txt.strip())
+                    rec.add_log_time_execution(start_time)
+                    continue
+                # Get weekdate
+                regex = r"(?P<jour>[A-Z]+)\s+(?P<journee>\d+)/(?P<mois>\d+)"
+                result = re.search(regex, card_id.lane_parent_name)
+                diff_date = int(result.group("journee")) - monday_day.day
+                # TODO this is an hack, need to retrieve the exact day with month and day
+                actual_day = monday_day + datetime.timedelta(days=diff_date)
+                next_day = actual_day + datetime.timedelta(days=1)
+                fsm_order_id = self.env["fsm.order"].search(
+                    [
+                        ("location_id", "=", location_id.id),
+                        ("scheduled_date_start", ">=", actual_day),
+                        ("scheduled_date_start", "<", next_day),
+                    ],
+                    limit=1,
+                )
+                actual_day_time_work = actual_day + datetime.timedelta(
+                    hours=7 + diff_hour_timezone
+                )
+                if not fsm_order_id:
+                    # Create a new one
+                    fsm_order_vals = {
+                        "name": card_id.lane_name,
+                        "location_id": location_id.id,
+                        "scheduled_date_start": actual_day_time_work.replace(
+                            tzinfo=None
+                        ),
+                        "scheduled_duration": 6,
+                    }
+                    fsm_order_id = self.env["fsm.order"].create(fsm_order_vals)
+                # Add this card
+                json_type_card_bind = json.loads(rec.type_card_bind)
+                lst_card_type_name = json_type_card_bind.get(
+                    "fsm.person"
+                ).split(";")
+                if lst_card_type_name:
+                    for card_type_name in lst_card_type_name:
+                        card_type_id = self.env[
+                            "plan.view.agile.place.card.type"
+                        ].search(
+                            [
+                                ("name", "=", card_type_name),
+                                ("board_id", "=", rec.board_id.id),
+                            ]
+                        )
+                        if (
+                            card_type_id
+                            and card_id.card_type_id == card_type_id
+                        ):
+                            fsm_person_id = self.env["fsm.person"].search(
+                                [("name", "=", card_id.name.title())],
+                                limit=1,
+                            )
+                            if fsm_person_id:
+                                fsm_order_id.write(
+                                    {"person_ids": [(4, fsm_person_id.id)]}
+                                )
+
+    def algo_send_sms_schedule(
+        self,
+        start_time,
+        user_timezone,
+        dct_custom_field_to_field_name,
+        lst_bind_required_field_list,
+        dct_sms_data,
+    ):
+        for rec in self:
+            lst_filter_field = json.loads(rec.filter_field)
+            if rec.fake_regex_lane == "jour d/m":
+                lane_ids = self._get_lane_from_regex_day(rec, user_timezone)
+
+                for lane_id in lane_ids:
+                    # Find root lane
+                    # Force auto refresh root lane
+                    lane_id.action_sync_cards()
+
+                    lst_query = [
+                        ("board_id", "=", rec.board_id.id),
+                        (
+                            "lane_id",
+                            "in",
+                            lane_id.lane_child_ids.ids,
+                        ),
+                    ]
+                    if rec.type_card:
+                        lst_type_card = rec.type_card.split(";")
+                        type_card_ids = self.env[
+                            "plan.view.agile.place.card.type"
+                        ].search(
+                            [
+                                ("name", "in", lst_type_card),
+                                ("board_id", "=", rec.board_id.id),
+                            ]
+                        )
+                        lst_query.append(
+                            (
+                                "card_type_id",
+                                "in",
+                                type_card_ids.ids,
+                            )
+                        )
+                    card_ids = self.env["plan.view.agile.place.card"].search(
+                        lst_query
+                    )
+                    # TODO switch for ready production
+                    i_msg = 0
+                    for card_id in card_ids:
+                        # TODO validate double employee, validate time or raise error if missing time
+                        card_name = card_id.name.strip()
+                        if rec.force_update_model:
+                            employee_id = rec.create_model_from_card(
+                                card_id,
+                                dct_custom_field_to_field_name,
+                                lst_bind_required_field_list,
+                            )
+                        else:
+                            # Find employee
+                            employee_id = self.env["hr.employee"].search(
+                                [("name", "=", card_name.title())],
+                                limit=1,
+                            )
+
+                        ignore_this_employee = False
+                        if lst_filter_field:
+                            ignore_this_employee = not any(
+                                [
+                                    getattr(employee_id, a)
+                                    for a in lst_filter_field
+                                ]
+                            )
+                        if ignore_this_employee:
+                            rec.add_log_time_execution(start_time)
+                            continue
+
+                        if not employee_id:
+                            msg_txt = (
+                                "ERR Missing employee card"
+                                f" '{card_name}'. Check lane_root"
+                                f" '{card_id.lane_root_name}',"
+                                " lane_parent"
+                                f" '{card_id.lane_parent_name}',"
+                                f" lane '{card_id.lane_name}'\n"
+                            )
+                            rec.log_txt += msg_txt
+                            rec.log_error_txt += msg_txt
+                            _logger.error(msg_txt.strip())
+                            rec.add_log_time_execution(start_time)
+                            continue
+                        elif not employee_id.work_phone:
+                            msg_txt = (
+                                "ERR Employee"
+                                f" '{employee_id.name}' missing"
+                                " phone number\n"
+                            )
+                            rec.log_txt += msg_txt
+                            rec.log_error_txt += msg_txt
+                            _logger.error(msg_txt.strip())
+                            rec.add_log_time_execution(start_time)
+                            continue
+                        i_msg += 1
+                        msg_sms_log_debug = (
+                            f"PHONE: {employee_id.work_phone}\n"
+                        )
+                        msg_sms = (
+                            ""
+                            if not rec.sms_message_prefix
+                            else rec.sms_message_prefix + " "
+                        )
+                        msg_summary_sms = ""
+                        # Find contact location
+                        date_msg_str = lane_id.title.title()
+                        datetime_msg_str = lane_id.title.title()
+                        msg_time = ""
+                        if card_id.size:
+                            msg_time = f" à {card_id.size}h"
+                            datetime_msg_str += msg_time
+                        msg_sms += (
+                            f"{employee_id.name}, tu travailles le"
+                            f" {datetime_msg_str}, au"
+                            f" {rec.location_type_msg} «{card_id.lane_name}»"
+                        )
+                        msg_summary_sms += f"{employee_id.name} «{card_id.lane_name}»{msg_time}"
+                        partner_id = self.env["res.partner"].search(
+                            [("name", "=", card_id.lane_name)],
+                            limit=1,
+                        )
+                        if not partner_id:
+                            msg_txt = f"ERR missing partner associate with card {card_id.lane_name}\n"
+                            rec.log_txt += msg_txt
+                            rec.log_error_txt += msg_txt
+                            _logger.error(msg_txt.strip())
+                        # Detect msg 1 from card type
+                        if rec.sms_detect_card_type_msg_1:
+                            lst_type_card = (
+                                rec.sms_detect_card_type_msg_1.split(";")
+                            )
+                            type_card_msg_1_ids = self.env[
+                                "plan.view.agile.place.card.type"
+                            ].search(
+                                [
+                                    ("name", "in", lst_type_card),
+                                    (
+                                        "board_id",
+                                        "=",
+                                        rec.board_id.id,
+                                    ),
+                                ]
+                            )
+                            if type_card_msg_1_ids:
+                                lst_query = [
+                                    (
+                                        "board_id",
+                                        "=",
+                                        rec.board_id.id,
+                                    ),
+                                    (
+                                        "lane_id",
+                                        "in",
+                                        card_id.lane_id.ids,
+                                    ),
+                                    (
+                                        "card_type_id",
+                                        "in",
+                                        type_card_msg_1_ids.ids,
+                                    ),
+                                ]
+                                card_msg_1_ids = self.env[
+                                    "plan.view.agile.place.card"
+                                ].search(lst_query)
+
+                                if len(card_msg_1_ids) > 1:
+                                    msg_txt = (
+                                        "ERR Double card"
+                                        f" '{lst_type_card}' into"
+                                        " lane"
+                                        f" '{card_id.lane_name}'"
+                                    )
+                                    rec.log_txt += msg_txt
+                                    rec.log_error_txt += msg_txt
+                                    _logger.error(msg_txt.strip())
+                                if card_msg_1_ids:
+                                    if card_msg_1_ids.size:
+                                        msg_coule = (
+                                            " + Coulée à"
+                                            f" {card_msg_1_ids.size}h."
+                                        )
+                                    else:
+                                        msg_coule = " + Coulée."
+                                    msg_sms += msg_coule
+                                    msg_summary_sms += msg_coule
+                        if partner_id:
+                            street_map = quote(partner_id.street)
+                            msg_sms += (
+                                "\nÀ l'adresse suivante : \n\n"
+                                f"{partner_id.street}\n\nhttps://www.google.ca/maps/place/{street_map}"
+                            )
+                        # Detect
+                        # TODO detect coulee type
+                        # detect taille coule + taille actuel
+
+                        msg_txt = (
+                            f"\nSMS({i_msg}) {msg_sms_log_debug}"
+                            f"«\n{msg_sms}\n»\n"
+                        )
+                        rec.log_txt += msg_txt
+
+                        if dct_sms_data:
+                            dct_sms_data["lst_data"].append(
+                                {
+                                    "to": employee_id.work_phone,
+                                    "body": msg_sms,
+                                    "summary": msg_summary_sms,
+                                    "date": date_msg_str,
+                                }
+                            )
+            else:
+                msg_txt = (
+                    f"ERR processus '{rec.name}' missing field"
+                    " 'fake_regex_lane'\n"
+                )
+                rec.log_txt += msg_txt
+                rec.log_error_txt += msg_txt
+                _logger.error(msg_txt.strip())
+
+    def algo_delete_cards(self):
+        for rec in self:
+            card_ids = rec.search_cards_from_processus()
+            if card_ids.exists():
+                card_ids.enabled_bind = True
+                card_ids.unlink()
+
+    def algo_copy_cards(self, start_time):
+        for rec in self:
+            lane_from_copy_ids = rec.search_lanes_from_processus(
+                sync_cards=rec.force_sync_before_algo
+            )
+            board_to_copy = (
+                rec.board_copy_from_id
+                if rec.board_copy_from_id
+                else rec.board_id
+            )
+            lane_to_copy_ids = rec.search_lanes(
+                rec.name,
+                board_to_copy,
+                rec.copy_to_root_lane,
+                lane_parent_name=rec.copy_to_parent_lane,
+                lane_sub_name=rec.copy_to_sub_lane,
+                is_root_lane=rec.copy_is_root_lane,
+                lane_name=rec.copy_to_lane,
+                sync_cards=rec.force_sync_before_algo,
+                log_txt=rec.log_txt,
+                log_error_txt=rec.log_error_txt,
+            )
+
+            if not lane_from_copy_ids:
+                msg_txt = "ERR Cannot find lane, check search lane variable.\n"
+                rec.log_txt += msg_txt
+                rec.log_error_txt += msg_txt
+                _logger.error(msg_txt.strip())
+                rec.add_log_time_execution(start_time)
+                continue
+            if not lane_to_copy_ids:
+                msg_txt = "ERR Cannot find lane to copy, check search lane copy variable.\n"
+                rec.log_txt += msg_txt
+                rec.log_error_txt += msg_txt
+                _logger.error(msg_txt.strip())
+                rec.add_log_time_execution(start_time)
+                continue
+            if (
+                rec.validate_copy_lane_number > 0
+                and len(lane_to_copy_ids) < rec.validate_copy_lane_number
+            ):
+                msg_txt = f"WAR Expected {rec.validate_copy_lane_number} lane_to_copy and got {len(lane_to_copy_ids)}.\n"
+                rec.log_txt += msg_txt
+                rec.log_error_txt += msg_txt
+                _logger.error(msg_txt.strip())
+
+            if rec.clean_before_card_into_copy_to_lane:
+                # get all cards to delete
+                card_to_delete_ids = self.env[
+                    "plan.view.agile.place.card"
+                ].search(
+                    [
+                        ("lane_id", "in", lane_to_copy_ids.ids),
+                        ("board_id", "=", rec.board_id.id),
+                    ]
+                )
+                if card_to_delete_ids:
+                    card_to_delete_ids.enabled_bind = True
+                    card_to_delete_ids.unlink()
+
+            # Get all cards to copy
+            card_to_copy_ids = self.env["plan.view.agile.place.card"].search(
+                [
+                    ("lane_id", "in", lane_from_copy_ids.ids),
+                    ("board_id", "=", rec.board_id.id),
+                ]
+            )
+            for lane_to_copy_id in lane_to_copy_ids:
+                for card_to_copy_id in card_to_copy_ids:
+                    for i in range(rec.copy_multiple_time):
+                        data = {
+                            "copied_from_card_pvap": card_to_copy_id.card_id_pvap,
+                            "board_id": lane_to_copy_id.board_id.id,
+                            "name": card_to_copy_id.name,
+                            "lane_id": lane_to_copy_id.id,
+                            "size": card_to_copy_id.size,
+                            "card_type_id": card_to_copy_id.card_type_id.id,
+                            "entete": card_to_copy_id.entete,
+                            "custom_fields": card_to_copy_id.custom_fields,
+                            "description": card_to_copy_id.description,
+                            "assigned_users": card_to_copy_id.assigned_users,
+                            "session_id": rec.session_id.id,
+                        }
+                        self.env["plan.view.agile.place.card"].create(data)
 
     def _get_lane_from_regex_day(self, rec, user_timezone):
         find_lane_ids = self.env["plan.view.agile.place.lane"]
