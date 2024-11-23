@@ -65,45 +65,45 @@ class PlanViewAgilePlaceSmsHistory(models.Model):
                     api_token = rec.session_id.sms_api_token
                 else:
                     _logger.error("Missing API URL to send SMS.")
-                # Check number
-                if rec.session_id.sms_to_number_phone_default:
-                    to_number_phone = (
-                        rec.session_id.sms_to_country_default
-                        + rec.session_id.sms_to_number_phone_default
-                    )
-                else:
-                    to_number_phone = (
-                        rec.to_number_phone_country + rec.to_number_phone
-                    )
-                rec.to_number_real_phone = to_number_phone
-                if rec.session_id.sms_from_number_phone:
-                    from_number_phone = (
-                        rec.from_number_phone_country
-                        + rec.session_id.sms_from_number_phone
-                    )
-                else:
-                    from_number_phone = (
-                        rec.from_number_phone_country + rec.from_number_phone
-                    )
-                rec.from_number_real_phone = from_number_phone
-                for to_number_phone_single in to_number_phone.split(";"):
-                    # Create request
-                    pre_command = (
-                        f"--data-urlencode 'To={to_number_phone_single}'"
-                        f" --data-urlencode 'From={from_number_phone}'"
-                    )
-                    past_command = f' --data-urlencode "Body={rec.name}"'
-                    command = pre_command + f" -u {api_token}" + past_command
-                    cmd_curl = f"curl '{api_url}' -X POST {command}"
+            # Check number
+            if rec.session_id.sms_to_number_phone_default:
+                to_number_phone = (
+                    rec.session_id.sms_to_country_default
+                    + rec.session_id.sms_to_number_phone_default
+                )
+            else:
+                to_number_phone = (
+                    rec.to_number_phone_country + rec.to_number_phone
+                )
+            rec.to_number_real_phone = to_number_phone
+            if rec.session_id.sms_from_number_phone:
+                from_number_phone = (
+                    rec.from_number_phone_country
+                    + rec.session_id.sms_from_number_phone
+                )
+            else:
+                from_number_phone = (
+                    rec.from_number_phone_country + rec.from_number_phone
+                )
+            rec.from_number_real_phone = from_number_phone
+            for to_number_phone_single in to_number_phone.split(";"):
+                # Create request
+                pre_command = (
+                    f"--data-urlencode 'To={to_number_phone_single}'"
+                    f" --data-urlencode 'From={from_number_phone}'"
+                )
+                past_command = f' --data-urlencode "Body={rec.name}"'
+                command = pre_command + f" -u {api_token}" + past_command
+                cmd_curl = f"curl '{api_url}' -X POST {command}"
 
-                    if rec.session_id.sms_enable and (
-                        not rec.processus_id
-                        or (
-                            rec.processus_id
-                            and not rec.processus_id.sms_in_test_mode
-                        )
-                    ):
-                        os.system(cmd_curl)
-                        rec.is_sent = True
-                    else:
-                        _logger.info(pre_command + past_command)
+                if rec.session_id.sms_enable and (
+                    not rec.processus_id
+                    or (
+                        rec.processus_id
+                        and not rec.processus_id.sms_in_test_mode
+                    )
+                ):
+                    os.system(cmd_curl)
+                    rec.is_sent = True
+                else:
+                    _logger.info(pre_command + past_command)

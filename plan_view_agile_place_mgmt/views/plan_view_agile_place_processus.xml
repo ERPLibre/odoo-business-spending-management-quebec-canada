@@ -41,6 +41,7 @@
                             <field name="lane_root_name" />
                             <field name="type_card" />
                             <field name="is_root_lane" />
+                            <field name="fake_regex_lane" />
                         </group>
                         <group string="SMS">
                             <field name="sms_summary_phone" />
@@ -72,7 +73,6 @@
                         <!--                            <field name="record_id_i" />-->
                         <!--                        </group>-->
                         <group string="Schedule">
-                            <field name="fake_regex_lane" />
                             <field name="delay_in_day" />
                             <field name="ignore_weekend" />
                             <field name="force_update_model" />
