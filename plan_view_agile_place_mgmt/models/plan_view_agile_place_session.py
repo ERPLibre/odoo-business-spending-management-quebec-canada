@@ -174,8 +174,15 @@ class PlanViewAgilePlaceSession(models.Model):
                 continue
             has_finish = True
 
-        if response.text:
-            response_data = json.loads(response.text)
+        reason = response.reason
+
+        if response.status_code != 503 and response.text:
+            try:
+                response_data = json.loads(response.text)
+            except Exception as e:
+                response_data = ""
+                _logger.error(e)
+                reason += ";" + str(e)
         else:
             response_data = ""
 
@@ -189,6 +196,7 @@ class PlanViewAgilePlaceSession(models.Model):
             "session_id": self.id,
             "is_success": response.status_code == requests.codes.ok,
             "status_code": response.status_code,
+            "reason": response.reason,
             "request_server_date": request_server_date,
             "response_data": response_data,
         }

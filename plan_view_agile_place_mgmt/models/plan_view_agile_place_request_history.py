@@ -16,6 +16,8 @@ class PlanViewAgilePlaceRequestHistory(models.Model):
 
     response_data = fields.Char(readonly=True)
 
+    reason = fields.Char(readonly=True)
+
     session_id = fields.Many2one(
         comodel_name="plan.view.agile.place.session",
         string="Session",

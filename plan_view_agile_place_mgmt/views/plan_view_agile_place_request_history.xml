@@ -13,6 +13,7 @@
                         <field name="type" />
                         <field name="session_id" />
                         <field name="request_server_date" />
+                        <field name="reason" />
                         <field name="status_code" />
                         <field name="is_success" />
                         <field name="send_data" />
@@ -97,6 +98,7 @@
                 <field name="type" />
                 <field name="status_code" />
                 <field name="is_success" />
+                <field name="reason" />
                 <field name="session_id" />
             </tree>
         </field>
