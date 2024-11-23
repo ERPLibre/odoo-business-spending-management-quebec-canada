@@ -28,6 +28,7 @@ class PlanViewAgilePlaceSession(models.Model):
 
     sms_api_token = fields.Char()
 
+    # TODO add _default into this name
     sms_from_number_phone = fields.Char()
 
     sms_from_country = fields.Char(default="+1")
@@ -251,6 +252,7 @@ class PlanViewAgilePlaceSession(models.Model):
                                 [
                                     "send_sms_schedule",
                                     "send_reminder_sms_schedule_condition",
+                                    "send_sms_schedule_week_summary",
                                 ],
                             ),
                         ]
