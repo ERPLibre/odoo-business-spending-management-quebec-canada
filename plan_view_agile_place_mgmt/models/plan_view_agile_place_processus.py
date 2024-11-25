@@ -493,6 +493,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 continue
 
             card_ids = rec.search_cards_from_processus()
+            msg_txt = f"LOG Info {len(card_ids)} cards\n"
+            rec.log_txt += msg_txt
+            rec.log_error_txt += msg_txt
+            _logger.info(msg_txt.strip())
 
             lst_existing_name = []
             for card_id in card_ids:
@@ -858,6 +862,11 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 continue
             rec.lane_root_name = lane_ids[0].title
             card_ids = rec.search_cards_from_processus()
+            msg_txt = f"LOG Info {len(card_ids)} cards\n"
+            rec.log_txt += msg_txt
+            rec.log_error_txt += msg_txt
+            _logger.info(msg_txt.strip())
+
             for card_id in card_ids:
                 # TODO bug name, fix that!
                 # location_id = self.env["fsm.location"].search(
@@ -943,6 +952,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 card_ids = self.search_cards_from_processus(
                     sync_cards=rec.force_sync_before_algo
                 )
+                msg_txt = f"LOG Info {len(card_ids)} cards\n"
+                rec.log_txt += msg_txt
+                rec.log_error_txt += msg_txt
+                _logger.info(msg_txt.strip())
 
                 dct_list_employee = collections.defaultdict(list)
                 for card_id in card_ids:
@@ -1137,9 +1150,15 @@ class PlanViewAgilePlaceProcessus(models.Model):
                             type_card_ids.ids,
                         )
                     )
+
                 card_ids = self.env["plan.view.agile.place.card"].search(
                     lst_query
                 )
+                msg_txt = f"LOG Info {len(card_ids)} cards\n"
+                rec.log_txt += msg_txt
+                rec.log_error_txt += msg_txt
+                _logger.info(msg_txt.strip())
+
                 msg_summary_sms = ""
                 for card_id in card_ids:
                     # TODO validate double employee, validate time or raise error if missing time
@@ -1338,6 +1357,11 @@ class PlanViewAgilePlaceProcessus(models.Model):
     def algo_delete_cards(self):
         for rec in self:
             card_ids = rec.search_cards_from_processus()
+            msg_txt = f"LOG Info {len(card_ids)} cards\n"
+            rec.log_txt += msg_txt
+            rec.log_error_txt += msg_txt
+            _logger.info(msg_txt.strip())
+
             if card_ids.exists():
                 card_ids.enabled_bind = True
                 card_ids.unlink()
