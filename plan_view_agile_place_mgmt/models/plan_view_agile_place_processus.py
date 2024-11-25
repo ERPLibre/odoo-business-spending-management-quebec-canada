@@ -46,9 +46,9 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 "Send reminder SMS schedule condition",
             ),
             ("rename_lane", "Renommer des lanes"),
-            ("copy_cards", "Copy cards from lane to lane"),
+            ("copy_cards_from_lane", "Copy cards from lane to lane"),
             (
-                "copy_cards_from_board",
+                "copy_cards_from_lane_from_board",
                 "Copy cards from board to another board",
             ),
             ("delete_cards", "Delete cards"),
@@ -177,7 +177,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     lane_root_name = fields.Char()
 
-    board_copy_from_id = fields.Many2one(
+    board_copy_to_id = fields.Many2one(
         comodel_name="plan.view.agile.place.board",
         string="Board to copy",
     )
@@ -293,6 +293,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
         for rec in self:
             rec.log_txt = ""
             rec.log_error_txt = ""
+            rec.sms_history_ids.processus_id = False
 
     def action_clear_log_depend(self):
         self.action_clear_log()
@@ -400,10 +401,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     rec.bind_required_field_list
                 )
 
-            if rec.algo_key == "copy_cards_from_board":
+            if rec.algo_key == "copy_cards_from_lane_from_board":
                 rec.fill_board_id(use_from_board=True, raise_error=False)
-            elif rec.algo_key == "copy_cards":
-                rec.algo_copy_cards(start_time)
+            elif rec.algo_key == "copy_cards_from_lane":
+                rec.algo_copy_cards_from_lane(start_time)
             elif rec.algo_key == "send_reminder_sms_schedule_condition":
                 # TODO maybe can search employee information
                 pass
@@ -791,9 +792,9 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 process_id.board_id = board_id.id
 
                 # # For copy, the copy_from_board is actuel board
-                # if process_id.algo_key == "copy_cards_from_board":
+                # if process_id.algo_key == "copy_cards_from_lane_from_board":
                 #     # Need to search this official board
-                #     process_id.board_copy_from_id =
+                #     process_id.board_copy_to_id =
 
                 process_id.action_execute_algo()
 
@@ -934,7 +935,11 @@ class PlanViewAgilePlaceProcessus(models.Model):
                             dct_custom_fields.get("label")
                             == "TÉLÉPHONE: EMPLOYÉ"
                         ):
-                            employee_name += "#" + dct_custom_fields["value"]
+                            phone_value = dct_custom_fields["value"]
+                            if not phone_value:
+                                is_cancel = True
+                                break
+                            employee_name += "#" + phone_value
                     if is_cancel:
                         print(f"Cancel {employee_name}")
                         continue
@@ -1309,15 +1314,13 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 card_ids.enabled_bind = True
                 card_ids.unlink()
 
-    def algo_copy_cards(self, start_time):
+    def algo_copy_cards_from_lane(self, start_time):
         for rec in self:
             lane_from_copy_ids = rec.search_lanes_from_processus(
                 sync_cards=rec.force_sync_before_algo
             )
             board_to_copy = (
-                rec.board_copy_from_id
-                if rec.board_copy_from_id
-                else rec.board_id
+                rec.board_copy_to_id if rec.board_copy_to_id else rec.board_id
             )
             lane_to_copy_ids = rec.search_lanes(
                 rec.name,
@@ -1780,7 +1783,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
     def fill_board_id(self, use_from_board=False, raise_error=True):
         for rec in self:
             if (
-                (use_from_board and rec.board_copy_from_id)
+                (use_from_board and rec.board_copy_to_id)
                 or (not use_from_board and rec.board_id)
                 or not rec.type_board_depend_ids
             ):
@@ -1799,13 +1802,13 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 for board_id in rec.session_id.board_ids:
                     if type_board_id in board_id.type_board_ids:
                         if use_from_board:
-                            rec.board_copy_from_id = board_id.id
+                            rec.board_copy_to_id = board_id.id
                         else:
                             rec.board_id = board_id.id
                         break
 
             if (not rec.board_id and not use_from_board) or (
-                not rec.board_copy_from_id and use_from_board
+                not rec.board_copy_to_id and use_from_board
             ):
                 msg_txt = f"ERR Cannot find board_id associate with type '{str_board_type}'.\n"
                 if raise_error:

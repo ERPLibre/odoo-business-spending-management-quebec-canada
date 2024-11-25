@@ -37,12 +37,12 @@
                             <field name="lane_class_type" />
                             <field name="lane_id_pvap" />
                             <field name="lane_type" />
-                            <field name="lane_parent_id" />
-                            <field name="lane_parent_name" />
-                            <field name="breadcrumb_middle_name" />
-                            <field name="lane_sub_name" />
                             <field name="lane_root_id" />
                             <field name="lane_root_name" />
+                            <field name="breadcrumb_middle_name" />
+                            <field name="lane_sub_name" />
+                            <field name="lane_parent_id" />
+                            <field name="lane_parent_name" />
                         </group>
                     </group>
                     <notebook>
