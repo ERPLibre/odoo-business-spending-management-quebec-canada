@@ -41,6 +41,7 @@
                             <field name="lane_root_name" />
                             <field name="type_card" />
                             <field name="is_root_lane" />
+                            <field name="search_recursive_lane" />
                             <field name="fake_regex_lane" />
                         </group>
                         <group string="SMS">

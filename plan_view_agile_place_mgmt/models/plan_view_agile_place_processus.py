@@ -134,6 +134,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
         help="Enable when the cards to extract is inside the root lane, because a root lane has no parent lane."
     )
 
+    search_recursive_lane = fields.Boolean(
+        help="Get all card recursively from lane_id."
+    )
+
     is_disabled = fields.Boolean(
         help="When true, the processus will not execute."
     )
@@ -1672,6 +1676,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 lane_parent_name=rec.lane_parent_name,
                 lane_sub_name=rec.lane_sub_name,
                 is_root_lane=rec.is_root_lane,
+                search_recursive_lane=rec.search_recursive_lane,
                 lane_name=rec.lane_name,
                 sync_cards=sync_cards,
                 limit=limit,
@@ -1689,6 +1694,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
         lane_sub_name=None,
         lane_name=None,
         is_root_lane=False,
+        search_recursive_lane=False,
         sync_cards=True,
         limit=-1,
         order=None,
@@ -1762,6 +1768,9 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 lane_ids = self.env["plan.view.agile.place.lane"].search(
                     lane_query
                 )
+
+        if search_recursive_lane:
+            lane_ids = lane_ids.get_list_child_lane_from_lane(add_itself=True)
 
         if limit > 0:
             return lane_ids[:limit]
