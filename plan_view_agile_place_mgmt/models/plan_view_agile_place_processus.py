@@ -126,6 +126,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
         help="When True, will force sync into algorithm."
     )
 
+    force_refresh_custom_fields = fields.Boolean(
+        help="It's consume lot of time, but will refresh custom_fields."
+    )
+
     ignore_run_depend_processus = fields.Boolean(
         help="Enable to accelerate development to ignore execute update processus dependency."
     )
@@ -466,6 +470,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     start_time,
                     dct_custom_field_to_field_name,
                     lst_bind_required_field_list,
+                    force_refresh_custom_fields=rec.force_refresh_custom_fields,
                 )
 
             msg_end = (
@@ -482,6 +487,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
         start_time,
         dct_custom_field_to_field_name,
         lst_bind_required_field_list,
+        force_refresh_custom_fields=False,
     ):
         for rec in self:
             if not rec.lane_root_name:
@@ -521,6 +527,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     card_id,
                     dct_custom_field_to_field_name,
                     lst_bind_required_field_list,
+                    force_refresh_custom_fields=force_refresh_custom_fields,
                 )
                 if rec.compute_model_fsm_location:
                     # Find associate fsm.location or create it
@@ -1168,6 +1175,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                             card_id,
                             dct_custom_field_to_field_name,
                             lst_bind_required_field_list,
+                            force_refresh_custom_fields=rec.force_refresh_custom_fields,
                         )
                     else:
                         # Find employee
@@ -1575,7 +1583,9 @@ class PlanViewAgilePlaceProcessus(models.Model):
         card_id,
         dct_custom_field_to_field_name,
         lst_bind_required_field_list,
+        force_refresh_custom_fields=False,
     ):
+        self.ensure_one()
         rec = self
         if rec.default_value_model:
             new_model_value = json.loads(rec.default_value_model)
@@ -1596,7 +1606,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 new_model_value[k] = value
         name = new_model_value.get("name").strip()
         # Custom Fields
-        if not card_id.custom_fields:
+        if not card_id.custom_fields or force_refresh_custom_fields:
             card_id.update_card_details()
             dct_detail = json.loads(card_id.card_details)
             lst_custom_field = dct_detail.get("customFields")
