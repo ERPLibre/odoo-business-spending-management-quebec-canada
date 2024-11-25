@@ -32,6 +32,8 @@ class PlanViewAgilePlaceSmsHistory(models.Model):
 
     to_number_phone_country = fields.Char()
 
+    error_msg = fields.Char()
+
     to_number_real_phone = fields.Char(
         help="This is the real phone to be use, can be overwrite for debug.",
         readonly=True,
@@ -65,27 +67,55 @@ class PlanViewAgilePlaceSmsHistory(models.Model):
                     api_token = rec.session_id.sms_api_token
                 else:
                     _logger.error("Missing API URL to send SMS.")
-            # Check number
+
+            # Check number phone
+            # TO
+            # TODO support ; into TO
             if rec.session_id.sms_to_number_phone_default:
                 to_number_phone = (
                     rec.session_id.sms_to_country_default
                     + rec.session_id.sms_to_number_phone_default
                 )
+            elif rec.to_number_phone:
+                if rec.to_number_phone_country:
+                    to_number_phone = (
+                        rec.to_number_phone_country + rec.to_number_phone
+                    )
+                else:
+                    to_number_phone = (
+                        rec.session_id.sms_to_country_default
+                        + rec.to_number_phone
+                    )
             else:
-                to_number_phone = (
-                    rec.to_number_phone_country + rec.to_number_phone
-                )
+                error_msg = "Cannot send SMS, missing number phone TO."
+                _logger.error(error_msg)
+                continue
             rec.to_number_real_phone = to_number_phone
-            if rec.session_id.sms_from_number_phone:
+
+            # FROM
+            if rec.session_id.sms_from_number_phone_default:
                 from_number_phone = (
-                    rec.from_number_phone_country
-                    + rec.session_id.sms_from_number_phone
+                    rec.session_id.sms_from_country_default
+                    + rec.session_id.sms_from_number_phone_default
                 )
+            elif rec.from_number_phone:
+                if rec.from_number_phone_country:
+                    # TODO what happen when crash, string append boolean
+                    from_number_phone = (
+                        rec.from_number_phone_country + rec.from_number_phone
+                    )
+                else:
+                    from_number_phone = (
+                        rec.session_id.sms_from_country_default
+                        + rec.from_number_phone
+                    )
             else:
-                from_number_phone = (
-                    rec.from_number_phone_country + rec.from_number_phone
-                )
+                error_msg = "Cannot send SMS, missing number phone FROM."
+                _logger.error(error_msg)
+                continue
+
             rec.from_number_real_phone = from_number_phone
+
             for to_number_phone_single in to_number_phone.split(";"):
                 # Create request
                 pre_command = (
@@ -103,6 +133,7 @@ class PlanViewAgilePlaceSmsHistory(models.Model):
                         and not rec.processus_id.sms_in_test_mode
                     )
                 ):
+                    # TODO catch output
                     os.system(cmd_curl)
                     rec.is_sent = True
                 else:

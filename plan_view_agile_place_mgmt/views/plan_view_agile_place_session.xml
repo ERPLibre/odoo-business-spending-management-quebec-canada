@@ -80,8 +80,8 @@
                         <group string="SMS" attrs="{'invisible': [('sms_enable', '=', False)]}">
                             <field name="sms_api_url" />
                             <field name="sms_api_token" type="password" password="True" />
-                            <field name="sms_from_number_phone" />
-                            <field name="sms_from_country" />
+                            <field name="sms_from_number_phone_default" />
+                            <field name="sms_from_country_default" />
                             <field name="sms_to_number_phone_default" />
                             <field name="sms_to_country_default" />
                         </group>

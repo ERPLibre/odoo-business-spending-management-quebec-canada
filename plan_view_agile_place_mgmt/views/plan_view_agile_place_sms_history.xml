@@ -6,7 +6,7 @@
         <field name="arch" type="xml">
             <form string="Titre">
                 <header>
-                    <button name="send_sms" string="Execute" type="object" class="oe_highlight" />
+                    <button name="send_sms" string="Send SMS" type="object" class="oe_highlight" />
                 </header>
                 <sheet>
                     <div class="oe_title">
@@ -21,6 +21,7 @@
                             <field name="processus_id" />
                             <field name="session_id" />
                             <field name="is_sent" />
+                            <field name="error_msg" />
                         </group>
                         <group string="Phone">
                             <field name="from_number_phone_country" />

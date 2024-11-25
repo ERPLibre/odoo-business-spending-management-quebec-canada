@@ -108,7 +108,7 @@
                             <field name="sms_to_number_phone" />
                             <field name="sms_to_country" />
                             <field name="sms_message_to_send" />
-                            <field name="sms_limit_iteration" />
+                            <!--                            <field name="sms_limit_iteration" />-->
                         </group>
                     </group>
                     <notebook>

@@ -213,9 +213,13 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     sms_message_to_send = fields.Text()
 
-    sms_debug = fields.Boolean()
+    sms_debug = fields.Boolean(
+        help="Will overwrite automatic message by this manual message."
+    )
 
-    sms_in_test_mode = fields.Boolean(help="Enable to fake sending SMS")
+    sms_in_test_mode = fields.Boolean(
+        help="Enable to fake sending SMS, will never send SMS if True"
+    )
 
     force_update_model = fields.Boolean(
         help="Will force to update model when sync with another lane."
@@ -318,22 +322,50 @@ class PlanViewAgilePlaceProcessus(models.Model):
             if not rec.session_id.sms_enable or rec.is_disabled:
                 continue
 
-            sms_history_ids = self.env[
-                "plan.view.agile.place.sms.history"
-            ].search([("processus_id", "=", rec.id), ("is_sent", "=", False)])
-            # Group execution is associate when send SMS
+            if rec.log_txt is False:
+                rec.log_txt = ""
+            if rec.log_error_txt is False:
+                rec.log_error_txt = ""
+
+            if rec.sms_debug:
+                sms_history_ids = self.env["plan.view.agile.place.sms.history"]
+                for sms_to_number_phone in rec.sms_to_number_phone.split(";"):
+                    sms_history_vals = {
+                        "name": rec.sms_message_to_send,
+                        "to_number_phone": sms_to_number_phone,
+                        "processus_id": rec.id,
+                        "session_id": rec.session_id.id,
+                    }
+                    sms_history_id = self.env[
+                        "plan.view.agile.place.sms.history"
+                    ].create(sms_history_vals)
+                    sms_history_ids += sms_history_id
+            else:
+                sms_history_ids = self.env[
+                    "plan.view.agile.place.sms.history"
+                ].search(
+                    [("processus_id", "=", rec.id), ("is_sent", "=", False)]
+                )
+
             if sms_history_ids:
+                # Group execution is associate when send SMS
                 sms_history_ids.group_execution_name = group_execution_name
                 # if not (
                 #     not rec.sms_limit_iteration
                 #     or rec.sms_limit_iteration > i
                 # ):
                 sms_history_ids.send_sms()
+                for sms_history_id in sms_history_ids:
+                    if sms_history_id.error_msg:
+                        msg_txt = f"ERR {sms_history_id.error_msg}\n"
+                        rec.log_txt += msg_txt
+                        rec.log_error_txt += msg_txt
+                        _logger.error(msg_txt.strip())
             else:
                 msg_txt = f"WARN No SMS to send\n"
                 rec.log_txt += msg_txt
                 rec.log_error_txt += msg_txt
-                _logger.info(msg_txt.strip())
+                _logger.warning(msg_txt.strip())
 
     def action_execute_algo(self, ctx=None):
         for rec in self:
@@ -1031,11 +1063,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                     msg_employe += "\n"
                     msg_employe += "\nCompte-tenu de l'avancement des travaux, il est possible que l'horaire puisse changer en tout temps.\n\nUn SMS final vous sera envoyé tous les jours à 18H pour votre calendrier final du lendemain."
                     sms_history_value = {
-                        "to_number_phone_country": rec.session_id.sms_to_country_default,
                         "to_number_phone": phone,
-                        "from_number_phone_country": rec.session_id.sms_from_country,
-                        "from_number_phone": rec.session_id.sms_from_number_phone,
-                        # "group_execution_name": group_execution_name,
                         "name": msg_employe,
                         "processus_id": rec.id,
                         "session_id": rec.session_id.id,
@@ -1273,8 +1301,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
                             if employee_id.work_phone
                             else to
                         ),
-                        "from_number_phone_country": rec.session_id.sms_from_country,
-                        "from_number_phone": rec.session_id.sms_from_number_phone,
+                        "from_number_phone_country": rec.session_id.sms_from_country_default,
+                        "from_number_phone": rec.session_id.sms_from_number_phone_default,
                         # "group_execution_name": group_execution_name,
                         "processus_id": rec.id,
                         "session_id": rec.session_id.id,
@@ -1291,8 +1319,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
             value_summary_sms = {
                 "to_number_phone_country": to_country,
                 "to_number_phone": to,
-                "from_number_phone_country": rec.session_id.sms_from_country,
-                "from_number_phone": rec.session_id.sms_from_number_phone,
+                "from_number_phone_country": rec.session_id.sms_from_country_default,
+                "from_number_phone": rec.session_id.sms_from_number_phone_default,
                 # "group_execution_name": group_execution_name,
                 "processus_id": rec.id,
                 "session_id": rec.session_id.id,

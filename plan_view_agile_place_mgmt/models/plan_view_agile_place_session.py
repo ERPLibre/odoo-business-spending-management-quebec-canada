@@ -28,10 +28,9 @@ class PlanViewAgilePlaceSession(models.Model):
 
     sms_api_token = fields.Char()
 
-    # TODO add _default into this name
-    sms_from_number_phone = fields.Char()
+    sms_from_number_phone_default = fields.Char()
 
-    sms_from_country = fields.Char(default="+1")
+    sms_from_country_default = fields.Char(default="+1")
 
     sms_enable = fields.Boolean(
         default=False, help="Ignore this functionality if not enable."
