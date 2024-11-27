@@ -443,6 +443,7 @@ class PlanViewAgilePlaceCard(models.Model):
     def get_str_target_achieved(self):
         self.ensure_one()
         if not self.card_details:
+            # TODO maybe force refresh
             return None
         dct_details = json.loads(self.card_details)
         dct_custom_icon = dct_details.get("customIcon")
@@ -450,3 +451,13 @@ class PlanViewAgilePlaceCard(models.Model):
             return None
         title = dct_custom_icon.get("title")
         return title
+
+    def get_custom_field_value(self, custom_field_name):
+        self.ensure_one()
+        if not self.card_details:
+            return None
+        dct_details = json.loads(self.card_details)
+        lst_custom_field = dct_details.get("customFields")
+        for dct_custom_field in lst_custom_field:
+            if dct_custom_field.get("label") == custom_field_name:
+                return dct_custom_field.get("value")

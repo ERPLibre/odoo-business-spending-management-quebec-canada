@@ -47,6 +47,12 @@
                         </group>
                         <group string="Validation">
                             <field name="validation_target_achieved" />
+                            <field name="validation_algo" />
+                            <field name="validation_location_custom_field_name" />
+                            <field name="validation_location_custom_field_expected_value" />
+                            <field name="validation_location_expected_associate_type_card_same_lane" />
+                            <field name="validation_location_expected_associate_different_size" />
+                            <field name="validation_location_expected_associate_target_achieve" />
                         </group>
                         <group string="SMS">
                             <field name="sms_summary_phone" />

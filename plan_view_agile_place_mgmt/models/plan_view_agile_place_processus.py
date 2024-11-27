@@ -143,6 +143,36 @@ class PlanViewAgilePlaceProcessus(models.Model):
         help="Validation string in target_achieved for detected card, support ; for multiple choice."
     )
 
+    validation_location_custom_field_name = fields.Char(
+        help="Search the custom field name of card to extract information."
+    )
+
+    validation_location_custom_field_expected_value = fields.Char(
+        help="Expected value to continue the validation from value validation_location_custom_field_name."
+    )
+
+    validation_location_expected_associate_type_card_same_lane = fields.Char(
+        help="Expected associate type card in same lane, or give error."
+    )
+
+    validation_location_expected_associate_different_size = fields.Integer(
+        help="Expected associate card with a different size."
+    )
+
+    validation_location_expected_associate_target_achieve = fields.Char(
+        help="Expected associate card with a specified target achieve."
+    )
+
+    validation_algo = fields.Selection(
+        selection=[
+            (
+                "associate_card_location_inclusion",
+                "Associate card with location inclusion",
+            ),
+        ],
+        help="Will execute a validation algorithm",
+    )
+
     search_recursive_lane = fields.Boolean(
         help="Get all card recursively from lane_id."
     )
@@ -1314,6 +1344,87 @@ class PlanViewAgilePlaceProcessus(models.Model):
                         rec.log_error_txt += msg_txt
                         _logger.error(msg_txt.strip())
                         has_error = True
+                if (
+                    rec.validation_algo
+                    and rec.validation_algo
+                    == "associate_card_location_inclusion"
+                ):
+                    # Search associate card location
+                    location_card_id = self.env[
+                        "plan.view.agile.place.card"
+                    ].search([("entete", "=", card_id.lane_name)])
+                    lst_inclusion = location_card_id.get_custom_field_value(
+                        rec.validation_location_custom_field_name
+                    )
+                    if (
+                        rec.validation_location_custom_field_expected_value
+                        in lst_inclusion
+                    ):
+                        card_type_associate_id = self.env[
+                            "plan.view.agile.place.card.type"
+                        ].search(
+                            [
+                                (
+                                    "name",
+                                    "=",
+                                    rec.validation_location_expected_associate_type_card_same_lane,
+                                )
+                            ]
+                        )
+                        if not card_type_associate_id:
+                            msg_txt = f"ERR missing card type {rec.validation_location_expected_associate_type_card_same_lane}\n"
+                            rec.log_txt += msg_txt
+                            rec.log_error_txt += msg_txt
+                            _logger.error(msg_txt.strip())
+                            has_error = True
+                            continue
+                        associate_validation_card_id = self.env[
+                            "plan.view.agile.place.card"
+                        ].search(
+                            [
+                                ("lane_id", "=", card_id.lane_id.id),
+                                (
+                                    "card_type_id",
+                                    "=",
+                                    card_type_associate_id.id,
+                                ),
+                            ]
+                        )
+                        if not associate_validation_card_id:
+                            # TODO create record error
+                            msg_txt = f"ERR validation error, missing card type {rec.validation_location_expected_associate_type_card_same_lane} into lane {card_id.lane_name} associate with card name {card_id.name} on day {card_id.lane_parent_name}\n"
+                            rec.log_txt += msg_txt
+                            rec.log_error_txt += msg_txt
+                            _logger.error(msg_txt.strip())
+                            has_error = True
+                            continue
+                        if (
+                            rec.validation_location_expected_associate_different_size
+                        ):
+                            if (
+                                associate_validation_card_id.size
+                                == rec.validation_location_expected_associate_different_size
+                            ):
+                                # TODO create record error
+                                msg_txt = f"ERR validation error, associate card {rec.validation_location_expected_associate_type_card_same_lane} into lane {card_id.lane_name} associate with card name {card_id.name} on day {card_id.lane_parent_name} need a different size from {rec.validation_location_expected_associate_different_size}\n"
+                                rec.log_txt += msg_txt
+                                rec.log_error_txt += msg_txt
+                                _logger.error(msg_txt.strip())
+                                has_error = True
+                        associate_validation_card_id.update_card_details()
+                        target = (
+                            associate_validation_card_id.get_str_target_achieved()
+                        )
+                        if (
+                            target
+                            != rec.validation_location_expected_associate_target_achieve
+                        ):
+                            # TODO create record error
+                            msg_txt = f"ERR validation error, associate card {rec.validation_location_expected_associate_type_card_same_lane} into lane {card_id.lane_name} associate with card name {card_id.name} on day {card_id.lane_parent_name} need target achieve {rec.validation_location_expected_associate_target_achieve}\n"
+                            rec.log_txt += msg_txt
+                            rec.log_error_txt += msg_txt
+                            _logger.error(msg_txt.strip())
+                            has_error = True
             if not has_error:
                 msg_txt = f"LOG Success no error validation.\n"
                 rec.log_txt += msg_txt
@@ -1835,6 +1946,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
         for rec in self:
             if rec.fake_regex_lane and rec.fake_regex_lane == "jour d/m":
                 lane_ids = rec._get_lane_from_regex_day()
+                if sync_cards:
+                    lane_ids.action_sync_cards()
             else:
                 lane_ids = rec.search_lanes_from_processus(
                     sync_cards=sync_cards
