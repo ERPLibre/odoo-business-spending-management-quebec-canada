@@ -43,6 +43,10 @@
                             <field name="is_root_lane" />
                             <field name="search_recursive_lane" />
                             <field name="fake_regex_lane" />
+                            <field name="force_refresh_custom_fields" />
+                        </group>
+                        <group string="Validation">
+                            <field name="validation_target_achieved" />
                         </group>
                         <group string="SMS">
                             <field name="sms_summary_phone" />
@@ -87,7 +91,6 @@
                             <field name="process_execute_after_ids" widget="many2many_tags" />
                         </group>
                         <group string="Extract data">
-                            <field name="force_refresh_custom_fields" />
                             <field name="force_update_after_create" />
                             <field name="default_value_model" />
                             <field name="compute_model_fsm_location" />

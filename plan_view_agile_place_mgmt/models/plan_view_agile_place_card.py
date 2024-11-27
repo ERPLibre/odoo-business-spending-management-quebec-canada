@@ -439,3 +439,14 @@ class PlanViewAgilePlaceCard(models.Model):
                 card_to_delete_ids += card_id
         if card_to_delete_ids:
             card_to_delete_ids.unlink()
+
+    def get_str_target_achieved(self):
+        self.ensure_one()
+        if not self.card_details:
+            return None
+        dct_details = json.loads(self.card_details)
+        dct_custom_icon = dct_details.get("customIcon")
+        if not dct_custom_icon:
+            return None
+        title = dct_custom_icon.get("title")
+        return title

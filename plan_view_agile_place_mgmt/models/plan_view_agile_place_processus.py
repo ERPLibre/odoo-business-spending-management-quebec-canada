@@ -54,6 +54,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
             ("delete_cards", "Delete cards"),
             ("bind_create_card", "Bind Create card"),
             ("bind_delete_card", "Bind Delete card"),
+            ("validation_card", "Validation card"),
         ],
         required=True,
         default="create_model_from_card",
@@ -136,6 +137,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     is_root_lane = fields.Boolean(
         help="Enable when the cards to extract is inside the root lane, because a root lane has no parent lane."
+    )
+
+    validation_target_achieved = fields.Char(
+        help="Validation string in target_achieved for detected card, support ; for multiple choice."
     )
 
     search_recursive_lane = fields.Boolean(
@@ -446,6 +451,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 pass
             elif rec.algo_key == "delete_cards":
                 rec.algo_delete_cards()
+            elif rec.algo_key == "validation_card":
+                rec.algo_validation_card()
             elif rec.algo_key == "send_sms_schedule":
                 rec.algo_send_sms_schedule(
                     start_time,
@@ -1374,6 +1381,31 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 card_ids.enabled_bind = True
                 card_ids.unlink()
 
+    def algo_validation_card(self):
+        for rec in self:
+            card_ids = rec.search_cards_from_processus()
+            msg_txt = f"LOG Info {len(card_ids)} cards\n"
+            rec.log_txt += msg_txt
+            rec.log_error_txt += msg_txt
+            _logger.info(msg_txt.strip())
+
+            has_error = False
+
+            for card_id in card_ids:
+                if rec.validation_target_achieved:
+                    target_achieved = card_id.get_str_target_achieved()
+                    if rec.validation_target_achieved != target_achieved:
+                        # TODO create record error
+                        msg_txt = f"ERR card on lane {card_id.lane_name} and lane parent {card_id.lane_parent_name} with target achieved {target_achieved}, expected {rec.validation_target_achieved}\n"
+                        rec.log_txt += msg_txt
+                        rec.log_error_txt += msg_txt
+                        _logger.error(msg_txt.strip())
+                        has_error = True
+            if not has_error:
+                msg_txt = f"LOG Success no error validation.\n"
+                rec.log_txt += msg_txt
+                _logger.log(msg_txt.strip())
+
     def algo_copy_cards_from_lane(self, start_time):
         for rec in self:
             lane_from_copy_ids = rec.search_lanes_from_processus(
@@ -1469,25 +1501,24 @@ class PlanViewAgilePlaceProcessus(models.Model):
             [("board_id", "=", rec.board_id.id)]
         )
         regex = r"(?P<jour>[A-Z]+)\s+(?P<journee>\d+)/(?P<mois>\d+)"
+        next_day = self.return_next_open_day(
+            datetime.datetime.now().astimezone(user_timezone),
+            delay_day=rec.delay_in_day,
+            is_skipping_weekend=rec.ignore_weekend,
+        )
+
         for lane_id in lane_ids:
             result = re.search(regex, lane_id.title)
             if not result:
                 continue
-            # data = {
-            #     "jour": result.group("jour"),
-            #     "journee": int(result.group("journee")),
-            #     "mois": int(result.group("mois")),
-            # }
-
-            next_day = self.return_next_open_day(
-                datetime.datetime.now().astimezone(user_timezone),
-                delay_day=rec.delay_in_day,
-                is_skipping_weekend=rec.ignore_weekend,
-            )
             if next_day.month == int(
                 result.group("mois")
             ) and next_day.day == int(result.group("journee")):
                 find_lane_ids += lane_id
+        if rec.search_recursive_lane:
+            find_lane_ids = find_lane_ids.get_list_child_lane_from_lane(
+                add_itself=True
+            )
         return find_lane_ids
 
     def _get_month_fr(self, ttype="dict", value=0):
@@ -1882,9 +1913,16 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     def search_cards_from_processus(self, sync_cards=True):
         # This method sync card before search it
+        user_timezone = timezone(self.env.user.tz or "UTC")
+
         card_ids = self.env["plan.view.agile.place.card"]
         for rec in self:
-            lane_ids = rec.search_lanes_from_processus(sync_cards=sync_cards)
+            if rec.fake_regex_lane and rec.fake_regex_lane == "jour d/m":
+                lane_ids = self._get_lane_from_regex_day(rec, user_timezone)
+            else:
+                lane_ids = rec.search_lanes_from_processus(
+                    sync_cards=sync_cards
+                )
             if not lane_ids:
                 msg_txt = f"ERR cannot find lane into '{rec.name}'.\n"
                 rec.log_txt += msg_txt
@@ -1903,11 +1941,21 @@ class PlanViewAgilePlaceProcessus(models.Model):
                         ("board_id", "=", rec.board_id.id),
                     ]
                 )
+                if not type_card_ids:
+                    msg_txt = (
+                        f"WARN cannot find type card '{lst_type_card}'.\n"
+                    )
+                    rec.log_txt += msg_txt
+                    rec.log_error_txt += msg_txt
+
                 lst_query.append(("card_type_id", "in", type_card_ids.ids))
             lst_query.append(("board_id", "=", rec.board_id.id))
             card_ids += self.env["plan.view.agile.place.card"].search(
                 lst_query
             )
+            if rec.force_refresh_custom_fields:
+                for card_id in card_ids:
+                    card_id.update_card_details()
         return card_ids
 
     @staticmethod
@@ -1917,18 +1965,20 @@ class PlanViewAgilePlaceProcessus(models.Model):
         return lundi
 
     @staticmethod
-    def return_next_open_day(date, delay_day=1, is_skipping_weekend=True):
+    def return_next_open_day(
+        selected_date, delay_day=1, is_skipping_weekend=True
+    ):
         # TODO support weekday, check next day from calendar into system
-        prochain_jour = date + datetime.timedelta(days=delay_day)
+        target_date = selected_date
+        remaining_days = abs(delay_day)
+        increment = 1 if delay_day > 0 else -1
+        while remaining_days > 0:
+            target_date += datetime.timedelta(days=increment)
+            if not is_skipping_weekend or target_date.weekday() < 5:
+                # Ignore weekend
+                remaining_days -= 1
 
-        if is_skipping_weekend:
-            while prochain_jour.weekday() in (
-                5,
-                6,
-            ):  # 5 = saturday, 6 = sunday
-                prochain_jour += datetime.timedelta(days=delay_day)
-
-        return prochain_jour
+        return target_date
 
     @staticmethod
     def get_str_time_execution(start_time):
