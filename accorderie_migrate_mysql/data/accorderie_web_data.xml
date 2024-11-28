@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="theme_background_image" model="ir.attachment">
+    <field name="datas_fname">background_apps_menu.png</field>
+    <field name="name">background_apps_menu</field>
+    <field name="datas" type="base64" file="accorderie_migrate_mysql/static/img/background-accorderie-1024x722.png"/>
+  </record>
+
+  <record id="logo_blanc_accorderie" model="ir.attachment">
+    <field name="datas_fname">logonoiblancaccorderie.jpg</field>
+    <field name="name">logo blanc accorderie</field>
+    <field name="datas" type="base64" file="accorderie_migrate_mysql/static/img/logonoiblancaccorderie.jpg"/>
+  </record>
+</odoo>
