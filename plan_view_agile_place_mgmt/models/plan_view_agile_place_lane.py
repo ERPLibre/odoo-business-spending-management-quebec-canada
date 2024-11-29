@@ -138,6 +138,41 @@ class PlanViewAgilePlaceLane(models.Model):
                 rec.board_id, from_lane=rec
             )
 
+    def move_to_lane(self, to_lane_id):
+        self.ensure_one()
+        rec = self
+        # Rename the lane
+        to_lane_id.with_context({"enable_sync_lane": True}).title = rec.title
+        # Move card
+        if rec.card_ids:
+            for card_id in rec.card_ids:
+                card_id.lane_id = to_lane_id.id
+        # Recursive it, respect the sequence
+        to_lane_child_ids = to_lane_id.lane_child_ids.sorted("sequence")
+        lane_child_ids = rec.lane_child_ids.sorted("sequence")
+
+        for i, lane_id in enumerate(lane_child_ids):
+            if len(to_lane_child_ids) <= i:
+                _logger.error(
+                    f"ERR Moving lane index [{i}] error, max len {len(to_lane_child_ids)}"
+                )
+                continue
+            child_to_lane_id = to_lane_child_ids[i]
+            lane_id.move_to_lane(child_to_lane_id)
+
+    def delete_all_cards(self):
+        card_ids = self.get_all_cards()
+        if card_ids.exists():
+            card_ids.enabled_bind = True
+            card_ids.unlink()
+
+    def get_all_cards(self):
+        card_ids = self.env["plan.view.agile.place.card"]
+        lane_ids = self.get_list_child_lane_from_lane(add_itself=True)
+        for lane_id in lane_ids:
+            card_ids += lane_id.card_ids
+        return card_ids
+
     def get_list_child_lane_from_lane(self, add_itself=False):
         lane_ids = self.env["plan.view.agile.place.lane"]
         for rec in self:
@@ -156,6 +191,10 @@ class PlanViewAgilePlaceLane(models.Model):
         return [a.lane_id_pvap for a in lane_ids]
 
     def write(self, vals):
+        if "title" in vals.keys():
+            value_is_different = vals.get("title") != self.title
+        else:
+            value_is_different = False
         status = super().write(vals)
         if not status:
             return status
@@ -163,6 +202,8 @@ class PlanViewAgilePlaceLane(models.Model):
             if not rec.lane_id_pvap:
                 continue
             if not self.env.context.get("enable_sync_lane"):
+                continue
+            if not value_is_different:
                 continue
             data = {
                 "title": rec.title,

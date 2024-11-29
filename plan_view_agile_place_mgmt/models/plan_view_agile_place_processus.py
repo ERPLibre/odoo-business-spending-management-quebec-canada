@@ -51,6 +51,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 "copy_cards_from_lane_from_board",
                 "Copy cards from board to another board",
             ),
+            (
+                "move_root_lane_week",
+                "Move root lane week to previous week",
+            ),
             ("delete_cards", "Delete cards"),
             ("bind_create_card", "Bind Create card"),
             ("bind_delete_card", "Bind Delete card"),
@@ -474,6 +478,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
             if rec.algo_key == "copy_cards_from_lane_from_board":
                 rec.fill_board_id(use_from_board=True, raise_error=False)
+            if rec.algo_key == "move_root_lane_week":
+                rec.algo_move_root_lane_week()
             elif rec.algo_key == "copy_cards_from_lane":
                 rec.algo_copy_cards_from_lane(start_time)
             elif rec.algo_key == "send_reminder_sms_schedule_condition":
@@ -1430,6 +1436,56 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 rec.log_txt += msg_txt
                 _logger.info(msg_txt.strip())
 
+    def algo_move_root_lane_week(self):
+        lst_day_name = self._get_week_day_fr(ttype="list")
+        for rec in self:
+            lst_lane_week_and_date = rec._get_all_week_lane(
+                return_date_monday=True
+            )
+            if rec.rename_week_lane_name_icon:
+                lst_icon = rec.rename_week_lane_name_icon.split(";")
+            else:
+                lst_icon = []
+            # Detect first week, delete all cards
+            # Detect second week, move all cards to first week, rename lane and repeat
+            # Last week, create a new week
+            last_week_done = None
+            for i_week, lst_data in enumerate(lst_lane_week_and_date):
+                lane_week_id, lane_date = lst_data
+                is_last_week = i_week == len(lst_lane_week_and_date) - 1
+                if not last_week_done:
+                    lane_week_id.delete_all_cards()
+                if last_week_done:
+                    lane_week_id.move_to_lane(last_week_done)
+                last_week_done = lane_week_id
+                if is_last_week:
+                    next_week = lane_date + datetime.timedelta(weeks=1)
+                    # Rename week to next week
+                    if "%s" in rec.rename_week_lane_name_pattern:
+                        value_pattern = f"{next_week.day} {self._get_month_fr(ttype='str', value=next_week.month - 1).upper()} {next_week.year}"
+                        lane_week_new_name = (
+                            rec.rename_week_lane_name_pattern % value_pattern
+                        )
+                    else:
+                        lane_week_new_name = rec.rename_week_lane_name_pattern
+                    if lst_icon:
+                        lane_week_new_name = (
+                            f"{lst_icon[-1]} {lane_week_new_name}"
+                        )
+                    lane_week_id.with_context(
+                        {"enable_sync_lane": True}
+                    ).title = lane_week_new_name
+                    # Rename child day
+                    next_day = next_week
+                    for i_day, lane_child_day_id in enumerate(
+                        lane_week_id.lane_child_ids
+                    ):
+                        day_name = f"{lst_day_name[i_day].upper()} {next_day.day}/{next_day.month}"
+                        lane_child_day_id.with_context(
+                            {"enable_sync_lane": True}
+                        ).title = day_name
+                        next_day += datetime.timedelta(days=1)
+
     def algo_copy_cards_from_lane(self, start_time):
         for rec in self:
             lane_from_copy_ids = rec.search_lanes_from_processus(
@@ -1568,6 +1624,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
             return lst_value
         elif ttype == "str":
             return lst_value[value]
+        elif ttype == "int":
+            return lst_value.index(value) + 1
         return {
             "January": "Janvier",
             "February": "Février",
@@ -1598,30 +1656,19 @@ class PlanViewAgilePlaceProcessus(models.Model):
             return lst_value
         elif ttype == "str":
             return lst_value[value]
-        # return {
-        #     "January": "Janvier",
-        #     "February": "Février",
-        #     "March": "Mars",
-        #     "April": "Avril",
-        #     "May": "Mai",
-        #     "June": "Juin",
-        #     "July": "Juillet",
-        #     "August": "Août",
-        #     "September": "Septembre",
-        #     "October": "Octobre",
-        #     "November": "Novembre",
-        #     "December": "Décembre",
-        # }
 
     def _get_lane_from_regex_week(self):
         user_timezone = timezone(self.env.user.tz or "UTC")
         mois_en_francais = self._get_month_fr()
         find_lane_ids = self.env["plan.view.agile.place.lane"]
+        regex = r"(?P<journee>\d{1,2})\s+(?P<mois>\w+)\s+(?P<annee>\d{4})"
         for rec in self:
             lane_ids = self.env["plan.view.agile.place.lane"].search(
-                [("board_id", "=", rec.board_id.id)]
+                [
+                    ("board_id", "=", rec.board_id.id),
+                    ("lane_parent_id", "=", False),
+                ]
             )
-            regex = r"(?P<journee>\d{2})\s+(?P<mois>\w+)\s+(?P<annee>\d{4})"
             for lane_id in lane_ids:
                 result = re.search(regex, lane_id.title)
                 if not result:
@@ -1637,6 +1684,34 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 ):
                     find_lane_ids += lane_id
         return find_lane_ids
+
+    def _get_all_week_lane(self, return_date_monday=False):
+        find_lane_ids = self.env["plan.view.agile.place.lane"]
+        lst_return_date_monday = []
+        regex = r"(?P<journee>\d{1,2})\s+(?P<mois>\w+)\s+(?P<annee>\d{4})"
+        for rec in self:
+            lane_ids = self.env["plan.view.agile.place.lane"].search(
+                [
+                    ("board_id", "=", rec.board_id.id),
+                    ("lane_parent_id", "=", False),
+                ]
+            )
+            for lane_id in lane_ids:
+                result = re.search(regex, lane_id.title)
+                if not result:
+                    continue
+                find_lane_ids += lane_id
+                day = int(result.group("journee"))
+                month = self._get_month_fr(
+                    ttype="int", value=result.group("mois").title()
+                )
+                year = int(result.group("annee"))
+                lane_date = datetime.date(year, month, day)
+                lst_return_date_monday.append((lane_id, lane_date))
+
+        if not return_date_monday:
+            return find_lane_ids
+        return lst_return_date_monday
 
     def create_model_from_card(
         self,
