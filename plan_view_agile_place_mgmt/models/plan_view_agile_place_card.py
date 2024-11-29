@@ -281,7 +281,7 @@ class PlanViewAgilePlaceCard(models.Model):
         data = {
             "limit": 500,
             "board": board_id.board_id_pvap,
-            # "include": "customFields",
+            "include": "customFields",
         }
         if lst_pvap_lane:
             data["lanes"] = ",".join(lst_pvap_lane)
@@ -347,10 +347,10 @@ class PlanViewAgilePlaceCard(models.Model):
                 external_link = ""
 
             # Force update at the end
-            # if "customFields" in dct_card.keys():
-            #     custom_fields = json.dumps(dct_card.get("customFields"))
-            # else:
-            #     custom_fields = False
+            if "customFields" in dct_card.keys():
+                custom_fields = json.dumps(dct_card.get("customFields"))
+            else:
+                custom_fields = False
 
             board_id = self.env["plan.view.agile.place.board"].search(
                 [("board_id_pvap", "=", board_id_pvap)], limit=1
@@ -422,6 +422,7 @@ class PlanViewAgilePlaceCard(models.Model):
                     "assigned_users": assigned_users,
                     "entete": entete,
                     "external_link": external_link,
+                    "custom_fields": custom_fields,
                 }
 
                 card_id = self.env["plan.view.agile.place.card"].create(
