@@ -9,7 +9,7 @@
                     <button name="action_execute_algo" string="Execute" type="object" class="oe_highlight" />
                     <button
                         name="action_execute_send_sms"
-                        string="Send SMS "
+                        string="Send SMS"
                         type="object"
                         class="btn-warning"
                         attrs="{'invisible': [('sms_enable', '=', False)]}"
@@ -42,7 +42,7 @@
                             <field name="lane_name" />
                             <field name="is_root_lane" />
                             <field name="search_recursive_lane" />
-                            <field name="fake_regex_lane" />
+                            <field name="lane_extract_algo" />
                             <field name="force_refresh_custom_fields" />
                         </group>
                         <group string="Validation">
@@ -254,7 +254,7 @@
         id="plan_view_agile_place_processus_view_agile_place_processus_action_window"
         name="View agile place processus"
         res_model="plan.view.agile.place.processus"
-        view_mode="kanban,tree,pivot,graph,form"
+        view_mode="tree,kanban,pivot,graph,form"
         context="{'search_default_group_algo_key': 1}"
     />
 </odoo>

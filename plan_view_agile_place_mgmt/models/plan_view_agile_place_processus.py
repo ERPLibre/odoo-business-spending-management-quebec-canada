@@ -125,7 +125,12 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     lane_name = fields.Char()
 
-    fake_regex_lane = fields.Char(help="Expect {'model': type_card_name}")
+    lane_extract_algo = fields.Selection(
+        selection=[
+            ("jour d/m", "jour d/m"),
+            ("week d/m/y", "week d/m/y"),
+        ]
+    )
 
     type_card_bind = fields.Char()
 
@@ -499,18 +504,18 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 pass
             elif rec.algo_key == "send_sms_all_employee":
                 rec.algo_send_annonce_sms_all_employee()
-            elif rec.algo_key == "delete_cards":
-                rec.algo_delete_cards()
-            elif rec.algo_key == "validation_card":
-                rec.algo_validation_card()
+            elif rec.algo_key == "send_sms_schedule_week_summary":
+                rec.algo_send_sms_schedule_week_summary()
             elif rec.algo_key == "send_sms_schedule":
                 rec.algo_send_sms_schedule(
                     start_time,
                     dct_custom_field_to_field_name,
                     lst_bind_required_field_list,
                 )
-            elif rec.algo_key == "send_sms_schedule_week_summary":
-                rec.algo_send_sms_schedule_week_summary()
+            elif rec.algo_key == "delete_cards":
+                rec.algo_delete_cards()
+            elif rec.algo_key == "validation_card":
+                rec.algo_validation_card()
             elif rec.algo_key == "create_model_from_lane":
                 rec.algo_create_model_from_lane(start_time, diff_hour_timezone)
             elif rec.algo_key == "create_new_board":
@@ -995,138 +1000,134 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     def algo_send_sms_schedule_week_summary(self):
         for rec in self:
-            if rec.algo_key in ["send_sms_schedule_week_summary"]:
-                card_ids = self.search_cards_from_processus(
-                    sync_cards=rec.force_sync_before_algo
-                )
+            card_ids = self.search_cards_from_processus(
+                sync_cards=rec.force_sync_before_algo
+            )
 
-                dct_list_employee = collections.defaultdict(list)
-                for card_id in card_ids:
-                    if not card_id.custom_fields:
-                        card_id.update_card_details()
-                    # Separate per name
-                    if not card_id.custom_fields:
-                        continue
-                    lst_custom_fields = json.loads(card_id.custom_fields)
-                    employee_name = card_id.name
-                    is_cancel = True
-                    for dct_custom_fields in lst_custom_fields:
+            dct_list_employee = collections.defaultdict(list)
+            for card_id in card_ids:
+                if not card_id.custom_fields:
+                    card_id.update_card_details()
+                # Separate per name
+                if not card_id.custom_fields:
+                    continue
+                lst_custom_fields = json.loads(card_id.custom_fields)
+                employee_name = card_id.name
+                is_cancel = False
+                for dct_custom_fields in lst_custom_fields:
+                    for bind_required_field in json.loads(
+                        rec.bind_required_field_list
+                    ):
                         if (
                             dct_custom_fields.get("label")
-                            == "NOTIFICATION SMS: EMPLOYÉ"
-                        ):
-                            if dct_custom_fields["value"] == [
-                                "Rappel horaire EMPLOYÉ"
-                            ]:
-                                is_cancel = False
-                        if (
-                            dct_custom_fields.get("label")
-                            == "TÉLÉPHONE: EMPLOYÉ"
+                            == bind_required_field
                         ):
                             phone_value = dct_custom_fields["value"]
                             if not phone_value:
                                 is_cancel = True
                                 break
                             employee_name += "#" + phone_value
-                    if is_cancel:
-                        print(f"Cancel {employee_name}")
-                        continue
-                    dct_list_employee[employee_name].append(card_id)
+                if is_cancel:
+                    print(f"Cancel {employee_name}")
+                    continue
+                dct_list_employee[employee_name].append(card_id)
 
-                sms_history_ids = self.env["plan.view.agile.place.sms.history"]
-                for employee_name, lst_card in dct_list_employee.items():
-                    # Separate per date
-                    dct_day = collections.defaultdict(list)
-                    for card_id in lst_card:
-                        dct_day[card_id.lane_parent_name].append(card_id)
-                    name, phone = employee_name.split("#")
-                    msg_employe = f"{rec.sms_message_prefix} Calendrier de la semaine pour {name}\n\n"
-                    # Reorder list from weekday
-                    lst_weekday = self._get_week_day_fr(ttype="list")
-                    for weekday in lst_weekday:
-                        for str_day, lst_card_week in dct_day.items():
-                            if str_day.startswith(weekday.upper()):
-                                for card_week_id in lst_card_week:
-                                    str_date_time = str_day
-                                    if card_week_id.size:
-                                        str_date_time += (
-                                            f"({card_week_id.size}H)"
-                                        )
-                                    str_date_time += ": "
-                                    coule_msg = ""
+            sms_history_ids = self.env["plan.view.agile.place.sms.history"]
+            for employee_name, lst_card in dct_list_employee.items():
+                # Separate per date
+                dct_day = collections.defaultdict(list)
+                for card_id in lst_card:
+                    dct_day[card_id.lane_parent_name].append(card_id)
+                name, phone = employee_name.split("#")
+                msg_employe = f"{rec.sms_message_prefix} Calendrier de la semaine pour {name}\n\n"
+                # Reorder list from weekday
+                lst_weekday = self._get_week_day_fr(ttype="list")
+                for weekday in lst_weekday:
+                    for str_day, lst_card_week in dct_day.items():
+                        if str_day.startswith(weekday.upper()):
+                            for card_week_id in lst_card_week:
+                                str_date_time = str_day
+                                if card_week_id.size:
+                                    str_date_time += f"({card_week_id.size}H)"
+                                str_date_time += ": "
+                                coule_msg = ""
 
-                                    if rec.sms_detect_card_type_msg_1:
-                                        lst_type_card = rec.sms_detect_card_type_msg_1.split(
+                                if rec.sms_detect_card_type_msg_1:
+                                    lst_type_card = (
+                                        rec.sms_detect_card_type_msg_1.split(
                                             ";"
                                         )
-                                        type_card_msg_1_ids = self.env[
-                                            "plan.view.agile.place.card.type"
-                                        ].search(
-                                            [
-                                                (
-                                                    "name",
-                                                    "in",
-                                                    lst_type_card,
-                                                ),
-                                                (
-                                                    "board_id",
-                                                    "=",
-                                                    rec.board_id.id,
-                                                ),
-                                            ]
-                                        )
-                                        if type_card_msg_1_ids:
-                                            lst_query = [
-                                                (
-                                                    "board_id",
-                                                    "=",
-                                                    rec.board_id.id,
-                                                ),
-                                                (
-                                                    "lane_id",
-                                                    "in",
-                                                    card_week_id.lane_id.ids,
-                                                ),
-                                                (
-                                                    "card_type_id",
-                                                    "in",
-                                                    type_card_msg_1_ids.ids,
-                                                ),
-                                            ]
-                                            card_msg_1_ids = self.env[
-                                                "plan.view.agile.place.card"
-                                            ].search(lst_query)
+                                    )
+                                    type_card_msg_1_ids = self.env[
+                                        "plan.view.agile.place.card.type"
+                                    ].search(
+                                        [
+                                            (
+                                                "name",
+                                                "in",
+                                                lst_type_card,
+                                            ),
+                                            (
+                                                "board_id",
+                                                "=",
+                                                rec.board_id.id,
+                                            ),
+                                        ]
+                                    )
+                                    if type_card_msg_1_ids:
+                                        lst_query = [
+                                            (
+                                                "board_id",
+                                                "=",
+                                                rec.board_id.id,
+                                            ),
+                                            (
+                                                "lane_id",
+                                                "in",
+                                                card_week_id.lane_id.ids,
+                                            ),
+                                            (
+                                                "card_type_id",
+                                                "in",
+                                                type_card_msg_1_ids.ids,
+                                            ),
+                                        ]
+                                        card_msg_1_ids = self.env[
+                                            "plan.view.agile.place.card"
+                                        ].search(lst_query)
 
-                                            if len(card_msg_1_ids) > 1:
-                                                msg_txt = (
-                                                    "ERR Double card"
-                                                    f" '{lst_type_card}' into"
-                                                    " lane"
-                                                    f" '{card_week_id.lane_name}'"
-                                                )
-                                                rec.log_txt += msg_txt
-                                                rec.log_error_txt += msg_txt
-                                                _logger.error(msg_txt.strip())
-                                            if card_msg_1_ids:
-                                                if card_msg_1_ids.size:
-                                                    coule_msg = f"Coulée à {card_msg_1_ids.size}H"
-                                                else:
-                                                    coule_msg = "Coulée"
+                                        if len(card_msg_1_ids) > 1:
+                                            msg_txt = (
+                                                "ERR Double card"
+                                                f" '{lst_type_card}' into"
+                                                " lane"
+                                                f" '{card_week_id.lane_name}'"
+                                            )
+                                            rec.log_txt += msg_txt
+                                            rec.log_error_txt += msg_txt
+                                            _logger.error(msg_txt.strip())
+                                        if card_msg_1_ids:
+                                            if card_msg_1_ids.size:
+                                                coule_msg = f"Coulée à {card_msg_1_ids.size}H"
+                                            else:
+                                                coule_msg = "Coulée"
 
-                                    msg_employe += f"{str_date_time}{card_week_id.lane_name}"
-                                    if coule_msg:
-                                        msg_employe += f" - {coule_msg}"
-                                    msg_employe += "\n"
-                    msg_employe += "\nCompte-tenu de l'avancement des travaux, il est possible que l'horaire puisse changer en tout temps.\n\nUn SMS final vous sera envoyé tous les jours à 18H pour votre calendrier final du lendemain."
-                    sms_history_value = {
-                        "to_number_phone": phone,
-                        "name": msg_employe,
-                        "processus_id": rec.id,
-                        "session_id": rec.session_id.id,
-                    }
-                    sms_history_ids += self.env[
-                        "plan.view.agile.place.sms.history"
-                    ].create(sms_history_value)
+                                msg_employe += (
+                                    f"{str_date_time}{card_week_id.lane_name}"
+                                )
+                                if coule_msg:
+                                    msg_employe += f" - {coule_msg}"
+                                msg_employe += "\n"
+                msg_employe += "\nCompte-tenu de l'avancement des travaux, il est possible que l'horaire puisse changer en tout temps.\n\nUn SMS final vous sera envoyé tous les jours à 18H pour votre calendrier final du lendemain."
+                sms_history_value = {
+                    "to_number_phone": phone,
+                    "name": msg_employe,
+                    "processus_id": rec.id,
+                    "session_id": rec.session_id.id,
+                }
+                sms_history_ids += self.env[
+                    "plan.view.agile.place.sms.history"
+                ].create(sms_history_value)
 
     def algo_send_annonce_sms_all_employee(self):
         for rec in self:
@@ -1163,7 +1164,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
         lst_bind_required_field_list,
     ):
         for rec in self:
-            lst_filter_field = json.loads(rec.filter_field)
+            if rec.filter_field:
+                lst_filter_field = json.loads(rec.filter_field)
+            else:
+                lst_filter_field = []
 
             to = (
                 rec.session_id.sms_to_number_phone_default
@@ -1915,6 +1919,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 rec.name,
                 rec.board_id,
                 rec.lane_root_name,
+                lane_extract_algo=rec.lane_extract_algo,
                 lane_parent_name=rec.lane_parent_name,
                 lane_sub_name=rec.lane_sub_name,
                 is_root_lane=rec.is_root_lane,
@@ -1932,6 +1937,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
         process_name,
         board_id,
         lane_root_name,
+        lane_extract_algo=None,
         lane_parent_name=None,
         lane_sub_name=None,
         lane_name=None,
@@ -1944,39 +1950,58 @@ class PlanViewAgilePlaceProcessus(models.Model):
         log_error_txt=None,
     ):
         self.ensure_one()
-        if not lane_root_name:
-            msg_txt = (
-                f"ERR processus '{process_name}' root lane name is empty.\n"
+        if lane_extract_algo:
+            if lane_extract_algo == "jour d/m":
+                # TODO this is wrong, they are not root lane
+                lane_root_ids = self._get_lane_from_regex_day()
+                is_root_lane = True
+            elif lane_extract_algo == "week d/m/y":
+                lane_root_ids = self._get_lane_from_regex_week()
+            else:
+                msg_txt = f"ERR processus '{process_name}' not supported lane_extract_algo {lane_extract_algo}.\n"
+                if log_txt:
+                    log_txt += msg_txt
+                if log_error_txt:
+                    log_error_txt += msg_txt
+                return
+        else:
+            if not lane_root_name:
+                msg_txt = f"ERR processus '{process_name}' root lane name is empty.\n"
+                if log_txt:
+                    log_txt += msg_txt
+                if log_error_txt:
+                    log_error_txt += msg_txt
+                return
+            lst_title_root = lane_root_name.split(";")
+            lane_root_ids = self.env["plan.view.agile.place.lane"].search(
+                [
+                    ("title", "in", lst_title_root),
+                    ("lane_parent_id", "=", False),
+                    ("board_id", "=", board_id.id),
+                ]
             )
-            if log_txt:
-                log_txt += msg_txt
-            if log_error_txt:
-                log_error_txt += msg_txt
-            return
-        lst_title_root = lane_root_name.split(";")
-        # TODO maybe a root has not parent
-        lane_root_ids = self.env["plan.view.agile.place.lane"].search(
-            [
-                ("title", "in", lst_title_root),
-                ("board_id", "=", board_id.id),
-            ]
-        )
-        if not lane_root_ids:
-            msg_txt = (
-                f"ERR processus '{process_name}' root lane name"
-                f" '{lane_root_name}'\n"
-            )
-            if log_txt:
-                log_txt += msg_txt
-            if log_error_txt:
-                log_error_txt += msg_txt
-            return self.env["plan.view.agile.place.lane"]
+            if not lane_root_ids:
+                msg_txt = (
+                    f"ERR processus '{process_name}' root lane name"
+                    f" '{lane_root_name}'\n"
+                )
+                if log_txt:
+                    log_txt += msg_txt
+                if log_error_txt:
+                    log_error_txt += msg_txt
+                return self.env["plan.view.agile.place.lane"]
         # Force auto refresh root lane
         if sync_cards:
-            msg_txt = (
-                f"INFO sync cards from processus '{process_name}' root lane name"
-                f" '{lane_root_name}'\n"
-            )
+            if lane_root_name:
+                msg_txt = (
+                    f"INFO sync cards from processus '{process_name}' root lane name"
+                    f" '{lane_root_name}'\n"
+                )
+            else:
+                msg_txt = (
+                    f"INFO sync cards from processus '{process_name}' root lane name"
+                    f" '{';'.join([a.title for a in lane_root_ids])}'\n"
+                )
             if log_txt:
                 log_txt += msg_txt
             _logger.info(msg_txt.strip())
@@ -2061,14 +2086,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
         # This method sync card before search it
         card_ids = self.env["plan.view.agile.place.card"]
         for rec in self:
-            if rec.fake_regex_lane and rec.fake_regex_lane == "jour d/m":
-                lane_ids = rec._get_lane_from_regex_day()
-                if sync_cards:
-                    lane_ids.action_sync_cards()
-            else:
-                lane_ids = rec.search_lanes_from_processus(
-                    sync_cards=sync_cards
-                )
+            lane_ids = rec.search_lanes_from_processus(sync_cards=sync_cards)
             if not lane_ids:
                 msg_txt = f"ERR cannot find lane into '{rec.name}'.\n"
                 rec.log_txt += msg_txt
