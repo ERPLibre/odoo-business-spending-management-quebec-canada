@@ -246,26 +246,6 @@ class PlanViewAgilePlaceSession(models.Model):
                 )
                 for ir_cron_id in ir_cron_ids:
                     ir_cron_id.active = rec.production_enabled
-                if rec.production_enabled:
-                    # warm up process with sms
-                    process_ids = self.env[
-                        "plan.view.agile.place.processus"
-                    ].search(
-                        [
-                            ("session_id", "=", rec.id),
-                            (
-                                "algo_key",
-                                "in",
-                                [
-                                    "send_sms_schedule",
-                                    "send_reminder_sms_schedule_condition",
-                                    "send_sms_schedule_week_summary",
-                                ],
-                            ),
-                        ]
-                    )
-                    for process_id in process_ids:
-                        process_id.action_execute_algo()
 
     def action_sync_board_info(self):
         board_ids = self.env["plan.view.agile.place.board"]

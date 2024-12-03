@@ -45,6 +45,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 "send_reminder_sms_schedule_condition",
                 "Send reminder SMS schedule condition",
             ),
+            (
+                "send_sms_all_employee",
+                "Send SMS general to all employee",
+            ),
             ("rename_lane", "Renommer des lanes"),
             ("copy_cards_from_lane", "Copy cards from lane to lane"),
             (
@@ -258,6 +262,14 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     sms_debug = fields.Boolean(
         help="Will overwrite automatic message by this manual message."
+    )
+
+    sms_unique_number = fields.Boolean(
+        help="When create SMS, will ignore if same number already exist. This will remove duplicate number."
+    )
+
+    sms_bind_custom_field_phone_number = fields.Char(
+        help="Will extract the number phone from this bind custom field."
     )
 
     sms_in_test_mode = fields.Boolean(
@@ -485,6 +497,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
             elif rec.algo_key == "send_reminder_sms_schedule_condition":
                 # TODO maybe can search employee information
                 pass
+            elif rec.algo_key == "send_sms_all_employee":
+                rec.algo_send_annonce_sms_all_employee()
             elif rec.algo_key == "delete_cards":
                 rec.algo_delete_cards()
             elif rec.algo_key == "validation_card":
@@ -1113,6 +1127,34 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     sms_history_ids += self.env[
                         "plan.view.agile.place.sms.history"
                     ].create(sms_history_value)
+
+    def algo_send_annonce_sms_all_employee(self):
+        for rec in self:
+            card_ids = rec.search_cards_from_processus(
+                sync_cards=rec.force_sync_before_algo
+            )
+            if not rec.sms_bind_custom_field_phone_number:
+                msg_txt = "ERR Cannot extract number phone from cards, please fill field sms_bind_custom_field_phone_number."
+                rec.log_txt += msg_txt
+                rec.log_error_txt += msg_txt
+                _logger.error(msg_txt.strip())
+                continue
+            lst_number = card_ids.get_custom_field_value(
+                rec.sms_bind_custom_field_phone_number
+            )
+            if not lst_number:
+                msg_txt = "ERR No phone number to extract."
+                rec.log_txt += msg_txt
+                rec.log_error_txt += msg_txt
+                _logger.error(msg_txt.strip())
+                continue
+            if rec.sms_unique_number:
+                lst_number = list(set(lst_number))
+            rec.sms_to_number_phone = ";".join(lst_number)
+
+            msg_txt = f"Info Found number phone {rec.sms_to_number_phone}."
+            rec.log_txt += msg_txt
+            _logger.info(msg_txt.strip())
 
     def algo_send_sms_schedule(
         self,

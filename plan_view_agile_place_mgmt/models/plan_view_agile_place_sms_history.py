@@ -114,6 +114,11 @@ class PlanViewAgilePlaceSmsHistory(models.Model):
                 _logger.error(error_msg)
                 continue
 
+            if not rec.name:
+                error_msg = f"Empty SMS, will not send to number phone {rec.to_number_phone}."
+                _logger.error(error_msg)
+                continue
+
             rec.from_number_real_phone = from_number_phone
 
             for to_number_phone_single in to_number_phone.split(";"):

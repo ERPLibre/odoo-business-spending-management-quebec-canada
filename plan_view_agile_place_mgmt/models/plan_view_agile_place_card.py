@@ -172,7 +172,9 @@ class PlanViewAgilePlaceCard(models.Model):
             # TODO miss active, moved_on, version, externalLinks,
             if rec.custom_fields:
                 # Strangely, need to switch id to fieldId
-                data["customFields"] = eval(rec.custom_fields.replace("'id'", "'fieldId'"))
+                data["customFields"] = eval(
+                    rec.custom_fields.replace("'id'", "'fieldId'")
+                )
                 # rec.custom_fields = ""
             if rec.description:
                 data["description"] = rec.description
@@ -456,11 +458,20 @@ class PlanViewAgilePlaceCard(models.Model):
         return title
 
     def get_custom_field_value(self, custom_field_name):
-        self.ensure_one()
-        if not self.card_details:
-            return None
-        dct_details = json.loads(self.card_details)
-        lst_custom_field = dct_details.get("customFields")
-        for dct_custom_field in lst_custom_field:
-            if dct_custom_field.get("label") == custom_field_name:
-                return dct_custom_field.get("value")
+        lst_value = []
+        for rec in self:
+            if rec.card_details:
+                dct_details = json.loads(rec.card_details)
+                lst_custom_field = dct_details.get("customFields")
+            elif rec.custom_fields:
+                lst_custom_field = json.loads(rec.custom_fields)
+            else:
+                continue
+            for dct_custom_field in lst_custom_field:
+                if dct_custom_field.get("label") == custom_field_name:
+                    value = dct_custom_field.get("value")
+                    if len(self) == 1:
+                        return value
+                    elif value:
+                        lst_value.append(value)
+        return lst_value
