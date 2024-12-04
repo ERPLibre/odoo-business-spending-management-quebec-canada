@@ -387,19 +387,22 @@ class PlanViewAgilePlaceProcessus(models.Model):
             if rec.log_error_txt is False:
                 rec.log_error_txt = ""
 
+            sms_history_ids = self.env["plan.view.agile.place.sms.history"]
             if rec.sms_debug:
-                sms_history_ids = self.env["plan.view.agile.place.sms.history"]
-                for sms_to_number_phone in rec.sms_to_number_phone.split(";"):
-                    sms_history_vals = {
-                        "name": rec.sms_message_to_send,
-                        "to_number_phone": sms_to_number_phone,
-                        "processus_id": rec.id,
-                        "session_id": rec.session_id.id,
-                    }
-                    sms_history_id = self.env[
-                        "plan.view.agile.place.sms.history"
-                    ].create(sms_history_vals)
-                    sms_history_ids += sms_history_id
+                if rec.sms_to_number_phone:
+                    for sms_to_number_phone in rec.sms_to_number_phone.split(
+                        ";"
+                    ):
+                        sms_history_vals = {
+                            "name": rec.sms_message_to_send,
+                            "to_number_phone": sms_to_number_phone,
+                            "processus_id": rec.id,
+                            "session_id": rec.session_id.id,
+                        }
+                        sms_history_id = self.env[
+                            "plan.view.agile.place.sms.history"
+                        ].create(sms_history_vals)
+                        sms_history_ids += sms_history_id
             else:
                 sms_history_ids = self.env[
                     "plan.view.agile.place.sms.history"

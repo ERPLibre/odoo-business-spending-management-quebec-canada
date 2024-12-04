@@ -9,6 +9,8 @@ from odoo import _, api, fields, models
 
 _logger = logging.getLogger(__name__)
 
+MAX_CHAR_SMS = 1599
+
 
 class PlanViewAgilePlaceSmsHistory(models.Model):
     _name = "plan.view.agile.place.sms.history"
@@ -121,25 +123,49 @@ class PlanViewAgilePlaceSmsHistory(models.Model):
 
             rec.from_number_real_phone = from_number_phone
 
-            for to_number_phone_single in to_number_phone.split(";"):
-                # Create request
-                pre_command = (
-                    f"--data-urlencode 'To={to_number_phone_single}'"
-                    f" --data-urlencode 'From={from_number_phone}'"
-                )
-                past_command = f' --data-urlencode "Body={rec.name}"'
-                command = pre_command + f" -u {api_token}" + past_command
-                cmd_curl = f"curl '{api_url}' -X POST {command}"
+            if len(rec.name) > MAX_CHAR_SMS:
+                body = rec.name
+                lst_body = []
+                i_start = 0
+                i_end = 0
+                while i_start < len(body):
+                    i_end = i_start + MAX_CHAR_SMS
+                    if i_end < len(body):
+                        # Manage break line
+                        dernier_saut = body.rfind("\n", i_start, i_end)
+                        if dernier_saut != -1:
+                            i_end = dernier_saut + 1
+                        else:
+                            # Manage space
+                            last_space = body.rfind(" ", i_start, i_end)
+                            if last_space != -1:
+                                i_end = last_space + 1
 
-                if rec.session_id.sms_enable and (
-                    not rec.processus_id
-                    or (
-                        rec.processus_id
-                        and not rec.processus_id.sms_in_test_mode
+                    # TODO maybe remove strip to accept whitespace before or after
+                    lst_body.append(body[i_start:i_end].strip())
+                    i_start = i_end
+            else:
+                lst_body = [rec.name]
+            for body in lst_body:
+                for to_number_phone_single in to_number_phone.split(";"):
+                    # Create request
+                    pre_command = (
+                        f"--data-urlencode 'To={to_number_phone_single}'"
+                        f" --data-urlencode 'From={from_number_phone}'"
                     )
-                ):
-                    # TODO catch output
-                    os.system(cmd_curl)
-                    rec.is_sent = True
-                else:
-                    _logger.info(pre_command + past_command)
+                    past_command = f' --data-urlencode "Body={body}"'
+                    command = pre_command + f" -u {api_token}" + past_command
+                    cmd_curl = f"curl '{api_url}' -X POST {command}"
+
+                    if rec.session_id.sms_enable and (
+                        not rec.processus_id
+                        or (
+                            rec.processus_id
+                            and not rec.processus_id.sms_in_test_mode
+                        )
+                    ):
+                        # TODO catch output
+                        os.system(cmd_curl)
+                        rec.is_sent = True
+                    else:
+                        _logger.info(pre_command + past_command)
