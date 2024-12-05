@@ -4,6 +4,7 @@
 
 import logging
 import os
+import time
 
 from odoo import _, api, fields, models
 
@@ -169,3 +170,6 @@ class PlanViewAgilePlaceSmsHistory(models.Model):
                         rec.is_sent = True
                     else:
                         _logger.info(pre_command + past_command)
+                if len(lst_body) > 1:
+                    # Wait 2 seconds to be sure the message will be sent in order
+                    time.sleep(2)
