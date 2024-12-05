@@ -160,8 +160,8 @@
             <tree>
                 <field name="create_date" />
                 <field name="is_sent" />
-                <field name="from_number_real_phone" />
                 <field name="to_number_real_phone" />
+                <field name="to_number_phone" />
                 <field name="name" />
             </tree>
         </field>

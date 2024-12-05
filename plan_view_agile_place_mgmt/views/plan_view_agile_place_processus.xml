@@ -59,6 +59,7 @@
                             <field name="sms_message_prefix" />
                             <field name="sms_detect_card_type_msg_1" />
                             <field name="location_type_msg" />
+                            <field name="check_double_sms_process_id" />
                         </group>
                         <group string="Rename">
                             <field name="rename_card_pattern" />
@@ -92,7 +93,7 @@
                             <field name="new_board_name" />
                             <field name="type_template_board_id" />
                             <field name="model_fetch_record" />
-                            <field name="model_filter_hr_empoyee_job_type" />
+                            <field name="model_filter_hr_employee_job_type" />
                             <field name="duplicate_multiple_time" />
                             <field name="process_execute_after_ids" widget="many2many_tags" />
                         </group>

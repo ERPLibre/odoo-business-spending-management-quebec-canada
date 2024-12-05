@@ -41,10 +41,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 "send_sms_schedule_week_summary",
                 "Send SMS schedule week summary",
             ),
-            (
-                "send_reminder_sms_schedule_condition",
-                "Send reminder SMS schedule condition",
-            ),
+            ("send_sms", "Send SMS"),
             (
                 "send_sms_all_employee",
                 "Send SMS general to all employee",
@@ -116,7 +113,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
         default=1, help="Will repeat the duplication if higher then 1"
     )
 
-    model_filter_hr_empoyee_job_type = fields.Char()
+    model_filter_hr_employee_job_type = fields.Char()
 
     record_id_i = fields.Integer(
         string="Record index",
@@ -209,6 +206,12 @@ class PlanViewAgilePlaceProcessus(models.Model):
     ignore_weekend = fields.Boolean()
 
     description = fields.Text()
+
+    check_double_sms_process_id = fields.Many2one(
+        comodel_name="plan.view.agile.place.processus",
+        string="Check double SMS process ID",
+        help="Will check SMS history in this process, will execute the algorithm and compare the value to send difference reminder.",
+    )
 
     sms_message_prefix = fields.Text()
 
@@ -502,7 +505,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 rec.algo_move_root_lane_week()
             elif rec.algo_key == "copy_cards_from_lane":
                 rec.algo_copy_cards_from_lane(start_time)
-            elif rec.algo_key == "send_reminder_sms_schedule_condition":
+            elif rec.algo_key == "send_sms":
                 # TODO maybe can search employee information
                 pass
             elif rec.algo_key == "send_sms_all_employee":
@@ -801,10 +804,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
         for rec in self:
             if (
                 rec.model_name == "hr.employee"
-                and rec.model_filter_hr_empoyee_job_type
+                and rec.model_filter_hr_employee_job_type
             ):
                 job_id = self.env["hr.job"].search(
-                    [("name", "=", rec.model_filter_hr_empoyee_job_type)]
+                    [("name", "=", rec.model_filter_hr_employee_job_type)]
                 )
                 if job_id:
                     record_ids = self.env[rec.model_name].search(
@@ -1042,7 +1045,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 for card_id in lst_card:
                     dct_day[card_id.lane_parent_name].append(card_id)
                 name, phone = employee_name.split("#")
-                msg_employe = f"{rec.sms_message_prefix} Calendrier de la semaine pour {name}\n\n"
+                msg_employee = f"{rec.sms_message_prefix} Calendrier de la semaine pour {name}\n\n"
                 # Reorder list from weekday
                 lst_weekday = self._get_week_day_fr(ttype="list")
                 for weekday in lst_weekday:
@@ -1115,19 +1118,20 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                             else:
                                                 coule_msg = "Coulée"
 
-                                msg_employe += (
+                                msg_employee += (
                                     f"{str_date_time}{card_week_id.lane_name}"
                                 )
                                 if coule_msg:
-                                    msg_employe += f" - {coule_msg}"
-                                msg_employe += "\n"
-                msg_employe += "\nCompte-tenu de l'avancement des travaux, il est possible que l'horaire puisse changer en tout temps.\n\nUn SMS final vous sera envoyé tous les jours à 18H pour votre calendrier final du lendemain."
+                                    msg_employee += f" - {coule_msg}"
+                                msg_employee += "\n"
+                msg_employee += "\nCompte-tenu de l'avancement des travaux, il est possible que l'horaire puisse changer en tout temps.\n\nUn SMS final vous sera envoyé tous les jours à 18H pour votre calendrier final du lendemain."
                 sms_history_value = {
                     "to_number_phone": phone,
-                    "name": msg_employe,
+                    "name": msg_employee,
                     "processus_id": rec.id,
                     "session_id": rec.session_id.id,
                 }
+
                 sms_history_ids += self.env[
                     "plan.view.agile.place.sms.history"
                 ].create(sms_history_value)
@@ -1167,6 +1171,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
         lst_bind_required_field_list,
     ):
         for rec in self:
+            lst_value_sms = []
             if rec.filter_field:
                 lst_filter_field = json.loads(rec.filter_field)
             else:
@@ -1350,9 +1355,24 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     "session_id": rec.session_id.id,
                     "name": msg_sms,
                 }
+
+                lst_value_sms.append(value_sms)
+
+            nb_msg_sommaire = i_msg
+            if rec.check_double_sms_process_id:
+                lst_value_sms, msg_summary_sms = (
+                    rec.check_diff_sms_history_and_refactor_it(
+                        lst_value_sms,
+                        rec.check_double_sms_process_id,
+                        date_msg_str,
+                    )
+                )
+                nb_msg_sommaire = msg_summary_sms.count("\n")
+
+            if lst_value_sms:
                 sms_history_id = self.env[
                     "plan.view.agile.place.sms.history"
-                ].create(value_sms)
+                ].create(lst_value_sms)
 
             if not msg_summary_sms:
                 continue
@@ -1366,7 +1386,12 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 "processus_id": rec.id,
                 "session_id": rec.session_id.id,
             }
-            summary_final_msg = f"{rec.sms_message_prefix} Sommaire ({i_msg} SMS) {date_msg_str}\n{msg_summary_sms}".strip()
+            title_summary = (
+                "Sommaire"
+                if not rec.check_double_sms_process_id
+                else "Sommaire des ajustements"
+            )
+            summary_final_msg = f"{rec.sms_message_prefix} {title_summary} ({nb_msg_sommaire} SMS) {date_msg_str}\n{msg_summary_sms}".strip()
             value_summary_sms["name"] = summary_final_msg
             rec.log_txt += "\n" + msg_summary_sms + "\n"
 
@@ -1375,6 +1400,108 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 sms_summary_history_id = self.env[
                     "plan.view.agile.place.sms.history"
                 ].create(value_summary_sms)
+
+    def check_diff_sms_history_and_refactor_it(
+        self, lst_value_sms, process_id, str_date
+    ):
+        self.ensure_one()
+        if not lst_value_sms:
+            return [], ""
+        lst_new_value_sms = []
+        msg_summary_sms = ""
+        lst_unique_phone = list(
+            set(
+                [a.get("to_number_phone") for a in lst_value_sms]
+                + [a.to_number_phone for a in process_id.sms_history_ids]
+            )
+        )
+        i = 0
+        for phone in lst_unique_phone:
+            # Support detect new card, less card, no card, modifying card
+            lst_new_sms_history = sorted(
+                [
+                    a.get("name")
+                    for a in lst_value_sms
+                    if a.get("to_number_phone") == phone
+                ]
+            )
+            lst_existing_sms_history = sorted(
+                [
+                    a.name
+                    for a in process_id.sms_history_ids
+                    if a.to_number_phone == phone
+                    and "Sommaire (" not in a.name
+                ]
+            )
+            # TODO work_phone is hardcoded, need to use bind
+            employee_id = self.env["hr.employee"].search(
+                [("work_phone", "=", phone)],
+                limit=1,
+            )
+            if not employee_id:
+                msg_txt = f"ERR Cannot find employe from number phone {phone}."
+                self.log_txt += msg_txt
+                self.log_error_txt += msg_txt
+                _logger.error(msg_txt.strip())
+                continue
+            if lst_new_sms_history != lst_existing_sms_history:
+                # Detect a difference, will resend a new schedule for this employee
+                msg_sms = (
+                    ""
+                    if not self.sms_message_prefix
+                    else self.sms_message_prefix + " "
+                )
+                msg_sms += employee_id.name + ", "
+                if not lst_new_sms_history:
+                    msg_sms += f"vous n'avez plus d'horaire de planifié pour le {str_date}"
+
+                    dct_message = lst_value_sms[0].copy()
+                    dct_message["name"] = msg_sms
+                    dct_message["to_number_phone"] = phone
+                    lst_new_value_sms.append(dct_message)
+
+                    i += 1
+                    msg_summary_sms += (
+                        f"#{i} {employee_id.name} est enlevé de l'horaire.\n"
+                    )
+                else:
+                    msg_sms += f"affection modifiée de dernière minute, tu vas travailler le {str_date}, au chantier "
+                    str_key = "au chantier"
+                    for new_sms_history in lst_new_sms_history:
+                        msg_cut = new_sms_history[
+                            new_sms_history.find(str_key) + len(str_key) + 1 :
+                        ]
+                        # Detect time
+                        pos_date = new_sms_history.find(str_date) + len(
+                            str_date
+                        )
+                        after_pos_date = new_sms_history.find(",", pos_date)
+                        date_time_job = ""
+                        if pos_date != after_pos_date:
+                            date_time_job = new_sms_history[
+                                pos_date:after_pos_date
+                            ]
+                            msg_sms_with_time = msg_sms.replace(
+                                str_date, str_date + date_time_job
+                            )
+                        else:
+                            msg_sms_with_time = msg_sms
+
+                        dct_message = lst_value_sms[0].copy()
+                        dct_message["name"] = msg_sms_with_time + msg_cut
+                        dct_message["to_number_phone"] = phone
+                        lst_new_value_sms.append(dct_message)
+
+                        i += 1
+                        msg_for_summary = msg_cut[: msg_cut.find("\n")]
+                        if date_time_job:
+                            msg_for_summary = msg_for_summary.replace(
+                                "»", f"» {date_time_job}"
+                            )
+                        msg_summary_sms += (
+                            f"#{i} {employee_id.name} {msg_for_summary}\n"
+                        )
+        return lst_new_value_sms, msg_summary_sms
 
     def algo_delete_cards(self):
         for rec in self:
