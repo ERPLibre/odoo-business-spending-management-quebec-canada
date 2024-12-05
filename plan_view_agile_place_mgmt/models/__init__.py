@@ -6,6 +6,7 @@ from . import (
     fsm_equipment,
     fsm_vehicle,
     hr_employee,
+    plan_view_agile_place_automated_action_log,
     plan_view_agile_place_board,
     plan_view_agile_place_board_type,
     plan_view_agile_place_card,

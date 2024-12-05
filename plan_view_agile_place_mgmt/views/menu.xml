@@ -102,6 +102,14 @@
     />
 
     <menuitem
+        id="view_action_planifie_log"
+        name="Action planifié LOG"
+        action="plan_view_agile_place_automated_action_log_view_agile_place_automated_action_log_action_window"
+        sequence="4"
+        parent="menu_processus"
+    />
+
+    <menuitem
         id="view_board_type"
         name="Board type"
         action="plan_view_agile_place_board_type_view_agile_place_board_action_window"

@@ -12,6 +12,7 @@
     "data": [
         "security/ir.model.access.csv",
         "views/hr_views.xml",
+        "views/plan_view_agile_place_automated_action_log.xml",
         "views/plan_view_agile_place_customfield.xml",
         "views/plan_view_agile_place_board.xml",
         "views/plan_view_agile_place_board_type.xml",

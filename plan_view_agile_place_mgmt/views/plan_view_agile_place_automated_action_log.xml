@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="plan_view_agile_place_automated_action_log_view_form" model="ir.ui.view">
+        <field name="name">plan_view_agile_place_automated_action_log_form</field>
+        <field name="model">plan.view.agile.place.automated.action.log</field>
+        <field name="arch" type="xml">
+            <form string="Titre">
+                <sheet>
+                    <group>
+                        <field name="name" />
+                        <field name="create_date" />
+                        <field name="time_execution" />
+                        <field name="ir_cron_id" />
+                    </group>
+                    <notebook>
+                        <page string="Process">
+                            <field name="process_ids" />
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="plan_view_agile_place_automated_action_log_view_search" model="ir.ui.view">
+        <field name="name">plan_view_agile_place_automated_action_log_search</field>
+        <field name="model">plan.view.agile.place.automated.action.log</field>
+        <field name="arch" type="xml">
+            <search string="Plan view agile place automated action log">
+                <field name="name"/>
+                <group string="Group By" expand="1">
+                    <filter name="ir_cron_id" string="Ir Cron" context="{'group_by':'ir_cron_id'}" />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="plan_view_agile_place_automated_action_log_view_tree" model="ir.ui.view">
+        <field name="name">plan_view_agile_place_automated_action_log_tree</field>
+        <field name="model">plan.view.agile.place.automated.action.log</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name" />
+                <field name="create_date" />
+                <field name="time_execution" />
+                <field name="ir_cron_id" />
+            </tree>
+        </field>
+    </record>
+
+    <act_window
+        id="plan_view_agile_place_automated_action_log_view_agile_place_automated_action_log_action_window"
+        name="View agile place automated action log"
+        res_model="plan.view.agile.place.automated.action.log"
+        view_mode="tree,form"
+    />
+</odoo>
