@@ -27,7 +27,7 @@
         <field name="model">plan.view.agile.place.automated.action.log</field>
         <field name="arch" type="xml">
             <search string="Plan view agile place automated action log">
-                <field name="name"/>
+                <field name="name" />
                 <group string="Group By" expand="1">
                     <filter name="ir_cron_id" string="Ir Cron" context="{'group_by':'ir_cron_id'}" />
                 </group>

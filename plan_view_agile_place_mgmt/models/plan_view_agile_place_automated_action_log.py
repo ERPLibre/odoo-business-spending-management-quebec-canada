@@ -5,7 +5,9 @@
 import logging
 import time
 from datetime import datetime
+
 from dateutil import tz
+
 from odoo import _, api, exceptions, fields, models
 
 _logger = logging.getLogger(__name__)
@@ -31,5 +33,6 @@ class PlanViewAgilePlaceAutomatedActionLog(models.Model):
     )
 
     def get_weekday_now(self):
-        return datetime.now(tz.gettz(self.env.ref('base.user_root').tz)).weekday()
-
+        return datetime.now(
+            tz.gettz(self.env.ref("base.user_admin").tz)
+        ).weekday()

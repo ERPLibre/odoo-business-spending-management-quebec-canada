@@ -448,7 +448,9 @@ class PlanViewAgilePlaceProcessus(models.Model):
             rec.fill_board_id()
 
             # First log
-            user_timezone = timezone(self.env.user.tz or "UTC")
+            user_timezone = timezone(
+                self.env.context.get("tz") or self.env.user.tz or "UTC"
+            )
             hour_now = datetime.datetime.now(user_timezone)
             delay_timezone = hour_now.utcoffset().total_seconds() / 3600
             diff_hour_timezone = int(delay_timezone)
@@ -653,7 +655,9 @@ class PlanViewAgilePlaceProcessus(models.Model):
             rec.log_error_txt += "\n"
 
     def algo_rename_lane(self, start_time):
-        user_timezone = timezone(self.env.user.tz or "UTC")
+        user_timezone = timezone(
+            self.env.context.get("tz") or self.env.user.tz or "UTC"
+        )
         for rec in self:
             if not rec.lane_root_name:
                 msg_txt = "WARN Ignore this processus, create_model_from_card need a lane_root_name.\n"
@@ -829,7 +833,9 @@ class PlanViewAgilePlaceProcessus(models.Model):
             record_ids.generate_pvap_card(rec)
 
     def algo_create_new_board(self, start_time):
-        user_timezone = timezone(self.env.user.tz or "UTC")
+        user_timezone = timezone(
+            self.env.context.get("tz") or self.env.user.tz or "UTC"
+        )
         for rec in self:
             # Algorithm description :
             # 1. duplicate board with all cards
@@ -905,7 +911,9 @@ class PlanViewAgilePlaceProcessus(models.Model):
         start_time,
         diff_hour_timezone,
     ):
-        user_timezone = timezone(self.env.user.tz or "UTC")
+        user_timezone = timezone(
+            self.env.context.get("tz") or self.env.user.tz or "UTC"
+        )
         for rec in self:
             # This will find the lane_root
             # TODO problème avec utc?
@@ -1754,7 +1762,9 @@ class PlanViewAgilePlaceProcessus(models.Model):
     def _get_lane_from_regex_day(self):
         self.ensure_one()
         rec = self
-        user_timezone = timezone(self.env.user.tz or "UTC")
+        user_timezone = timezone(
+            self.env.context.get("tz") or self.env.user.tz or "UTC"
+        )
         find_lane_ids = self.env["plan.view.agile.place.lane"]
         lane_ids = self.env["plan.view.agile.place.lane"].search(
             [("board_id", "=", rec.board_id.id)]
@@ -1834,7 +1844,9 @@ class PlanViewAgilePlaceProcessus(models.Model):
             return lst_value[value]
 
     def _get_lane_from_regex_week(self):
-        user_timezone = timezone(self.env.user.tz or "UTC")
+        user_timezone = timezone(
+            self.env.context.get("tz") or self.env.user.tz or "UTC"
+        )
         mois_en_francais = self._get_month_fr()
         find_lane_ids = self.env["plan.view.agile.place.lane"]
         regex = r"(?P<journee>\d{1,2})\s+(?P<mois>\w+)\s+(?P<annee>\d{4})"
