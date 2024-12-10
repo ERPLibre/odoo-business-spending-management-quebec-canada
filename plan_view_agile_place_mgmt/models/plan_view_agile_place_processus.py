@@ -1124,9 +1124,25 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                             rec.log_txt += msg_txt
                                             rec.log_error_txt += msg_txt
                                             _logger.error(msg_txt.strip())
+                                            # Show only with size and sorted in, take minimum
+                                            lst_card_msg_1_ids = [
+                                                a
+                                                for a in card_msg_1_ids
+                                                if a.size
+                                            ]
+                                            if lst_card_msg_1_ids:
+                                                card_msg_1_ids = sorted(
+                                                    lst_card_msg_1_ids,
+                                                    key=lambda record: record.size,
+                                                )[0]
+                                            else:
+                                                # No size, take first
+                                                card_msg_1_ids = (
+                                                    card_msg_1_ids[0]
+                                                )
                                         if card_msg_1_ids:
-                                            if card_msg_1_ids[0].size:
-                                                coule_msg = f"Coulée à {card_msg_1_ids[0].size}H"
+                                            if card_msg_1_ids.size:
+                                                coule_msg = f"Coulée à {card_msg_1_ids.size}H"
                                             else:
                                                 coule_msg = "Coulée"
 
@@ -1335,11 +1351,27 @@ class PlanViewAgilePlaceProcessus(models.Model):
                             rec.log_txt += msg_txt
                             rec.log_error_txt += msg_txt
                             _logger.error(msg_txt.strip())
+                            # Show only with size and sorted in, take minimum
+                            lst_card_msg_1_ids = [
+                                a
+                                for a in card_msg_1_ids
+                                if a.size
+                            ]
+                            if lst_card_msg_1_ids:
+                                card_msg_1_ids = sorted(
+                                    lst_card_msg_1_ids,
+                                    key=lambda record: record.size,
+                                )[0]
+                            else:
+                                # No size, take first
+                                card_msg_1_ids = (
+                                    card_msg_1_ids[0]
+                                )
                         if card_msg_1_ids:
-                            if card_msg_1_ids[0].size:
+                            if card_msg_1_ids.size:
                                 msg_coule = (
                                     " + Coulée à"
-                                    f" {card_msg_1_ids[0].size}H."
+                                    f" {card_msg_1_ids.size}H."
                                 )
                             else:
                                 msg_coule = " + Coulée."
