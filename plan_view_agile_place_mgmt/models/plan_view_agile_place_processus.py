@@ -179,6 +179,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 "associate_card_location_inclusion",
                 "Associate card with location inclusion",
             ),
+            (
+                "negative_same_name_different_size",
+                "Negative same name different size",
+            ),
         ],
         help="Will execute a validation algorithm",
     )
@@ -1536,6 +1540,12 @@ class PlanViewAgilePlaceProcessus(models.Model):
                         _logger.error(msg_txt.strip())
                         has_error = True
                 if (
+                    rec.validation_algo
+                    and rec.validation_algo
+                    == "negative_same_name_different_size"
+                ):
+                    print("ok")
+                elif (
                     rec.validation_algo
                     and rec.validation_algo
                     == "associate_card_location_inclusion"
