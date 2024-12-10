@@ -1121,8 +1121,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                             rec.log_error_txt += msg_txt
                                             _logger.error(msg_txt.strip())
                                         if card_msg_1_ids:
-                                            if card_msg_1_ids.size:
-                                                coule_msg = f"Coulée à {card_msg_1_ids.size}H"
+                                            if card_msg_1_ids[0].size:
+                                                coule_msg = f"Coulée à {card_msg_1_ids[0].size}H"
                                             else:
                                                 coule_msg = "Coulée"
 
@@ -1332,9 +1332,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
                             rec.log_error_txt += msg_txt
                             _logger.error(msg_txt.strip())
                         if card_msg_1_ids:
-                            if card_msg_1_ids.size:
+                            if card_msg_1_ids[0].size:
                                 msg_coule = (
-                                    " + Coulée à" f" {card_msg_1_ids.size}h."
+                                    " + Coulée à"
+                                    f" {card_msg_1_ids[0].size}H."
                                 )
                             else:
                                 msg_coule = " + Coulée."
