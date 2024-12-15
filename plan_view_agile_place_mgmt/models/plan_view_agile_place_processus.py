@@ -596,7 +596,13 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     lst_bind_required_field_list,
                     force_refresh_custom_fields=force_refresh_custom_fields,
                 )
-                if rec.compute_model_fsm_location:
+                if not model_id:
+                    msg = f"WAR cannot retrieve model from card name '{card_id.name}'\n"
+                    rec.log_txt += msg
+                    rec.log_error_txt += msg
+                    _logger.warning(msg.strip())
+
+                if rec.compute_model_fsm_location and model_id:
                     # Find associate fsm.location or create it
                     fsm_location_id = self.env["fsm.location"].search(
                         [("owner_id", "=", model_id.id)], limit=1
@@ -623,7 +629,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                             rec.log_error_txt += msg
                             _logger.warning(msg.strip())
 
-                if rec.compute_model_fsm_person:
+                if rec.compute_model_fsm_person and model_id:
                     # Create a user associate
                     # hr.employee
                     # model_id.
@@ -1353,9 +1359,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                             _logger.error(msg_txt.strip())
                             # Show only with size and sorted in, take minimum
                             lst_card_msg_1_ids = [
-                                a
-                                for a in card_msg_1_ids
-                                if a.size
+                                a for a in card_msg_1_ids if a.size
                             ]
                             if lst_card_msg_1_ids:
                                 card_msg_1_ids = sorted(
@@ -1364,14 +1368,11 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                 )[0]
                             else:
                                 # No size, take first
-                                card_msg_1_ids = (
-                                    card_msg_1_ids[0]
-                                )
+                                card_msg_1_ids = card_msg_1_ids[0]
                         if card_msg_1_ids:
                             if card_msg_1_ids.size:
                                 msg_coule = (
-                                    " + Coulée à"
-                                    f" {card_msg_1_ids.size}H."
+                                    " + Coulée à" f" {card_msg_1_ids.size}H."
                                 )
                             else:
                                 msg_coule = " + Coulée."
@@ -1484,7 +1485,9 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 limit=1,
             )
             if not employee_id:
-                msg_txt = f"ERR Cannot find employe from number phone {phone}."
+                msg_txt = (
+                    f"ERR Cannot find employee from number phone {phone}.\n"
+                )
                 self.log_txt += msg_txt
                 self.log_error_txt += msg_txt
                 _logger.error(msg_txt.strip())
@@ -1977,79 +1980,87 @@ class PlanViewAgilePlaceProcessus(models.Model):
             dct_detail = json.loads(card_id.card_details)
             lst_custom_field = dct_detail.get("customFields")
         else:
-            lst_custom_field = json.loads(card_id.custom_fields)
+            try:
+                lst_custom_field = json.loads(card_id.custom_fields)
+            except Exception as e:
+                lst_custom_field = None
+                msg_txt = f"ERR card name '{card_id.name}' card entete '{card_id.entete}', missing custom fields.\n"
+                rec.log_txt += msg_txt
+                rec.log_error_txt += msg_txt
+                _logger.error(msg_txt.strip())
         if not lst_custom_field:
             msg_txt = f"ERR '{rec.model_name}' Missing custom fields\n"
             rec.log_txt += msg_txt
             rec.log_error_txt += msg_txt
-            return
         # Bind value
-        for (
-            custom_field_name,
-            field_name,
-        ) in dct_custom_field_to_field_name.items():
-            lst_find_lst_custom_field = [
-                a
-                for a in lst_custom_field
-                if a.get("label") == custom_field_name
-            ]
-            if not lst_find_lst_custom_field:
-                if not name in rec.ignore_warning_from_name.split(";"):
-                    msg_txt = (
-                        f"WAR '{rec.model_name}' Missing custom"
-                        f" field '{custom_field_name}' about name"
-                        f" '{name}' id '{card_id.card_id_pvap}."
-                        " Try auto-update\n"
-                    )
-                    rec.log_txt += msg_txt
-                    rec.log_error_txt += msg_txt
-
-                card_id.update_card_details()
-                dct_detail = json.loads(card_id.card_details)
-                lst_custom_field = dct_detail.get("customFields")
+        else:
+            for (
+                custom_field_name,
+                field_name,
+            ) in dct_custom_field_to_field_name.items():
                 lst_find_lst_custom_field = [
                     a
                     for a in lst_custom_field
                     if a.get("label") == custom_field_name
                 ]
-
-            for dct_custom_field in lst_find_lst_custom_field:
-                custom_field_label = dct_custom_field.get("label")
-                value = dct_custom_field.get("value")
-                # When field_name is dict, a structure to choose another field_name
-                if value:
-                    # support integer and selection to enable boolean
-                    if type(field_name) is dict:
-                        for item_value in value:
-                            field_name_find = field_name.get(item_value)
-                            if not field_name_find:
-                                msg_txt = (
-                                    f"WAR '{name}' cannot extract"
-                                    " custom field"
-                                    f" '{custom_field_label}' with"
-                                    f" value '{item_value}'\n"
-                                )
-                                rec.log_txt += msg_txt
-                                rec.log_error_txt += msg_txt
-                                continue
-                            else:
-                                new_model_value[field_name_find] = True
-                    else:
-                        new_model_value[field_name] = value
-                else:
-                    if (
-                        not name in rec.ignore_warning_from_name.split(";")
-                        and custom_field_name in lst_bind_required_field_list
-                    ):
+                if not lst_find_lst_custom_field:
+                    if not name in rec.ignore_warning_from_name.split(";"):
                         msg_txt = (
-                            f"WAR '{rec.model_name}' Missing value"
-                            " for custom field"
-                            f" '{custom_field_name}' about name"
-                            f" '{name}' id"
-                            f" '{card_id.card_id_pvap}\n"
+                            f"WAR '{rec.model_name}' Missing custom"
+                            f" field '{custom_field_name}' about name"
+                            f" '{name}' id '{card_id.card_id_pvap}."
+                            " Try auto-update\n"
                         )
                         rec.log_txt += msg_txt
                         rec.log_error_txt += msg_txt
+
+                    card_id.update_card_details()
+                    dct_detail = json.loads(card_id.card_details)
+                    lst_custom_field = dct_detail.get("customFields")
+                    lst_find_lst_custom_field = [
+                        a
+                        for a in lst_custom_field
+                        if a.get("label") == custom_field_name
+                    ]
+
+                for dct_custom_field in lst_find_lst_custom_field:
+                    custom_field_label = dct_custom_field.get("label")
+                    value = dct_custom_field.get("value")
+                    # When field_name is dict, a structure to choose another field_name
+                    if value:
+                        # support integer and selection to enable boolean
+                        if type(field_name) is dict:
+                            for item_value in value:
+                                field_name_find = field_name.get(item_value)
+                                if not field_name_find:
+                                    msg_txt = (
+                                        f"WAR '{name}' cannot extract"
+                                        " custom field"
+                                        f" '{custom_field_label}' with"
+                                        f" value '{item_value}'\n"
+                                    )
+                                    rec.log_txt += msg_txt
+                                    rec.log_error_txt += msg_txt
+                                    continue
+                                else:
+                                    new_model_value[field_name_find] = True
+                        else:
+                            new_model_value[field_name] = value
+                    else:
+                        if (
+                            not name in rec.ignore_warning_from_name.split(";")
+                            and custom_field_name
+                            in lst_bind_required_field_list
+                        ):
+                            msg_txt = (
+                                f"WAR '{rec.model_name}' Missing value"
+                                " for custom field"
+                                f" '{custom_field_name}' about name"
+                                f" '{name}' id"
+                                f" '{card_id.card_id_pvap}\n"
+                            )
+                            rec.log_txt += msg_txt
+                            rec.log_error_txt += msg_txt
 
         # Refactor new_model_value for type many2one
         for key, value in new_model_value.items():
@@ -2141,6 +2152,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 lane_root_ids = self._get_lane_from_regex_day()
                 is_root_lane = True
             elif lane_extract_algo == "week d/m/y":
+                # TODO bug to get next week
                 lane_root_ids = self._get_lane_from_regex_week()
             else:
                 msg_txt = f"ERR processus '{process_name}' not supported lane_extract_algo {lane_extract_algo}.\n"
