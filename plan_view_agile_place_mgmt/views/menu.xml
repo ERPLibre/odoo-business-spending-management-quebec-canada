@@ -7,6 +7,7 @@
         name="Plan Mgmt"
         sequence="20"
         web_icon="plan_view_agile_place_mgmt,static/description/icon.png"
+        groups="group_admin_plan_view_agile_place_mgmt"
     />
 
     <!--Sub menu-->

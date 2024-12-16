@@ -11,6 +11,7 @@
     "application": True,
     "data": [
         "security/ir.model.access.csv",
+        "security/groups.xml",
         "views/hr_views.xml",
         "views/plan_view_agile_place_automated_action_log.xml",
         "views/plan_view_agile_place_customfield.xml",
