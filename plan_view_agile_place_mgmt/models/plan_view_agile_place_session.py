@@ -168,7 +168,8 @@ class PlanViewAgilePlaceSession(models.Model):
                     f"Wait {total_second_to_wait} seconds after 120 requests"
                     " over API Plan View Agile Place."
                 )
-                time.sleep(total_second_to_wait)
+                if total_second_to_wait > 0:
+                    time.sleep(total_second_to_wait)
                 _logger.info(f"Wait done, continue!")
                 continue
             has_finish = True
