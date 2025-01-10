@@ -131,7 +131,9 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     type_card_bind = fields.Char()
 
-    delay_in_day = fields.Integer()
+    delay_in_day = fields.Integer(
+        string="Delay in day or week", help="Will depend the lane_extract_algo"
+    )
 
     force_sync_before_algo = fields.Boolean(
         help="When True, will force sync into algorithm."
@@ -139,6 +141,11 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     force_refresh_custom_fields = fields.Boolean(
         help="It's consume lot of time, but will refresh custom_fields."
+    )
+
+    debug_show_first_day = fields.Char(
+        string="Debug first day",
+        help="Will show a debug information about the first day for extraction",
     )
 
     ignore_run_depend_processus = fields.Boolean(
@@ -359,6 +366,27 @@ class PlanViewAgilePlaceProcessus(models.Model):
         string="Process execute after",
         help="Will execute process after execute this process.",
     )
+
+    def action_debug_show_first_day(self):
+        for rec in self:
+            user_timezone = timezone(
+                self.env.context.get("tz") or self.env.user.tz or "UTC"
+            )
+            if not rec.lane_extract_algo:
+                rec.debug_show_first_day = ""
+            elif rec.lane_extract_algo == "jour d/m":
+                target_date = self.return_next_open_day(
+                    datetime.datetime.now().astimezone(user_timezone),
+                    delay_day=rec.delay_in_day,
+                    is_skipping_weekend=rec.ignore_weekend,
+                )
+                rec.debug_show_first_day = f"{target_date:%Y/%m/%d}"
+            elif rec.lane_extract_algo == "week d/m/y":
+                target_date = self.return_monday_day(
+                    datetime.datetime.now().astimezone(user_timezone),
+                    delay_week=rec.delay_in_day,
+                )
+                rec.debug_show_first_day = f"{target_date:%Y/%m/%d}"
 
     def action_clear_log(self):
         for rec in self:
@@ -1903,13 +1931,14 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     ("lane_parent_id", "=", False),
                 ]
             )
+            monday_day = self.return_monday_day(
+                datetime.datetime.now().astimezone(user_timezone),
+                delay_week=rec.delay_in_day,
+            )
             for lane_id in lane_ids:
                 result = re.search(regex, lane_id.title)
                 if not result:
                     continue
-                monday_day = self.return_monday_day(
-                    datetime.datetime.now().astimezone(user_timezone),
-                )
                 if (
                     mois_en_francais[monday_day.strftime("%B")]
                     == result.group("mois").title()
@@ -2327,7 +2356,11 @@ class PlanViewAgilePlaceProcessus(models.Model):
     @staticmethod
     def return_monday_day(date_to_find, delay_week=0):
         jour_semaine = date_to_find.weekday()
-        lundi = date_to_find - datetime.timedelta(days=jour_semaine)
+        lundi = (
+            date_to_find
+            - datetime.timedelta(days=jour_semaine)
+            + datetime.timedelta(weeks=delay_week)
+        )
         return lundi
 
     @staticmethod

@@ -44,6 +44,17 @@
                             <field name="search_recursive_lane" />
                             <field name="lane_extract_algo" />
                             <field name="force_refresh_custom_fields" />
+                            <button
+                                name="action_debug_show_first_day"
+                                string="Debug show first day"
+                                type="object"
+                                attrs="{'invisible': [('lane_extract_algo', '=', False)]}"
+                            />
+                            <hr attrs="{'invisible': [('lane_extract_algo', '=', False)]}" />
+                            <field
+                                name="debug_show_first_day"
+                                attrs="{'invisible': [('lane_extract_algo', '=', False)]}"
+                            />
                         </group>
                         <group string="Validation">
                             <field name="validation_target_achieved" />
