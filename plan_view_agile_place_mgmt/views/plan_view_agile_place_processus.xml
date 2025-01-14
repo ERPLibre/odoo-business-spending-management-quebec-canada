@@ -42,6 +42,7 @@
                             <field name="lane_name" />
                             <field name="is_root_lane" />
                             <field name="search_recursive_lane" />
+                            <field name="search_lane_required_string" />
                             <field name="lane_extract_algo" />
                             <field name="force_refresh_custom_fields" />
                             <button
@@ -76,6 +77,7 @@
                             <field name="rename_card_pattern" />
                             <field name="rename_week_lane_name_pattern" />
                             <field name="rename_week_lane_name_icon" />
+                            <field name="rename_dont_rename_day_with_number" />
                             <field name="algo_rename" />
                         </group>
                         <group string="Copy">

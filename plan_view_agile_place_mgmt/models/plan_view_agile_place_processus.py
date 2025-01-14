@@ -198,6 +198,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
         help="Get all card recursively from lane_id."
     )
 
+    search_lane_required_string = fields.Char(
+        help="Need this string when search lane or exclude it. Works only if contains data."
+    )
+
     is_disabled = fields.Boolean(
         help="When true, the processus will not execute."
     )
@@ -318,6 +322,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     rename_week_lane_name_pattern = fields.Char(
         help="The pattern need to contain '%s'"
+    )
+
+    rename_dont_rename_day_with_number = fields.Boolean(
+        help="When rename week, the day is recreate with a number, but not when this field is enable."
     )
 
     rename_week_lane_name_icon = fields.Char(
@@ -1738,7 +1746,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     for i_day, lane_child_day_id in enumerate(
                         lane_week_id.lane_child_ids
                     ):
-                        day_name = f"{lst_day_name[i_day].upper()} {next_day.day}/{next_day.month}"
+                        if rec.rename_dont_rename_day_with_number:
+                            day_name = f"{lst_day_name[i_day].upper()}"
+                        else:
+                            day_name = f"{lst_day_name[i_day].upper()} {next_day.day}/{next_day.month}"
                         lane_child_day_id.with_context(
                             {"enable_sync_lane": True}
                         ).title = day_name
@@ -1945,6 +1956,13 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     and monday_day.day == int(result.group("journee"))
                     and monday_day.year == int(result.group("annee"))
                 ):
+                    if (
+                        rec.search_lane_required_string
+                        and rec.search_lane_required_string
+                        not in lane_id.title
+                    ):
+                        # Ignore this value
+                        continue
                     find_lane_ids += lane_id
         return find_lane_ids
 
@@ -1970,6 +1988,12 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 )
                 year = int(result.group("annee"))
                 lane_date = datetime.date(year, month, day)
+                if (
+                    rec.search_lane_required_string
+                    and rec.search_lane_required_string not in lane_id.title
+                ):
+                    # Ignore this value
+                    continue
                 lst_return_date_monday.append((lane_id, lane_date))
 
         if not return_date_monday:
