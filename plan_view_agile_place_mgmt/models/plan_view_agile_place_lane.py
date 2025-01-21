@@ -104,7 +104,10 @@ class PlanViewAgilePlaceLane(models.Model):
                 # rec.name = (
                 #     f"{rec.lane_parent_id.name}/{rec.title}"
                 # )
-                rec.name = f"/[{rec.lane_parent_id.sequence}]{rec.lane_parent_id.title}/[{rec.sequence}]{rec.title}"
+                rec.name = (
+                    f"/[{rec.lane_parent_id.sequence}]"
+                    f"{rec.lane_parent_id.title}/[{rec.sequence}]{rec.title}"
+                )
             else:
                 rec.name = f"/[{rec.sequence}]{rec.title}"
 
@@ -154,7 +157,9 @@ class PlanViewAgilePlaceLane(models.Model):
         for i, lane_id in enumerate(lane_child_ids):
             if len(to_lane_child_ids) <= i:
                 _logger.error(
-                    f"ERR Moving lane index [{i}] error, max len {len(to_lane_child_ids)}"
+                    f"ERR Moving lane index [{i}] error, max len "
+                    f"{len(to_lane_child_ids)}. Check root lane "
+                    f"'{to_lane_id.lane_root_name}' and check lane '{rec.title}'"
                 )
                 continue
             child_to_lane_id = to_lane_child_ids[i]

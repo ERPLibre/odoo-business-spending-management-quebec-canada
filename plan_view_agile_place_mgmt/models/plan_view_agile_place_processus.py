@@ -1767,6 +1767,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
             lst_lane_week_and_date = rec._get_all_week_lane(
                 return_date_monday=True
             )
+            lst_lane_week_and_date.sort(key=lambda x: x[1])
             if rec.rename_week_lane_name_icon:
                 lst_icon = rec.rename_week_lane_name_icon.split(";")
             else:
