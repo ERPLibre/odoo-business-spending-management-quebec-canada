@@ -70,6 +70,7 @@
                             <field name="sms_summary_phone" />
                             <field name="sms_message_prefix" />
                             <field name="sms_detect_card_type_msg_1" />
+                            <field name="sms_replace_card_name_to_msg" />
                             <field name="location_type_msg" />
                             <field name="check_double_sms_process_id" />
                         </group>

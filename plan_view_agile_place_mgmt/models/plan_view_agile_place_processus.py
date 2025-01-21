@@ -239,6 +239,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     sms_detect_card_type_msg_1 = fields.Text()
 
+    sms_replace_card_name_to_msg = fields.Text()
+
     location_type_msg = fields.Char()
 
     lane_parent_name = fields.Char()
@@ -1242,6 +1244,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
     ):
         for rec in self:
             lst_value_sms = []
+            dct_associate_card_name_with_sms = {}
             if rec.filter_field:
                 lst_filter_field = json.loads(rec.filter_field)
             else:
@@ -1263,6 +1266,12 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
             card_ids = rec.search_cards_from_processus(
                 sync_cards=rec.force_sync_before_algo
+            )
+
+            dct_sms_replace_card_name_to_msg = (
+                json.loads(rec.sms_replace_card_name_to_msg)
+                if rec.sms_replace_card_name_to_msg
+                else {}
             )
 
             for card_id in card_ids:
@@ -1331,17 +1340,33 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 if card_id.size:
                     msg_time = f" à {card_id.size}h"
                     datetime_msg_str += msg_time
-                msg_sms += (
-                    f"{employee_id.name}, tu travailles le"
-                    f" {datetime_msg_str}, au"
-                    f" {rec.location_type_msg} «{card_id.lane_name}»"
-                )
+                use_replace_msg = False
+                if (
+                    dct_sms_replace_card_name_to_msg
+                    and card_id.lane_name
+                    in dct_sms_replace_card_name_to_msg.keys()
+                ):
+                    msg_template = dct_sms_replace_card_name_to_msg[
+                        card_id.lane_name
+                    ]
+                    msg_sms += msg_template % (
+                        employee_id.name,
+                        datetime_msg_str,
+                    )
+                    use_replace_msg = True
+                if not use_replace_msg:
+                    msg_sms += (
+                        f"{employee_id.name}, tu travailles le"
+                        f" {datetime_msg_str}, au"
+                        f" {rec.location_type_msg} «{card_id.lane_name}»"
+                    )
                 msg_summary_sms += f"#{i_msg} {employee_id.name} «{card_id.lane_name}»{msg_time}"
                 partner_id = self.env["res.partner"].search(
                     [("name", "=", card_id.lane_name)],
                     limit=1,
                 )
-                if not partner_id:
+                if not partner_id and not use_replace_msg:
+                    # Ignore this error when it's a replacing msg
                     msg_txt = f"ERR missing partner associate with card {card_id.lane_name}\n"
                     rec.log_txt += msg_txt
                     rec.log_error_txt += msg_txt
@@ -1439,6 +1464,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 }
 
                 lst_value_sms.append(value_sms)
+                dct_associate_card_name_with_sms[msg_sms] = card_id.lane_name
 
             nb_msg_sommaire = i_msg
             if rec.check_double_sms_process_id:
@@ -1447,6 +1473,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
                         lst_value_sms,
                         rec.check_double_sms_process_id,
                         date_msg_str,
+                        dct_sms_replace_card_name_to_msg,
+                        dct_associate_card_name_with_sms,
                     )
                 )
                 nb_msg_sommaire = msg_summary_sms.count("\n")
@@ -1484,7 +1512,12 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 ].create(value_summary_sms)
 
     def check_diff_sms_history_and_refactor_it(
-        self, lst_value_sms, process_id, str_date
+        self,
+        lst_value_sms,
+        process_id,
+        str_date,
+        dct_sms_replace_card_name_to_msg,
+        dct_associate_card_name_with_sms,
     ):
         self.ensure_one()
         if not lst_value_sms:
@@ -1572,16 +1605,42 @@ class PlanViewAgilePlaceProcessus(models.Model):
                             msg_sms_with_time = msg_sms
 
                         dct_message = lst_value_sms[0].copy()
-                        dct_message["name"] = msg_sms_with_time + msg_cut
+                        card_lane_name = dct_associate_card_name_with_sms.get(
+                            new_sms_history
+                        )
+                        if (
+                            dct_sms_replace_card_name_to_msg
+                            and card_lane_name
+                            in dct_sms_replace_card_name_to_msg.keys()
+                        ):
+                            msg_template = dct_sms_replace_card_name_to_msg[
+                                card_lane_name
+                            ]
+
+                            msg_sms = (
+                                ""
+                                if not self.sms_message_prefix
+                                else self.sms_message_prefix + " "
+                            )
+                            msg_sms += msg_template % (
+                                employee_id.name,
+                                str_date,
+                            )
+
+                            dct_message["name"] = msg_sms
+                            msg_for_summary = f"«{card_lane_name}»"
+                        else:
+                            dct_message["name"] = msg_sms_with_time + msg_cut
+                            msg_for_summary = msg_cut[: msg_cut.find("\n")]
+                            if date_time_job:
+                                msg_for_summary = msg_for_summary.replace(
+                                    "»", f"» {date_time_job}"
+                                )
+
                         dct_message["to_number_phone"] = phone
                         lst_new_value_sms.append(dct_message)
 
                         i += 1
-                        msg_for_summary = msg_cut[: msg_cut.find("\n")]
-                        if date_time_job:
-                            msg_for_summary = msg_for_summary.replace(
-                                "»", f"» {date_time_job}"
-                            )
                         msg_summary_sms += (
                             f"#{i} {employee_id.name} {msg_for_summary}\n"
                         )
