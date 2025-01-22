@@ -2,12 +2,12 @@
 # © 2024 TechnoLibre (http://www.technolibre.ca)
 # License GPL-3.0 or later (http://www.gnu.org/licenses/gpl)
 
-import collections
 import datetime
 import json
 import logging
 import re
 import time
+from collections import defaultdict
 from urllib.parse import quote
 
 from pytz import timezone
@@ -239,6 +239,12 @@ class PlanViewAgilePlaceProcessus(models.Model):
     )
 
     sms_detect_card_type_msg_1 = fields.Text()
+
+    sms_detect_card_type_msg_2 = fields.Text()
+
+    sms_detect_card_type_msg_2_default_name = fields.Char()
+
+    sms_detect_card_type_msg_2_msg = fields.Text()
 
     sms_replace_card_name_to_msg = fields.Text()
 
@@ -1069,7 +1075,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 sync_cards=rec.force_sync_before_algo
             )
 
-            dct_list_employee = collections.defaultdict(list)
+            dct_list_employee = defaultdict(list)
             for card_id in card_ids:
                 if not card_id.custom_fields:
                     card_id.update_card_details()
@@ -1100,7 +1106,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
             sms_history_ids = self.env["plan.view.agile.place.sms.history"]
             for employee_name, lst_card in dct_list_employee.items():
                 # Separate per date
-                dct_day = collections.defaultdict(list)
+                dct_day = defaultdict(list)
                 for card_id in lst_card:
                     dct_day[card_id.lane_parent_name].append(card_id)
                 name, phone = employee_name.split("#")
@@ -1277,6 +1283,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 else {}
             )
 
+            dct_lane_summary = defaultdict(lambda: defaultdict(list))
+
             for card_id in card_ids:
                 # TODO validate double employee, validate time or raise error if missing time
                 card_name = card_id.name.strip()
@@ -1442,6 +1450,58 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                 msg_coule = " + Coulée."
                             msg_sms += msg_coule
                             msg_summary_sms += msg_coule
+                if rec.sms_detect_card_type_msg_2:
+                    lst_type_card = rec.sms_detect_card_type_msg_2.split(";")
+                    type_card_msg_2_ids = self.env[
+                        "plan.view.agile.place.card.type"
+                    ].search(
+                        [
+                            ("name", "in", lst_type_card),
+                            (
+                                "board_id",
+                                "=",
+                                rec.board_id.id,
+                            ),
+                        ]
+                    )
+                    if type_card_msg_2_ids:
+                        lst_query = [
+                            (
+                                "board_id",
+                                "=",
+                                rec.board_id.id,
+                            ),
+                            (
+                                "lane_id",
+                                "in",
+                                card_id.lane_id.ids,
+                            ),
+                            (
+                                "card_type_id",
+                                "in",
+                                type_card_msg_2_ids.ids,
+                            ),
+                        ]
+                        card_msg_2_ids = self.env[
+                            "plan.view.agile.place.card"
+                        ].search(lst_query)
+                        if card_msg_2_ids:
+                            for card_msg_2_id in card_msg_2_ids:
+                                dct_lane_summary[card_msg_2_id.name][
+                                    card_msg_2_id.lane_name
+                                ].append(card_name)
+                        elif (
+                            rec.sms_detect_card_type_msg_2_default_name
+                            and partner_id
+                        ):
+                            dct_lane_summary[
+                                rec.sms_detect_card_type_msg_2_default_name
+                            ][partner_id.name].append(card_name)
+                        else:
+                            msg_txt = "ERR Cannot detect associate card for type msg 2."
+                            rec.log_txt += msg_txt
+                            rec.log_error_txt += msg_txt
+                            _logger.error(msg_txt.strip())
                 msg_summary_sms += "\n"
                 if partner_id:
                     street_map = quote(partner_id.street)
@@ -1513,6 +1573,40 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 sms_summary_history_id = self.env[
                     "plan.view.agile.place.sms.history"
                 ].create(value_summary_sms)
+
+            # Support message 2
+            for user_name, dct_place in dct_lane_summary.items():
+                for place_name, lst_associate_name in dct_place.items():
+                    msg_sms_2 = (
+                        ""
+                        if not self.sms_message_prefix
+                        else self.sms_message_prefix + " "
+                    )
+                    # lst_filter_associate_name = [a for a in lst_associate_name if a != user_name]
+                    msg_associate_name = "\n".join(lst_associate_name)
+                    transform_msg = rec.sms_detect_card_type_msg_2_msg % (
+                        date_msg_str,
+                        place_name,
+                        msg_associate_name,
+                    )
+                    employee_msg2_id = self.env["hr.employee"].search(
+                        [("name", "=", user_name.title())],
+                        limit=1,
+                    )
+                    msg_sms_2 += transform_msg.replace("\\n", "\n")
+                    value_msg2_sms = {
+                        "name": msg_sms_2,
+                        "to_number_phone_country": to_country,
+                        "to_number_phone": employee_msg2_id.work_phone,
+                        "from_number_phone_country": rec.session_id.sms_from_country_default,
+                        "from_number_phone": rec.session_id.sms_from_number_phone_default,
+                        # "group_execution_name": group_execution_name,
+                        "processus_id": rec.id,
+                        "session_id": rec.session_id.id,
+                    }
+                    sms_2_id = self.env[
+                        "plan.view.agile.place.sms.history"
+                    ].create(value_msg2_sms)
 
     def check_diff_sms_history_and_refactor_it(
         self,
