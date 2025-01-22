@@ -219,6 +219,36 @@ class PlanViewAgilePlaceCard(models.Model):
                 if str(status)[0] != "2":
                     _logger.error(response)
                     continue
+            if "custom_fields" in values.keys():
+                # lst_custom_fields = eval(
+                #     rec.custom_fields.replace("'id'", "'fieldId'")
+                # )
+                lst_custom_fields_update = eval(
+                    values.get("custom_fields")
+                    .replace("'id'", "'fieldId'")
+                    .replace("null", "None")
+                )
+                # no need to detect add or replace or remove, only add and the server
+                #  will do the update
+                lst_op = []
+                for dct_custom_fields in lst_custom_fields_update:
+                    dct_op = {
+                        "op": "add",
+                        "path": "/customFields/-",
+                        "value": {
+                            "fieldId": dct_custom_fields.get("id"),
+                            "value": dct_custom_fields.get("value"),
+                        },
+                    }
+                    lst_op.append(dct_op)
+                print(lst_op)
+                status, response = rec.session_id.request_api_patch(
+                    f"/io/card/{rec.card_id_pvap}",
+                    data=lst_op,
+                )
+                if str(status)[0] != "2":
+                    _logger.error(response)
+                    continue
         return status
 
     def unlink(self):
@@ -421,7 +451,6 @@ class PlanViewAgilePlaceCard(models.Model):
                     "size": size,
                     "version": version,
                     "session_id": session_id.id,
-                    # "custom_fields": custom_fields,
                     "description": description,
                     "assigned_users": assigned_users,
                     "entete": entete,

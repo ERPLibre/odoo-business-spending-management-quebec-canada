@@ -48,6 +48,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
             ),
             ("rename_lane", "Renommer des lanes"),
             ("copy_cards_from_lane", "Copy cards from lane to lane"),
+            ("sync_cards_from_lane", "Sync cards from lane to all board"),
             (
                 "copy_cards_from_lane_from_board",
                 "Copy cards from board to another board",
@@ -549,6 +550,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 rec.algo_move_root_lane_week()
             elif rec.algo_key == "copy_cards_from_lane":
                 rec.algo_copy_cards_from_lane(start_time)
+            elif rec.algo_key == "sync_cards_from_lane":
+                rec.algo_sync_cards_from_lane(start_time)
             elif rec.algo_key == "send_sms":
                 # TODO maybe can search employee information
                 pass
@@ -1814,6 +1817,58 @@ class PlanViewAgilePlaceProcessus(models.Model):
                             {"enable_sync_lane": True}
                         ).title = day_name
                         next_day += datetime.timedelta(days=1)
+
+    def algo_sync_cards_from_lane(self, start_time):
+        for rec in self:
+            count_card_to_sync = 0
+            count_card_to_no_sync = 0
+            card_ids = rec.search_cards_from_processus()
+            for card_sync_id in card_ids:
+                # Search associate card
+                card_to_sync_ids = self.env[
+                    "plan.view.agile.place.card"
+                ].search(
+                    [
+                        ("board_id", "=", rec.board_id.id),
+                        ("card_id_pvap", "!=", card_sync_id.card_id_pvap),
+                        ("name", "=", card_sync_id.name),
+                        ("custom_fields", "!=", card_sync_id.custom_fields),
+                    ]
+                )
+                card_to_no_sync_ids = self.env[
+                    "plan.view.agile.place.card"
+                ].search(
+                    [
+                        ("board_id", "=", rec.board_id.id),
+                        ("card_id_pvap", "!=", card_sync_id.card_id_pvap),
+                        ("name", "=", card_sync_id.name),
+                        ("custom_fields", "!=", card_sync_id.custom_fields),
+                    ]
+                )
+                count_card_to_no_sync += len(card_to_no_sync_ids)
+                for card_to_sync_id in card_to_sync_ids:
+                    # Be sure it's different
+                    lst_dct_to_sync = json.loads(card_to_sync_id.custom_fields)
+                    lst_dct_sync = json.loads(card_sync_id.custom_fields)
+                    is_same = self.compare_custom_fields(
+                        lst_dct_to_sync, lst_dct_sync
+                    )
+                    if not is_same:
+                        count_card_to_sync += 1
+                        card_to_sync_id.custom_fields = (
+                            card_sync_id.custom_fields
+                        )
+                    else:
+                        count_card_to_no_sync += 1
+            msg_txt = f"LOG Update {count_card_to_sync} cards with sync algorithm VS {count_card_to_no_sync} no need to sync.\n"
+            rec.log_txt += msg_txt
+            _logger.info(msg_txt.strip())
+
+    @staticmethod
+    def compare_custom_fields(liste1, liste2):
+        ensemble1 = {c.get("label"): c.get("value") for c in liste1}
+        ensemble2 = {c.get("label"): c.get("value") for c in liste2}
+        return ensemble1 == ensemble2
 
     def algo_copy_cards_from_lane(self, start_time):
         for rec in self:
