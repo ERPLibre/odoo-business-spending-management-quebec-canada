@@ -219,7 +219,10 @@ class PlanViewAgilePlaceCard(models.Model):
                 if str(status)[0] != "2":
                     _logger.error(response)
                     continue
-            if "custom_fields" in values.keys():
+            if (
+                self.env.context.get("enable_sync_card")
+                and "custom_fields" in values.keys()
+            ):
                 # lst_custom_fields = eval(
                 #     rec.custom_fields.replace("'id'", "'fieldId'")
                 # )

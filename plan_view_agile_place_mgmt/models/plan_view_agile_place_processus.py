@@ -1855,9 +1855,9 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     )
                     if not is_same:
                         count_card_to_sync += 1
-                        card_to_sync_id.custom_fields = (
-                            card_sync_id.custom_fields
-                        )
+                        card_to_sync_id.with_context(
+                            {"enable_sync_card": True}
+                        ).custom_fields = card_sync_id.custom_fields
                     else:
                         count_card_to_no_sync += 1
             msg_txt = f"LOG Update {count_card_to_sync} cards with sync algorithm VS {count_card_to_no_sync} no need to sync.\n"
