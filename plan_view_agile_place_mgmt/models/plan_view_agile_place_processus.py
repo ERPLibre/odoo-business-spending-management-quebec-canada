@@ -1643,6 +1643,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     for a in process_id.sms_history_ids
                     if a.to_number_phone == phone
                     and "Sommaire (" not in a.name
+                    and "Voici ton équipe" not in a.name
                 ]
             )
             # TODO work_phone is hardcoded, need to use bind
@@ -1681,6 +1682,19 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 else:
                     msg_sms += f"affection modifiée de dernière minute, tu vas travailler le {str_date}, au chantier "
                     str_key = "au chantier"
+                    # Exception no affection
+                    if (
+                        len(lst_new_sms_history) == 1
+                        and len(lst_existing_sms_history) == 1
+                    ):
+                        if (
+                            "il n'y a pas d'affection"
+                            in lst_new_sms_history[0]
+                            and "il n'y a pas d'affection"
+                            in lst_existing_sms_history[0]
+                        ):
+                            # Ignore it
+                            continue
                     for new_sms_history in lst_new_sms_history:
                         msg_cut = new_sms_history[
                             new_sms_history.find(str_key) + len(str_key) + 1 :
