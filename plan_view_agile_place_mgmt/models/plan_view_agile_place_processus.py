@@ -246,6 +246,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     sms_detect_card_type_msg_2_msg = fields.Text()
 
+    sms_reverse_contact_msg_2_key = fields.Char()
+
     sms_replace_card_name_to_msg = fields.Text()
 
     location_type_msg = fields.Char()
@@ -1538,12 +1540,14 @@ class PlanViewAgilePlaceProcessus(models.Model):
                         date_msg_str,
                         dct_sms_replace_card_name_to_msg,
                         dct_associate_card_name_with_sms,
+                        rec.sms_reverse_contact_msg_2_key,
                     )
                 )
                 nb_msg_sommaire = msg_summary_sms.count("\n")
 
+            sms_history_ids = None
             if lst_value_sms:
-                sms_history_id = self.env[
+                sms_history_ids = self.env[
                     "plan.view.agile.place.sms.history"
                 ].create(lst_value_sms)
 
@@ -1577,36 +1581,55 @@ class PlanViewAgilePlaceProcessus(models.Model):
             # Support message 2
             for user_name, dct_place in dct_lane_summary.items():
                 for place_name, lst_associate_name in dct_place.items():
-                    msg_sms_2 = (
-                        ""
-                        if not self.sms_message_prefix
-                        else self.sms_message_prefix + " "
-                    )
-                    # lst_filter_associate_name = [a for a in lst_associate_name if a != user_name]
-                    msg_associate_name = "\n".join(lst_associate_name)
-                    transform_msg = rec.sms_detect_card_type_msg_2_msg % (
-                        date_msg_str,
-                        place_name,
-                        msg_associate_name,
-                    )
                     employee_msg2_id = self.env["hr.employee"].search(
                         [("name", "=", user_name.title())],
                         limit=1,
                     )
-                    msg_sms_2 += transform_msg.replace("\\n", "\n")
-                    value_msg2_sms = {
-                        "name": msg_sms_2,
-                        "to_number_phone_country": to_country,
-                        "to_number_phone": employee_msg2_id.work_phone,
-                        "from_number_phone_country": rec.session_id.sms_from_country_default,
-                        "from_number_phone": rec.session_id.sms_from_number_phone_default,
-                        # "group_execution_name": group_execution_name,
-                        "processus_id": rec.id,
-                        "session_id": rec.session_id.id,
-                    }
-                    sms_2_id = self.env[
-                        "plan.view.agile.place.sms.history"
-                    ].create(value_msg2_sms)
+                    if not rec.check_double_sms_process_id:
+                        msg_sms_2 = (
+                            ""
+                            if not self.sms_message_prefix
+                            else self.sms_message_prefix + " "
+                        )
+                        # lst_filter_associate_name = [a for a in lst_associate_name if a != user_name]
+                        msg_associate_name = "\n".join(lst_associate_name)
+                        transform_msg = rec.sms_detect_card_type_msg_2_msg % (
+                            date_msg_str,
+                            place_name,
+                            msg_associate_name,
+                        )
+                        msg_sms_2 += transform_msg.replace("\\n", "\n")
+                        value_msg2_sms = {
+                            "name": msg_sms_2,
+                            "to_number_phone_country": to_country,
+                            "to_number_phone": employee_msg2_id.work_phone,
+                            "from_number_phone_country": rec.session_id.sms_from_country_default,
+                            "from_number_phone": rec.session_id.sms_from_number_phone_default,
+                            # "group_execution_name": group_execution_name,
+                            "processus_id": rec.id,
+                            "session_id": rec.session_id.id,
+                        }
+                        sms_2_id = self.env[
+                            "plan.view.agile.place.sms.history"
+                        ].create(value_msg2_sms)
+
+                    # Upgrade with contact information
+                    sms_history_to_update_msg2_ids = sms_history_ids.filtered(
+                        lambda x: f"«{place_name}»" in x.name
+                    )
+                    for (
+                        sms_history_to_update_msg2_id
+                    ) in sms_history_to_update_msg2_ids:
+                        key_msg2 = (
+                            "Contact :"
+                            if not rec.sms_reverse_contact_msg_2_key
+                            else rec.sms_reverse_contact_msg_2_key
+                        )
+                        msg_to_append_msg2 = f"\n{key_msg2} {employee_msg2_id.name} {employee_msg2_id.work_phone}"
+                        sms_history_to_update_msg2_id.name += (
+                            msg_to_append_msg2
+                        )
+            print("End algo_send_sms_schedule")
 
     def check_diff_sms_history_and_refactor_it(
         self,
@@ -1615,6 +1638,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
         str_date,
         dct_sms_replace_card_name_to_msg,
         dct_associate_card_name_with_sms,
+        sms_reverse_contact_msg_2_key,
     ):
         self.ensure_one()
         if not lst_value_sms:
@@ -1646,6 +1670,19 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     and "Voici ton équipe" not in a.name
                 ]
             )
+            # Hack the lst_existing_sms_history
+            if sms_reverse_contact_msg_2_key:
+                new_list_lst_existing_sms_history = []
+                for sms_history_to_hack in lst_existing_sms_history:
+                    lst_sms_history_to_hack = [
+                        a
+                        for a in sms_history_to_hack.split("\n")
+                        if not a.startswith(sms_reverse_contact_msg_2_key)
+                    ]
+                    new_list_lst_existing_sms_history.append(
+                        "\n".join(lst_sms_history_to_hack)
+                    )
+                lst_existing_sms_history = new_list_lst_existing_sms_history
             # TODO work_phone is hardcoded, need to use bind
             employee_id = self.env["hr.employee"].search(
                 [("work_phone", "=", phone)],
