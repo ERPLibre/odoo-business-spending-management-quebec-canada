@@ -69,6 +69,7 @@
                         <group string="SMS">
                             <field name="sms_summary_phone" />
                             <field name="sms_message_prefix" />
+                            <field name="sms_message_card_meaning" />
                             <field name="sms_detect_card_type_msg_1" />
                             <field name="sms_detect_card_type_msg_2" />
                             <field name="sms_detect_card_type_msg_2_default_name" />
@@ -140,6 +141,20 @@
                             <field name="sms_to_country" />
                             <field name="sms_message_to_send" />
                             <!--                            <field name="sms_limit_iteration" />-->
+                        </group>
+                    </group>
+                    <group name="Alert">
+                        <group string="Limitation">
+                            <field name="alert_min_size_card_enable" />
+                            <field
+                                name="alert_min_size_card"
+                                attrs="{'invisible': [('alert_min_size_card_enable', '=', False)]}"
+                            />
+                            <field name="alert_max_size_card_enable" />
+                            <field
+                                name="alert_max_size_card"
+                                attrs="{'invisible': [('alert_max_size_card_enable', '=', False)]}"
+                            />
                         </group>
                     </group>
                     <notebook>

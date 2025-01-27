@@ -54,6 +54,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 "Copy cards from board to another board",
             ),
             (
+                "alert_on_cards",
+                "Alert on cards",
+            ),
+            (
                 "move_root_lane_week",
                 "Move root lane week to previous week",
             ),
@@ -109,6 +113,14 @@ class PlanViewAgilePlaceProcessus(models.Model):
     model_name = fields.Char()
 
     model_fetch_record = fields.Char()
+
+    alert_min_size_card_enable = fields.Boolean()
+
+    alert_min_size_card = fields.Integer(default=0)
+
+    alert_max_size_card_enable = fields.Boolean()
+
+    alert_max_size_card = fields.Integer(default=0)
 
     duplicate_multiple_time = fields.Integer(
         default=1, help="Will repeat the duplication if higher then 1"
@@ -230,6 +242,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
     )
 
     sms_message_prefix = fields.Text()
+
+    sms_message_card_meaning = fields.Char()
 
     sms_summary_phone = fields.Char(
         help=(
@@ -558,6 +572,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 rec.algo_move_root_lane_week()
             elif rec.algo_key == "copy_cards_from_lane":
                 rec.algo_copy_cards_from_lane(start_time)
+            elif rec.algo_key == "alert_on_cards":
+                rec.algo_alert_on_cards(start_time)
             elif rec.algo_key == "sync_cards_from_lane":
                 rec.algo_sync_cards_from_lane(start_time)
             elif rec.algo_key == "send_sms":
@@ -2014,6 +2030,132 @@ class PlanViewAgilePlaceProcessus(models.Model):
         ensemble1 = {c.get("label"): c.get("value") for c in liste1}
         ensemble2 = {c.get("label"): c.get("value") for c in liste2}
         return ensemble1 == ensemble2
+
+    def algo_alert_on_cards(self, start_time):
+        for rec in self:
+            card_ids = rec.search_cards_from_processus()
+            if not card_ids:
+                msg_txt = "ERR Cannot find cards.\n"
+                rec.log_txt += msg_txt
+                rec.log_error_txt += msg_txt
+                _logger.error(msg_txt.strip())
+                rec.add_log_time_execution(start_time)
+                continue
+            lst_msg_alert = []
+
+            for card_id in card_ids:
+                msg_sms = (
+                    ""
+                    if not rec.sms_message_prefix
+                    else rec.sms_message_prefix + " "
+                )
+
+                # Alert on min size
+                if (
+                    rec.alert_min_size_card_enable
+                    and card_id.size < rec.alert_min_size_card
+                ):
+                    card_name = (
+                        card_id.card_type_id.name + " - " + card_id.name
+                    )
+                    lane_name = (
+                        card_id.lane_name
+                        if not card_id.lane_parent_name
+                        else card_id.lane_name
+                        + " - "
+                        + card_id.lane_parent_name
+                    )
+                    context_meaning_msg = (
+                        ""
+                        if not rec.sms_message_card_meaning
+                        else rec.sms_message_card_meaning
+                        + " "
+                        + lane_name
+                        + " "
+                    )
+                    msg_min_size = _(
+                        "La carte %s %s est de taille %s et devrait être plus grand que %s."
+                    ) % (
+                        card_name,
+                        context_meaning_msg,
+                        card_id.size,
+                        rec.alert_min_size_card,
+                    )
+                    msg_alert = f"{msg_sms}{msg_min_size}"
+
+                    # Add URL to the card
+                    msg_alert += (
+                        f"\n{rec.session_id.name}/card/{card_id.card_id_pvap}"
+                    )
+                    lst_msg_alert.append(msg_alert)
+
+                # Alert on max size
+                if (
+                    rec.alert_max_size_card_enable
+                    and card_id.size > rec.alert_max_size_card
+                ):
+                    card_name = (
+                        card_id.card_type_id.name + " - " + card_id.name
+                    )
+                    lane_name = (
+                        card_id.lane_name
+                        if not card_id.lane_parent_name
+                        else card_id.lane_name
+                        + " - "
+                        + card_id.lane_parent_name
+                    )
+                    context_meaning_msg = (
+                        ""
+                        if not rec.sms_message_card_meaning
+                        else rec.sms_message_card_meaning
+                        + " "
+                        + lane_name
+                        + " "
+                    )
+                    msg_max_size = _(
+                        "La carte %s %s est de taille %s et devrait être plus petit que %s."
+                    ) % (
+                        card_name,
+                        context_meaning_msg,
+                        card_id.size,
+                        rec.alert_max_size_card,
+                    )
+                    msg_alert = f"{msg_sms}{msg_max_size}"
+
+                    # Add URL to the card
+                    msg_alert += (
+                        f"\n{rec.session_id.name}/card/{card_id.card_id_pvap}"
+                    )
+                    lst_msg_alert.append(msg_alert)
+
+            # Send message
+            for i_msg, msg_alert in enumerate(lst_msg_alert):
+                msg_sms_log_debug = ""
+                msg_txt = (
+                    f"\nSMS({i_msg}) {msg_sms_log_debug}"
+                    f"«\n{msg_alert}\n»\n"
+                )
+                rec.log_txt += msg_txt
+
+                lst_phone = (
+                    rec.sms_to_number_phone.split(";")
+                    if rec.sms_to_number_phone
+                    else rec.session_id.sms_to_number_phone_default.split(";")
+                )
+                for number_phone in lst_phone:
+                    value_sms = {
+                        "to_number_phone_country": rec.session_id.sms_to_country_default,
+                        "to_number_phone": number_phone,
+                        "from_number_phone_country": rec.session_id.sms_from_country_default,
+                        "from_number_phone": rec.session_id.sms_from_number_phone_default,
+                        # "group_execution_name": group_execution_name,
+                        "processus_id": rec.id,
+                        "session_id": rec.session_id.id,
+                        "name": msg_alert,
+                    }
+                    sms_history_id = self.env[
+                        "plan.view.agile.place.sms.history"
+                    ].create(value_sms)
 
     def algo_copy_cards_from_lane(self, start_time):
         for rec in self:
