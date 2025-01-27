@@ -1136,7 +1136,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
                         if str_day.startswith(weekday.upper()):
                             for card_week_id in lst_card_week:
                                 str_date_time = str_day
-                                if card_week_id.size:
+                                if (
+                                    card_week_id.size
+                                    and card_week_id.size <= 24
+                                ):
                                     str_date_time += f"({card_week_id.size}H)"
                                 str_date_time += ": "
                                 coule_msg = ""
@@ -1212,7 +1215,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                                     card_msg_1_ids[0]
                                                 )
                                         if card_msg_1_ids:
-                                            if card_msg_1_ids.size:
+                                            if (
+                                                card_msg_1_ids.size
+                                                and card_msg_1_ids.size <= 24
+                                            ):
                                                 coule_msg = f"Coulée à {card_msg_1_ids.size}H"
                                             else:
                                                 coule_msg = "Coulée"
@@ -1293,7 +1299,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
             card_ids = rec.search_cards_from_processus(
                 sync_cards=rec.force_sync_before_algo
-            )
+            ).sorted("lane_name")
 
             dct_sms_replace_card_name_to_msg = (
                 json.loads(rec.sms_replace_card_name_to_msg)
@@ -1366,7 +1372,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 date_msg_str = card_id.lane_parent_name
                 datetime_msg_str = date_msg_str
                 msg_time = ""
-                if card_id.size:
+                if card_id.size and card_id.size <= 24:
                     msg_time = f" à {card_id.size}h"
                     datetime_msg_str += msg_time
                 use_replace_msg = False
@@ -1460,7 +1466,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                 # No size, take first
                                 card_msg_1_ids = card_msg_1_ids[0]
                         if card_msg_1_ids:
-                            if card_msg_1_ids.size:
+                            if (
+                                card_msg_1_ids.size
+                                and card_msg_1_ids.size <= 24
+                            ):
                                 msg_coule = (
                                     " + Coulée à" f" {card_msg_1_ids.size}H."
                                 )
@@ -1608,7 +1617,9 @@ class PlanViewAgilePlaceProcessus(models.Model):
                             else self.sms_message_prefix + " "
                         )
                         # lst_filter_associate_name = [a for a in lst_associate_name if a != user_name]
-                        msg_associate_name = "\n".join(lst_associate_name)
+                        msg_associate_name = "\n".join(
+                            sorted([a.title() for a in lst_associate_name])
+                        )
                         transform_msg = rec.sms_detect_card_type_msg_2_msg % (
                             date_msg_str,
                             place_name,
