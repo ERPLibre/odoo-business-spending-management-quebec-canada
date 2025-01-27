@@ -130,18 +130,16 @@
                             <field name="filter_field" />
                         </group>
                     </group>
-                    <group>
-                        <group string="SMS" attrs="{'invisible': [('sms_enable', '=', False)]}">
-                            <field name="sms_enable" invisible="True" />
-                            <field name="sms_debug" />
-                            <field name="sms_unique_number" />
-                            <field name="sms_bind_custom_field_phone_number" />
-                            <field name="sms_in_test_mode" />
-                            <field name="sms_to_number_phone" />
-                            <field name="sms_to_country" />
-                            <field name="sms_message_to_send" />
-                            <!--                            <field name="sms_limit_iteration" />-->
-                        </group>
+                    <group string="SMS Services" attrs="{'invisible': [('sms_enable', '=', False)]}">
+                        <field name="sms_enable" invisible="True" />
+                        <field name="sms_debug" />
+                        <field name="sms_unique_number" />
+                        <field name="sms_bind_custom_field_phone_number" />
+                        <field name="sms_in_test_mode" />
+                        <field name="sms_to_number_phone" />
+                        <field name="sms_to_country" />
+                        <field name="sms_message_to_send" />
+                        <!--                            <field name="sms_limit_iteration" />-->
                     </group>
                     <group name="Alert">
                         <group string="Limitation">
