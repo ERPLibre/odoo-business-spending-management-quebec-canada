@@ -260,6 +260,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     sms_detect_card_type_msg_2_msg = fields.Text()
 
+    sms_enable_reverse_contact_msg_2_key = fields.Boolean()
+
     sms_reverse_contact_msg_2_key = fields.Char()
 
     sms_replace_card_name_to_msg = fields.Text()
@@ -1565,6 +1567,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                         date_msg_str,
                         dct_sms_replace_card_name_to_msg,
                         dct_associate_card_name_with_sms,
+                        rec.sms_enable_reverse_contact_msg_2_key,
                         rec.sms_reverse_contact_msg_2_key,
                     )
                 )
@@ -1639,23 +1642,25 @@ class PlanViewAgilePlaceProcessus(models.Model):
                         sms_2_id = self.env[
                             "plan.view.agile.place.sms.history"
                         ].create(value_msg2_sms)
-
-                    # Upgrade with contact information
-                    sms_history_to_update_msg2_ids = sms_history_ids.filtered(
-                        lambda x: f"«{place_name}»" in x.name
-                    )
-                    for (
-                        sms_history_to_update_msg2_id
-                    ) in sms_history_to_update_msg2_ids:
-                        key_msg2 = (
-                            "Contact :"
-                            if not rec.sms_reverse_contact_msg_2_key
-                            else rec.sms_reverse_contact_msg_2_key
+                    if rec.sms_enable_reverse_contact_msg_2_key:
+                        # Upgrade with contact information
+                        sms_history_to_update_msg2_ids = (
+                            sms_history_ids.filtered(
+                                lambda x: f"«{place_name}»" in x.name
+                            )
                         )
-                        msg_to_append_msg2 = f"\n{key_msg2} {employee_msg2_id.name} {employee_msg2_id.work_phone}"
-                        sms_history_to_update_msg2_id.name += (
-                            msg_to_append_msg2
-                        )
+                        for (
+                            sms_history_to_update_msg2_id
+                        ) in sms_history_to_update_msg2_ids:
+                            key_msg2 = (
+                                "Contact :"
+                                if not rec.sms_reverse_contact_msg_2_key
+                                else rec.sms_reverse_contact_msg_2_key
+                            )
+                            msg_to_append_msg2 = f"\n{key_msg2} {employee_msg2_id.name} {employee_msg2_id.work_phone}"
+                            sms_history_to_update_msg2_id.name += (
+                                msg_to_append_msg2
+                            )
             print("End algo_send_sms_schedule")
 
     def check_diff_sms_history_and_refactor_it(
@@ -1666,6 +1671,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
         dct_sms_replace_card_name_to_msg,
         dct_associate_card_name_with_sms,
         sms_reverse_contact_msg_2_key,
+        sms_enable_reverse_contact_msg_2_key,
     ):
         self.ensure_one()
         if not lst_value_sms:
@@ -1698,6 +1704,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 ]
             )
             # Hack the lst_existing_sms_history
+            # TODO enable this hack with sms_enable_reverse_contact_msg_2_key
             if sms_reverse_contact_msg_2_key:
                 new_list_lst_existing_sms_history = []
                 for sms_history_to_hack in lst_existing_sms_history:
