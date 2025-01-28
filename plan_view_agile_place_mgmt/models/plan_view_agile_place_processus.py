@@ -122,6 +122,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     alert_max_size_card = fields.Integer(default=0)
 
+    alert_count_card_msg = fields.Char()
+
     alert_max_count_card_enable = fields.Boolean()
 
     alert_max_count_card = fields.Integer(default=0)
@@ -2156,7 +2158,6 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     )
                     lst_msg_alert.append(msg_alert)
 
-
             # Alert on min count cards into lane
             if (
                 rec.alert_min_count_card_enable
@@ -2167,15 +2168,22 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     if not rec.sms_message_prefix
                     else rec.sms_message_prefix + " "
                 )
-                colonne_name = " - ".join(rec.lane_name.split(";"))
-                lane_name = colonne_name + " " + card_ids[0].lane_parent_name
-                msg_min_count = _(
-                    "La colonne %s contient %s cartes et devrait contenir plus de %s cartes."
-                ) % (
-                    lane_name,
-                    len(card_ids),
-                    rec.alert_min_count_card - 1,
+                colonne_name = " - ".join(set([a.lane_name for a in card_ids]))
+                lane_name = (
+                    colonne_name
+                    + " "
+                    + " - ".join(set([a.lane_parent_name for a in card_ids]))
                 )
+                if rec.alert_count_card_msg:
+                    msg_min_count = rec.alert_count_card_msg % (lane_name,)
+                else:
+                    msg_min_count = _(
+                        "La colonne %s contient %s cartes et devrait contenir plus de %s cartes."
+                    ) % (
+                        lane_name,
+                        len(card_ids),
+                        rec.alert_min_count_card - 1,
+                    )
                 msg_alert = f"{msg_sms}{msg_min_count}"
 
                 # Add URL to the card
@@ -2195,15 +2203,22 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     if not rec.sms_message_prefix
                     else rec.sms_message_prefix + " "
                 )
-                colonne_name = " - ".join(rec.lane_name.split(";"))
-                lane_name = colonne_name + " " + card_ids[0].lane_parent_name
-                msg_max_count = _(
-                    "La colonne %s contient %s cartes et devrait contenir moins de %s cartes."
-                ) % (
-                    lane_name,
-                    len(card_ids),
-                    rec.alert_max_count_card + 1,
+                colonne_name = " - ".join(set([a.lane_name for a in card_ids]))
+                lane_name = (
+                    colonne_name
+                    + " "
+                    + " - ".join(set([a.lane_parent_name for a in card_ids]))
                 )
+                if rec.alert_count_card_msg:
+                    msg_max_count = rec.alert_count_card_msg % (lane_name,)
+                else:
+                    msg_max_count = _(
+                        "La colonne %s contient %s cartes et devrait contenir moins de %s cartes."
+                    ) % (
+                        lane_name,
+                        len(card_ids),
+                        rec.alert_max_count_card + 1,
+                    )
                 msg_alert = f"{msg_sms}{msg_max_count}"
 
                 # Add URL to the card
