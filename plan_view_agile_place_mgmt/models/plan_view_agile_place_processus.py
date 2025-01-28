@@ -122,6 +122,14 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     alert_max_size_card = fields.Integer(default=0)
 
+    alert_max_count_card_enable = fields.Boolean()
+
+    alert_max_count_card = fields.Integer(default=0)
+
+    alert_min_count_card_enable = fields.Boolean()
+
+    alert_min_count_card = fields.Integer(default=0)
+
     duplicate_multiple_time = fields.Integer(
         default=1, help="Will repeat the duplication if higher then 1"
     )
@@ -2051,7 +2059,9 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     def algo_alert_on_cards(self, start_time):
         for rec in self:
-            card_ids = rec.search_cards_from_processus()
+            card_ids = rec.search_cards_from_processus(
+                sync_cards=rec.force_sync_before_algo
+            )
             if not card_ids:
                 msg_txt = "ERR Cannot find cards.\n"
                 rec.log_txt += msg_txt
@@ -2145,6 +2155,63 @@ class PlanViewAgilePlaceProcessus(models.Model):
                         f"\n{rec.session_id.name}/card/{card_id.card_id_pvap}"
                     )
                     lst_msg_alert.append(msg_alert)
+
+
+            # Alert on min count cards into lane
+            if (
+                rec.alert_min_count_card_enable
+                and len(card_ids) < rec.alert_min_count_card
+            ):
+                msg_sms = (
+                    ""
+                    if not rec.sms_message_prefix
+                    else rec.sms_message_prefix + " "
+                )
+                colonne_name = " - ".join(rec.lane_name.split(";"))
+                lane_name = colonne_name + " " + card_ids[0].lane_parent_name
+                msg_min_count = _(
+                    "La colonne %s contient %s cartes et devrait contenir plus de %s cartes."
+                ) % (
+                    lane_name,
+                    len(card_ids),
+                    rec.alert_min_count_card - 1,
+                )
+                msg_alert = f"{msg_sms}{msg_min_count}"
+
+                # Add URL to the card
+                for card_id in card_ids:
+                    msg_alert += (
+                        f"\n{rec.session_id.name}/card/{card_id.card_id_pvap}"
+                    )
+                lst_msg_alert.append(msg_alert)
+
+            # Alert on max count cards into lane
+            if (
+                rec.alert_max_count_card_enable
+                and len(card_ids) > rec.alert_max_count_card
+            ):
+                msg_sms = (
+                    ""
+                    if not rec.sms_message_prefix
+                    else rec.sms_message_prefix + " "
+                )
+                colonne_name = " - ".join(rec.lane_name.split(";"))
+                lane_name = colonne_name + " " + card_ids[0].lane_parent_name
+                msg_max_count = _(
+                    "La colonne %s contient %s cartes et devrait contenir moins de %s cartes."
+                ) % (
+                    lane_name,
+                    len(card_ids),
+                    rec.alert_max_count_card + 1,
+                )
+                msg_alert = f"{msg_sms}{msg_max_count}"
+
+                # Add URL to the card
+                for card_id in card_ids:
+                    msg_alert += (
+                        f"\n{rec.session_id.name}/card/{card_id.card_id_pvap}"
+                    )
+                lst_msg_alert.append(msg_alert)
 
             # Send message
             for i_msg, msg_alert in enumerate(lst_msg_alert):
@@ -2619,6 +2686,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
         log_error_txt=None,
     ):
         self.ensure_one()
+        lst_lane_name = [] if not lane_name else lane_name.split(";")
         if lane_extract_algo:
             if lane_extract_algo == "jour d/m":
                 # TODO this is wrong, they are not root lane
@@ -2686,8 +2754,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 ("lane_root_id", "in", lane_root_ids.ids),
             ]
 
-            if lane_name:
-                lst_lane_name = lane_name.split(";")
+            if lst_lane_name:
                 lane_query.append(("title", "in", lst_lane_name))
             if lane_parent_name:
                 lst_lane_parent_name = lane_parent_name.split(";")
@@ -2708,6 +2775,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
         if search_recursive_lane:
             lane_ids = lane_ids.get_list_child_lane_from_lane(add_itself=True)
+            if lst_lane_name and is_root_lane:
+                lane_ids = lane_ids.filtered(
+                    lambda l: l.title in lst_lane_name
+                )
 
         if limit > 0:
             return lane_ids[:limit]

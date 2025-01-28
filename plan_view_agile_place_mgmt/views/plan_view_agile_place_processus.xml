@@ -157,6 +157,16 @@
                                 name="alert_max_size_card"
                                 attrs="{'invisible': [('alert_max_size_card_enable', '=', False)]}"
                             />
+                            <field name="alert_min_count_card_enable" />
+                            <field
+                                name="alert_min_count_card"
+                                attrs="{'invisible': [('alert_min_count_card_enable', '=', False)]}"
+                            />
+                            <field name="alert_max_count_card_enable" />
+                            <field
+                                name="alert_max_count_card"
+                                attrs="{'invisible': [('alert_max_count_card_enable', '=', False)]}"
+                            />
                         </group>
                     </group>
                     <notebook>
