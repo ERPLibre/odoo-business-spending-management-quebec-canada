@@ -40,6 +40,7 @@
                             <field name="lane_root_name" />
                             <field name="lane_parent_name" />
                             <field name="lane_name" />
+                            <field name="exclude_lane_name" />
                             <field name="is_root_lane" />
                             <field name="search_recursive_lane" />
                             <field name="search_lane_required_string" />

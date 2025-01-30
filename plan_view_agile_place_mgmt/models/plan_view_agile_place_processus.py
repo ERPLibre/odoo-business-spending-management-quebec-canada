@@ -145,6 +145,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     lane_name = fields.Char()
 
+    exclude_lane_name = fields.Char(help="Separate by ; for multiple")
+
     lane_extract_algo = fields.Selection(
         selection=[
             ("jour d/m", "jour d/m"),
@@ -2673,6 +2675,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 lane_extract_algo=rec.lane_extract_algo,
                 lane_parent_name=rec.lane_parent_name,
                 lane_sub_name=rec.lane_sub_name,
+                exclude_lane_name=rec.exclude_lane_name,
                 is_root_lane=rec.is_root_lane,
                 search_recursive_lane=rec.search_recursive_lane,
                 lane_name=rec.lane_name,
@@ -2691,6 +2694,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
         lane_extract_algo=None,
         lane_parent_name=None,
         lane_sub_name=None,
+        exclude_lane_name=None,
         lane_name=None,
         is_root_lane=False,
         search_recursive_lane=False,
@@ -2795,6 +2799,11 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     lambda l: l.title in lst_lane_name
                 )
 
+        if exclude_lane_name:
+            lst_exclude_lane_name = exclude_lane_name.split(";")
+            lane_ids = lane_ids.filtered(
+                lambda l: l.title not in lst_exclude_lane_name
+            )
         if limit > 0:
             return lane_ids[:limit]
 
