@@ -116,21 +116,29 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     alert_min_size_card_enable = fields.Boolean()
 
-    alert_min_size_card = fields.Integer(default=0)
+    alert_min_size_card = fields.Integer(
+        default=0, help="Alert under the min."
+    )
 
     alert_max_size_card_enable = fields.Boolean()
 
-    alert_max_size_card = fields.Integer(default=0)
+    alert_max_size_card = fields.Integer(
+        default=0, help="Alert upper the max."
+    )
 
     alert_count_card_msg = fields.Char()
 
     alert_max_count_card_enable = fields.Boolean()
 
-    alert_max_count_card = fields.Integer(default=0)
+    alert_max_count_card = fields.Integer(
+        default=0, help="Alert upper the max."
+    )
 
     alert_min_count_card_enable = fields.Boolean()
 
-    alert_min_count_card = fields.Integer(default=0)
+    alert_min_count_card = fields.Integer(
+        default=0, help="Alert under the min."
+    )
 
     duplicate_multiple_time = fields.Integer(
         default=1, help="Will repeat the duplication if higher then 1"
