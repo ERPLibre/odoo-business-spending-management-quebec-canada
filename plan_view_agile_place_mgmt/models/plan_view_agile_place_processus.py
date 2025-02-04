@@ -1640,9 +1640,24 @@ class PlanViewAgilePlaceProcessus(models.Model):
                             else self.sms_message_prefix + " "
                         )
                         # lst_filter_associate_name = [a for a in lst_associate_name if a != user_name]
-                        msg_associate_name = "\n".join(
-                            sorted([a.title() for a in lst_associate_name])
-                        )
+                        msg_associate_name = ""
+                        for associate_name in sorted(lst_associate_name):
+                            employee_associate_msg2_id = self.env[
+                                "hr.employee"
+                            ].search(
+                                [("name", "=", associate_name.title())],
+                                limit=1,
+                            )
+                            if employee_associate_msg2_id:
+                                if employee_associate_msg2_id.pvap_card_id:
+                                    # TODO missing employe job
+                                    msg_associate_name += f"{associate_name.title()} - {employee_associate_msg2_id.work_phone} - {employee_associate_msg2_id.pvap_card_id.entete}\n"
+                                else:
+                                    msg_associate_name += f"{associate_name.title()} - {employee_associate_msg2_id.work_phone}\n"
+                            else:
+                                msg_associate_name += (
+                                    f"{associate_name.title()}\n"
+                                )
                         transform_msg = rec.sms_detect_card_type_msg_2_msg % (
                             date_msg_str,
                             place_name,
