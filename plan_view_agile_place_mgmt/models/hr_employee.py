@@ -30,6 +30,8 @@ class HREmployee(models.Model):
             return
         lst_card_value = []
         for rec in self:
+            if not process_id.board_id:
+                process_id.fill_board_id()
             board_id = process_id.board_id
             if not board_id:
                 _logger.warning("You need to select a board.")
