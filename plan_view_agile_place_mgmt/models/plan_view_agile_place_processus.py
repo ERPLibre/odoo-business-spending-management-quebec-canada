@@ -120,6 +120,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
         default=0, help="Alert under the min."
     )
 
+    alert_wrong_lane_agencement = fields.Boolean()
+
     alert_max_size_card_enable = fields.Boolean()
 
     alert_max_size_card = fields.Integer(
@@ -159,6 +161,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
         selection=[
             ("jour d/m", "jour d/m"),
             ("week d/m/y", "week d/m/y"),
+            ("pattern", "pattern"),
         ]
     )
 
@@ -2086,6 +2089,49 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     def algo_alert_on_cards(self, start_time):
         for rec in self:
+            # System alert
+            if rec.alert_wrong_lane_agencement:
+                dct_info = {}
+                lane_ids = rec.search_lanes_from_processus(
+                    sync_cards=rec.force_sync_before_algo
+                )
+                for root_lane_id in lane_ids:
+                    for lvl2_lane_id in root_lane_id.lane_child_ids:
+                        lst_col_name = lvl2_lane_id.lane_child_ids.sorted(
+                            "sequence"
+                        ).mapped("title")
+                        info_name = (
+                            f"{root_lane_id.title}\n{lvl2_lane_id.title}"
+                        )
+                        dct_info[info_name] = lst_col_name
+                # TODO compare all dct_info
+                msg_txt = ""
+                set_info = {}
+                i = 0
+                for info_name, lst_info in dct_info.items():
+                    if not set_info:
+                        set_info = set(lst_info)
+                    else:
+                        set_lst_info = set(lst_info)
+                        lst_diff = set_info.difference(set_lst_info)
+                        lst_diff2 = set_lst_info.difference(set_info)
+                        if lst_diff or lst_diff2:
+                            i += 1
+                            msg_txt += (
+                                f"#{i} "
+                                + info_name.replace("\n", " // ")
+                                + "\n"
+                            )
+                        if lst_diff:
+                            msg_txt += "Missing : " + str(lst_diff) + "\n"
+                        if lst_diff2:
+                            msg_txt += "Missing : " + str(lst_diff2) + "\n"
+                        if lst_diff or lst_diff2:
+                            msg_txt += "\n"
+                        # print(info_name)
+                        # print(lst_diff)
+                rec.log_txt += msg_txt
+                continue
             card_ids = rec.search_cards_from_processus(
                 sync_cards=rec.force_sync_before_algo
             )
@@ -2493,6 +2539,20 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     find_lane_ids += lane_id
         return find_lane_ids
 
+    def _get_lane_from_pattern(self):
+        find_lane_ids = self.env["plan.view.agile.place.lane"]
+        for rec in self:
+            lane_ids = self.env["plan.view.agile.place.lane"].search(
+                [
+                    ("board_id", "=", rec.board_id.id),
+                    ("lane_parent_id", "=", False),
+                ]
+            )
+            for lane_id in lane_ids:
+                if rec.search_lane_required_string in lane_id.title:
+                    find_lane_ids += lane_id
+        return find_lane_ids
+
     def _get_all_week_lane(self, return_date_monday=False):
         find_lane_ids = self.env["plan.view.agile.place.lane"]
         lst_return_date_monday = []
@@ -2737,6 +2797,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
             elif lane_extract_algo == "week d/m/y":
                 # TODO bug to get next week
                 lane_root_ids = self._get_lane_from_regex_week()
+            elif lane_extract_algo == "pattern":
+                lane_root_ids = self._get_lane_from_pattern()
             else:
                 msg_txt = f"ERR processus '{process_name}' not supported lane_extract_algo {lane_extract_algo}.\n"
                 if log_txt:

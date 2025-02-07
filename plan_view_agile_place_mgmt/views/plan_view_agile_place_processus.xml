@@ -147,6 +147,9 @@
                         <!--                            <field name="sms_limit_iteration" />-->
                     </group>
                     <group name="Alert">
+                        <group string="System">
+                            <field name="alert_wrong_lane_agencement" />
+                        </group>
                         <group string="Limitation">
                             <field name="alert_min_size_card_enable" />
                             <field

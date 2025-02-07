@@ -218,6 +218,9 @@ class PlanViewAgilePlaceSession(models.Model):
             self.env["plan.view.agile.place.card"].search(
                 [("session_id", "=", rec.id)]
             ).unlink()
+            self.env["plan.view.agile.place.card"].search(
+                [("session_id", "=", rec.id), ("active", "=", False)]
+            ).unlink()
             self.env["plan.view.agile.place.card.type"].search(
                 [("session_id", "=", rec.id)]
             ).unlink()
