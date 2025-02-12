@@ -390,6 +390,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
         help="The name of the new board, need a %s inside for the date"
     )
 
+    board_enable_temp_delete_cards = fields.Boolean(
+        help="If True, will enable delete cards and remove it after execution"
+    )
+
     type_template_board_id = fields.Many2one(
         comodel_name="plan.view.agile.place.board.type",
         string="Type Board depend",
@@ -554,6 +558,14 @@ class PlanViewAgilePlaceProcessus(models.Model):
             ctx = dict(self.env.context)
             ctx.update({"lst_sync_lane_id_pvap": []})
 
+            # Init execution
+            if rec.board_enable_temp_delete_cards:
+                if not rec.board_id:
+                    raise ValueError(
+                        "Missing board to configure temporary delete."
+                    )
+                rec.board_id.set_allow_user_to_delete_cards(default=True)
+
             # Execute dependencies before
             if rec.depend_process_ids and not rec.ignore_run_depend_processus:
                 lst_processus_executed = []
@@ -633,6 +645,13 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     lst_bind_required_field_list,
                     force_refresh_custom_fields=rec.force_refresh_custom_fields,
                 )
+
+            if rec.board_enable_temp_delete_cards:
+                if not rec.board_id:
+                    raise ValueError(
+                        "Missing board to configure temporary delete."
+                    )
+                rec.board_id.set_allow_user_to_delete_cards(default=False)
 
             msg_end = (
                 f"End of execution processus '{rec.algo_key}' name"
@@ -2065,7 +2084,14 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 count_card_to_no_sync += len(card_to_no_sync_ids)
                 for card_to_sync_id in card_to_sync_ids:
                     # Be sure it's different
-                    lst_dct_to_sync = json.loads(card_to_sync_id.custom_fields)
+                    custom_fields_card_to_sync_fix = (
+                        card_to_sync_id.custom_fields.replace(
+                            "None", "null"
+                        ).replace("'", '"')
+                    )
+                    lst_dct_to_sync = json.loads(
+                        custom_fields_card_to_sync_fix
+                    )
                     lst_dct_sync = json.loads(card_sync_id.custom_fields)
                     is_same = self.compare_custom_fields(
                         lst_dct_to_sync, lst_dct_sync

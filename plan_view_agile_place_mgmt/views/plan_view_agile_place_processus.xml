@@ -34,6 +34,7 @@
                             <field name="is_disabled" />
                             <field name="ignore_run_depend_processus" />
                             <field name="force_sync_before_algo" />
+                            <field name="board_enable_temp_delete_cards" />
                         </group>
                         <group string="Search">
                             <field name="type_card" />

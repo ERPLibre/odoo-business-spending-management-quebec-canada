@@ -217,3 +217,13 @@ class PlanViewAgilePlaceBoard(models.Model):
                     lane_id.need_update_compute = False
 
             self.env["plan.view.agile.place.card"].sync_pvap_cards(rec)
+
+    def set_allow_user_to_delete_cards(self, default=False):
+        for rec in self:
+            status, response = rec.session_id.request_api_patch(
+                f"/io/board/{rec.board_id_pvap}",
+                data={"allowUsersToDeleteCards": default},
+            )
+            if str(status)[0] != "2":
+                _logger.error(response)
+                continue
