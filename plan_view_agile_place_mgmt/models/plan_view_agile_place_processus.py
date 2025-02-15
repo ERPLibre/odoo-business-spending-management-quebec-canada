@@ -283,6 +283,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     sms_detect_card_type_msg_2_msg = fields.Text()
 
+    sms_detect_card_type_msg_2_filter = fields.Text()
+
     sms_enable_reverse_contact_msg_2_key = fields.Boolean()
 
     sms_reverse_contact_msg_2_key = fields.Char()
@@ -1680,25 +1682,34 @@ class PlanViewAgilePlaceProcessus(models.Model):
                                 msg_associate_name += (
                                     f"{associate_name.title()}\n"
                                 )
-                        transform_msg = rec.sms_detect_card_type_msg_2_msg % (
-                            date_msg_str,
-                            place_name,
-                            msg_associate_name,
-                        )
-                        msg_sms_2 += transform_msg.replace("\\n", "\n")
-                        value_msg2_sms = {
-                            "name": msg_sms_2,
-                            "to_number_phone_country": to_country,
-                            "to_number_phone": employee_msg2_id.work_phone,
-                            "from_number_phone_country": rec.session_id.sms_from_country_default,
-                            "from_number_phone": rec.session_id.sms_from_number_phone_default,
-                            # "group_execution_name": group_execution_name,
-                            "processus_id": rec.id,
-                            "session_id": rec.session_id.id,
-                        }
-                        sms_2_id = self.env[
-                            "plan.view.agile.place.sms.history"
-                        ].create(value_msg2_sms)
+                        if (
+                            place_name
+                            not in rec.sms_detect_card_type_msg_2_filter.split(
+                                ";"
+                            )
+                        ):
+                            transform_msg = (
+                                rec.sms_detect_card_type_msg_2_msg
+                                % (
+                                    date_msg_str,
+                                    place_name,
+                                    msg_associate_name,
+                                )
+                            )
+                            msg_sms_2 += transform_msg.replace("\\n", "\n")
+                            value_msg2_sms = {
+                                "name": msg_sms_2,
+                                "to_number_phone_country": to_country,
+                                "to_number_phone": employee_msg2_id.work_phone,
+                                "from_number_phone_country": rec.session_id.sms_from_country_default,
+                                "from_number_phone": rec.session_id.sms_from_number_phone_default,
+                                # "group_execution_name": group_execution_name,
+                                "processus_id": rec.id,
+                                "session_id": rec.session_id.id,
+                            }
+                            sms_2_id = self.env[
+                                "plan.view.agile.place.sms.history"
+                            ].create(value_msg2_sms)
                     if rec.sms_enable_reverse_contact_msg_2_key:
                         # Upgrade with contact information
                         sms_history_to_update_msg2_ids = (

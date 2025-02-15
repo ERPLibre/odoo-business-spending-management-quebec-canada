@@ -76,6 +76,7 @@
                             <field name="sms_detect_card_type_msg_2" />
                             <field name="sms_detect_card_type_msg_2_default_name" />
                             <field name="sms_detect_card_type_msg_2_msg" />
+                            <field name="sms_detect_card_type_msg_2_filter" />
                             <field name="sms_enable_reverse_contact_msg_2_key" />
                             <field
                                 name="sms_reverse_contact_msg_2_key"
