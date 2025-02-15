@@ -10,6 +10,20 @@ from odoo import _, api, exceptions, fields, models
 _logger = logging.getLogger(__name__)
 
 
+class EmployeePublic(models.Model):
+    _inherit = "hr.employee.public"
+
+    enable_sms_rappel_horaire_gestionnaire = fields.Boolean(readonly=True)
+
+    enable_sms_rappel_horaire_employee = fields.Boolean(readonly=True)
+
+    pvap_card_id = fields.Many2one(
+        comodel_name="plan.view.agile.place.card",
+        string="Card",
+        readonly=True
+    )
+
+
 class HREmployee(models.Model):
     _inherit = "hr.employee"
 
