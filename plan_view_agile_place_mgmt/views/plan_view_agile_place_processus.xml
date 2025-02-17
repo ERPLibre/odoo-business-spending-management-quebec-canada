@@ -42,6 +42,7 @@
                             <field name="lane_parent_name" />
                             <field name="lane_name" />
                             <field name="exclude_lane_name" />
+                            <field name="get_all_lane" />
                             <field name="is_root_lane" />
                             <field name="search_lane_required_string" />
                             <field name="lane_extract_algo" />
@@ -174,8 +175,8 @@
                             <field name="default_value_model" />
                             <field name="compute_model_fsm_location" />
                             <field name="compute_model_fsm_person" />
-<!--                            <field name="create_more_field" />-->
-<!--                            <field name="create_more_field_algo" />-->
+                            <!--                            <field name="create_more_field" />-->
+                            <!--                            <field name="create_more_field_algo" />-->
                             <field name="model_name" />
                             <field name="ignore_warning_from_name" />
                             <field name="filter_field" />

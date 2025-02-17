@@ -144,7 +144,7 @@ class PlanViewAgilePlaceLane(models.Model):
             lst_breadcrumb.append(lane_parent_id.title)
             # lane_id = lane_parent_id
             lane_parent_id = lane_parent_id.lane_parent_id
-        return lst_breadcrumb[1::-1] + [self.title]
+        return lst_breadcrumb[::-1] + [self.title]
 
     def sequence_parents(self, objs):
         self.ensure_one()

@@ -6,8 +6,8 @@ import datetime
 import json
 import logging
 import re
-import time
 import tempfile
+import time
 from collections import defaultdict
 from urllib.parse import quote
 
@@ -104,9 +104,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
     )
 
     operate_lane_ignore_string_lane = fields.Char(
-        help=(
-            "String to remove from lane when search lane for operate_lane"
-        )
+        help=("String to remove from lane when search lane for operate_lane")
     )
 
     operate_lane_name = fields.Char(
@@ -182,6 +180,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
     lane_name = fields.Char()
 
     exclude_lane_name = fields.Char(help="Separate by ; for multiple")
+
+    get_all_lane = fields.Boolean(help="Will extract all lane")
 
     lane_extract_algo = fields.Selection(
         selection=[
@@ -2821,6 +2821,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 lane_parent_name=rec.lane_parent_name,
                 lane_sub_name=rec.lane_sub_name,
                 exclude_lane_name=rec.exclude_lane_name,
+                get_all_lane=rec.get_all_lane,
                 is_root_lane=rec.is_root_lane,
                 lane_name=rec.lane_name,
                 sync_cards=sync_cards,
@@ -2839,6 +2840,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
         lane_parent_name=None,
         lane_sub_name=None,
         exclude_lane_name=None,
+        get_all_lane=False,
         lane_name=None,
         is_root_lane=False,
         sync_cards=True,
@@ -2865,21 +2867,29 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     log_error_txt += msg_txt
                 return
         else:
-            if not lane_root_name:
+            if not lane_root_name and not get_all_lane:
                 msg_txt = f"ERR processus '{process_name}' root lane name is empty.\n"
                 if log_txt:
                     log_txt += msg_txt
                 if log_error_txt:
                     log_error_txt += msg_txt
                 return
-            lst_title_root = lane_root_name.split(";")
-            lane_root_ids = self.env["plan.view.agile.place.lane"].search(
-                [
-                    ("title", "in", lst_title_root),
-                    ("lane_parent_id", "=", False),
-                    ("board_id", "=", board_id.id),
-                ]
-            )
+            if get_all_lane:
+                lane_root_ids = self.env["plan.view.agile.place.lane"].search(
+                    [
+                        ("board_id", "=", board_id.id),
+                    ]
+                )
+            else:
+                lst_title_root = lane_root_name.split(";")
+                lane_root_ids = self.env["plan.view.agile.place.lane"].search(
+                    [
+                        ("title", "in", lst_title_root),
+                        ("lane_parent_id", "=", False),
+                        ("board_id", "=", board_id.id),
+                    ]
+                )
+
             if not lane_root_ids:
                 msg_txt = (
                     f"ERR processus '{process_name}' root lane name"
@@ -2908,7 +2918,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
             lane_root_ids.action_sync_cards()
 
-        if is_root_lane:
+        if is_root_lane or get_all_lane:
             lane_ids = lane_root_ids
         else:
             lane_query = [
@@ -2935,7 +2945,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     lane_query
                 )
 
-        # Force to search with recursive, cannot have cards if contain lanes
+        # Force to search with recursive, cannot have cards if contain lanes TODO no need this when get_all_lane
         lane_ids = lane_ids.get_list_child_lane_from_lane(add_itself=True)
         if lst_lane_name and is_root_lane:
             lane_ids = lane_ids.filtered(lambda l: l.title in lst_lane_name)
@@ -2947,12 +2957,21 @@ class PlanViewAgilePlaceProcessus(models.Model):
             )
         if limit > 0:
             return lane_ids[:limit]
-
+        # Remove doublon
+        lst_unique_ids = set(lane_ids.ids)
+        if len(lane_ids.ids) != len(lst_unique_ids):
+            lane_ids = self.env["plan.view.agile.place.lane"].browse(
+                list(lst_unique_ids)
+            )
         return lane_ids
 
     def operate_lane(self):
         for rec in self:
-            if not rec.operate_lane_name and rec.operate_lane_action in ["add_above", "add_bellow"]:
+            if not rec.operate_lane_name and rec.operate_lane_action in [
+                "add_above",
+                "add_bellow",
+                "sort_by",
+            ]:
                 msg_txt = "ERR Need the new lane_name to add lane.\n"
                 rec.log_txt += msg_txt
                 rec.log_error_txt += msg_txt
@@ -2965,9 +2984,26 @@ class PlanViewAgilePlaceProcessus(models.Model):
             cmd_gen = {"operate_lane": lst_op}
             for lane_id in lane_ids:
                 if rec.operate_lane_ignore_string_lane:
-                    lane_path = [a.replace(rec.operate_lane_ignore_string_lane, "") for a in lane_id.get_hierarchy_list()]
+                    lane_path = [
+                        a.replace(rec.operate_lane_ignore_string_lane, "")
+                        for a in lane_id.get_hierarchy_list()
+                    ]
                 else:
                     lane_path = lane_id.get_hierarchy_list()
+                # TODO Fix bug into selenium, remove all string into ()
+                new_lst_lane_path = []
+                for lane_path_str in lane_path:
+                    new_lane_path = lane_path_str
+                    if "(" in new_lane_path:
+                        new_lane_path = new_lane_path[
+                            : new_lane_path.find("(")
+                        ]
+                    if ")" in new_lane_path:
+                        new_lane_path = new_lane_path[
+                            : new_lane_path.find(")")
+                        ]
+                    new_lst_lane_path.append(new_lane_path)
+                lane_path = new_lst_lane_path
 
                 dct_op = {
                     "action": rec.operate_lane_action,
@@ -2978,9 +3014,9 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 lst_op.append(dct_op)
             str_cmd_gen = json.dumps(cmd_gen)
             # str_cmd_gen = str_cmd_gen.replace(" ", "%20").replace('"', "'")
-            temp_file = tempfile.NamedTemporaryFile(mode='w', delete=False)
+            temp_file = tempfile.NamedTemporaryFile(mode="w", delete=False)
             json.dump(cmd_gen, temp_file)
-            msg_txt = "Write json config file \n"
+            msg_txt = f"Write json config file with {len(lst_op)} operations \n"
             msg_txt += temp_file.name
             temp_file.close()
             msg_txt += f"\n\n{str_cmd_gen}\n\n"
