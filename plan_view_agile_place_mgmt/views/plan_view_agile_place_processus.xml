@@ -123,23 +123,10 @@
                             <field name="duplicate_multiple_time" />
                             <field name="process_execute_after_ids" widget="many2many_tags" />
                         </group>
-                        <group string="Extract data">
-                            <field name="force_update_after_create" />
-                            <field name="default_value_model" />
-                            <field name="compute_model_fsm_location" />
-                            <field name="compute_model_fsm_person" />
-                            <field name="bind_custom_field" />
-                            <field name="bind_required_field_list" />
-                            <field name="bind_field" />
-                            <field name="model_name" />
-                            <field name="type_card_bind" />
-                            <field name="ignore_warning_from_name" />
-                            <field name="filter_field" />
-                        </group>
                         <group string="Operate lane">
-                            <field name="add_lane_name" />
-                            <field name="add_lane_action" />
-                            <field name="add_lane_ignore_string_lane" />
+                            <field name="operate_lane_name" />
+                            <field name="operate_lane_action" />
+                            <field name="operate_lane_ignore_string_lane" />
                         </group>
                     </group>
                     <group string="SMS Services" attrs="{'invisible': [('sms_enable', '=', False)]}">
@@ -179,6 +166,25 @@
                                 name="alert_max_count_card"
                                 attrs="{'invisible': [('alert_max_count_card_enable', '=', False)]}"
                             />
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Extract data">
+                            <field name="force_update_after_create" />
+                            <field name="default_value_model" />
+                            <field name="compute_model_fsm_location" />
+                            <field name="compute_model_fsm_person" />
+<!--                            <field name="create_more_field" />-->
+<!--                            <field name="create_more_field_algo" />-->
+                            <field name="model_name" />
+                            <field name="ignore_warning_from_name" />
+                            <field name="filter_field" />
+                        </group>
+                        <group string="Extract data bind">
+                            <field name="bind_custom_field" />
+                            <field name="bind_required_field_list" />
+                            <field name="bind_field" />
+                            <field name="type_card_bind" />
                         </group>
                     </group>
                     <notebook>

@@ -33,7 +33,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
     algo_key = fields.Selection(
         selection=[
             ("multi_process", "Bundle multi-process"),
-            ("add_lane", "Add lane"),
+            ("operate_lane", "Operate lane"),
             ("create_card_from_model", "Build cards into PVAP"),
             ("create_new_board", "Create new board"),
             ("create_model_from_card", "Create Model from Card"),
@@ -103,22 +103,25 @@ class PlanViewAgilePlaceProcessus(models.Model):
         )
     )
 
-    add_lane_ignore_string_lane = fields.Char(
+    operate_lane_ignore_string_lane = fields.Char(
         help=(
-            "String to remove from lane when search lane for add_lane"
+            "String to remove from lane when search lane for operate_lane"
         )
     )
 
-    add_lane_name = fields.Char(
+    operate_lane_name = fields.Char(
         help=(
             "Separate by ; for multiple lane, will add lane after this lane. Search by pattern into each searching lane"
         )
     )
 
-    add_lane_action = fields.Selection(
+    operate_lane_action = fields.Selection(
         selection=[
             ("add_above", "Add above"),
             ("add_bellow", "Add bellow"),
+            ("delete", "Delete"),
+            ("rename", "Rename"),
+            ("sort_by", "Sort By"),
         ],
         required=True,
         default="add_bellow",
@@ -628,8 +631,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     rec.bind_required_field_list
                 )
 
-            if rec.algo_key == "add_lane":
-                rec.add_lane()
+            if rec.algo_key == "operate_lane":
+                rec.operate_lane()
             elif rec.algo_key == "copy_cards_from_lane_from_board":
                 rec.fill_board_id(use_from_board=True, raise_error=False)
             elif rec.algo_key == "move_root_lane_week":
@@ -2947,9 +2950,9 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
         return lane_ids
 
-    def add_lane(self):
+    def operate_lane(self):
         for rec in self:
-            if not rec.add_lane_name:
+            if not rec.operate_lane_name and rec.operate_lane_action in ["add_above", "add_bellow"]:
                 msg_txt = "ERR Need the new lane_name to add lane.\n"
                 rec.log_txt += msg_txt
                 rec.log_error_txt += msg_txt
@@ -2959,18 +2962,19 @@ class PlanViewAgilePlaceProcessus(models.Model):
             lane_ids = self.search_lanes_from_processus(sync_cards=False)
             lane_ids = lane_ids.sorted_all_by_sequence()
             lst_op = []
-            cmd_gen = {"add_lane": lst_op}
+            cmd_gen = {"operate_lane": lst_op}
             for lane_id in lane_ids:
-                if rec.add_lane_ignore_string_lane:
-                    lane_path = [a.replace(rec.add_lane_ignore_string_lane, "") for a in lane_id.get_hierarchy_list()]
+                if rec.operate_lane_ignore_string_lane:
+                    lane_path = [a.replace(rec.operate_lane_ignore_string_lane, "") for a in lane_id.get_hierarchy_list()]
                 else:
                     lane_path = lane_id.get_hierarchy_list()
 
                 dct_op = {
-                    "action": rec.add_lane_action,
-                    "action_value": rec.add_lane_name.split(";"),
+                    "action": rec.operate_lane_action,
                     "lane_path": lane_path,
                 }
+                if rec.operate_lane_name:
+                    dct_op["action_value"] = rec.operate_lane_name.split(";")
                 lst_op.append(dct_op)
             str_cmd_gen = json.dumps(cmd_gen)
             # str_cmd_gen = str_cmd_gen.replace(" ", "%20").replace('"', "'")
