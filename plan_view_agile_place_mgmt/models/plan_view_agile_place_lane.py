@@ -135,6 +135,32 @@ class PlanViewAgilePlaceLane(models.Model):
                 rec.lane_sub_name = "/".join(lst_breadcrumb[1::-1])
             rec.lane_root_id = False if not lane_id else lane_id.id
 
+    def get_hierarchy_list(self):
+        self.ensure_one()
+        lane_parent_id = self.lane_parent_id
+        lst_breadcrumb = []
+        while lane_parent_id:
+            # Calculate sub_lane
+            lst_breadcrumb.append(lane_parent_id.title)
+            # lane_id = lane_parent_id
+            lane_parent_id = lane_parent_id.lane_parent_id
+        return lst_breadcrumb[1::-1] + [self.title]
+
+    def sequence_parents(self, objs):
+        self.ensure_one()
+        obj = self[0]
+        if not obj.lane_parent_id:
+            # Create it
+            return [[obj.sequence]]
+        # Update it
+        lst_parent_sequence = obj.lane_parent_id.sequence_parents(objs)
+        lst_parent_sequence.append([obj.sequence])
+        return lst_parent_sequence
+
+    def sorted_all_by_sequence(self):
+        # Will sort by root/parent/lane sequence
+        return self.sorted(lambda x: x.sequence_parents(self))
+
     def action_sync_cards(self):
         for rec in self:
             self.env["plan.view.agile.place.card"].sync_pvap_cards(

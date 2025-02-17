@@ -43,7 +43,6 @@
                             <field name="lane_name" />
                             <field name="exclude_lane_name" />
                             <field name="is_root_lane" />
-                            <field name="search_recursive_lane" />
                             <field name="search_lane_required_string" />
                             <field name="lane_extract_algo" />
                             <field name="force_refresh_custom_fields" />
@@ -112,6 +111,7 @@
                         <!--                        </group>-->
                         <group string="Schedule">
                             <field name="delay_in_day" />
+                            <field name="get_all_week" />
                             <field name="ignore_weekend" />
                             <field name="force_update_model" />
                         </group>
@@ -135,6 +135,11 @@
                             <field name="type_card_bind" />
                             <field name="ignore_warning_from_name" />
                             <field name="filter_field" />
+                        </group>
+                        <group string="Operate lane">
+                            <field name="add_lane_name" />
+                            <field name="add_lane_action" />
+                            <field name="add_lane_ignore_string_lane" />
                         </group>
                     </group>
                     <group string="SMS Services" attrs="{'invisible': [('sms_enable', '=', False)]}">

@@ -7,6 +7,7 @@ import json
 import logging
 import re
 import time
+import tempfile
 from collections import defaultdict
 from urllib.parse import quote
 
@@ -32,6 +33,7 @@ class PlanViewAgilePlaceProcessus(models.Model):
     algo_key = fields.Selection(
         selection=[
             ("multi_process", "Bundle multi-process"),
+            ("add_lane", "Add lane"),
             ("create_card_from_model", "Build cards into PVAP"),
             ("create_new_board", "Create new board"),
             ("create_model_from_card", "Create Model from Card"),
@@ -99,6 +101,27 @@ class PlanViewAgilePlaceProcessus(models.Model):
             "Contain JSON, key is field name, value depend on type. Selection"
             " will be a boolean filter."
         )
+    )
+
+    add_lane_ignore_string_lane = fields.Char(
+        help=(
+            "String to remove from lane when search lane for add_lane"
+        )
+    )
+
+    add_lane_name = fields.Char(
+        help=(
+            "Separate by ; for multiple lane, will add lane after this lane. Search by pattern into each searching lane"
+        )
+    )
+
+    add_lane_action = fields.Selection(
+        selection=[
+            ("add_above", "Add above"),
+            ("add_bellow", "Add bellow"),
+        ],
+        required=True,
+        default="add_bellow",
     )
 
     bind_field = fields.Text()
@@ -171,6 +194,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
         string="Delay in day or week", help="Will depend the lane_extract_algo"
     )
 
+    get_all_week = fields.Boolean(
+        help="Will ignore delay_in_day to get all week."
+    )
+
     force_sync_before_algo = fields.Boolean(
         help="When True, will force sync into algorithm."
     )
@@ -228,10 +255,6 @@ class PlanViewAgilePlaceProcessus(models.Model):
             ),
         ],
         help="Will execute a validation algorithm",
-    )
-
-    search_recursive_lane = fields.Boolean(
-        help="Get all card recursively from lane_id."
     )
 
     search_lane_required_string = fields.Char(
@@ -605,9 +628,11 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     rec.bind_required_field_list
                 )
 
-            if rec.algo_key == "copy_cards_from_lane_from_board":
+            if rec.algo_key == "add_lane":
+                rec.add_lane()
+            elif rec.algo_key == "copy_cards_from_lane_from_board":
                 rec.fill_board_id(use_from_board=True, raise_error=False)
-            if rec.algo_key == "move_root_lane_week":
+            elif rec.algo_key == "move_root_lane_week":
                 rec.algo_move_root_lane_week()
             elif rec.algo_key == "copy_cards_from_lane":
                 rec.algo_copy_cards_from_lane(start_time)
@@ -2479,10 +2504,6 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 result.group("mois")
             ) and next_day.day == int(result.group("journee")):
                 find_lane_ids += lane_id
-        if rec.search_recursive_lane:
-            find_lane_ids = find_lane_ids.get_list_child_lane_from_lane(
-                add_itself=True
-            )
         return find_lane_ids
 
     def _get_month_fr(self, ttype="dict", value=0):
@@ -2561,7 +2582,8 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 if not result:
                     continue
                 if (
-                    mois_en_francais[monday_day.strftime("%B")]
+                    rec.get_all_week
+                    or mois_en_francais[monday_day.strftime("%B")]
                     == result.group("mois").title()
                     and monday_day.day == int(result.group("journee"))
                     and monday_day.year == int(result.group("annee"))
@@ -2797,7 +2819,6 @@ class PlanViewAgilePlaceProcessus(models.Model):
                 lane_sub_name=rec.lane_sub_name,
                 exclude_lane_name=rec.exclude_lane_name,
                 is_root_lane=rec.is_root_lane,
-                search_recursive_lane=rec.search_recursive_lane,
                 lane_name=rec.lane_name,
                 sync_cards=sync_cards,
                 limit=limit,
@@ -2810,14 +2831,13 @@ class PlanViewAgilePlaceProcessus(models.Model):
         self,
         process_name,
         board_id,
-        lane_root_name,
+        lane_root_name=None,
         lane_extract_algo=None,
         lane_parent_name=None,
         lane_sub_name=None,
         exclude_lane_name=None,
         lane_name=None,
         is_root_lane=False,
-        search_recursive_lane=False,
         sync_cards=True,
         limit=-1,
         order=None,
@@ -2828,11 +2848,9 @@ class PlanViewAgilePlaceProcessus(models.Model):
         lst_lane_name = [] if not lane_name else lane_name.split(";")
         if lane_extract_algo:
             if lane_extract_algo == "jour d/m":
-                # TODO this is wrong, they are not root lane
                 lane_root_ids = self._get_lane_from_regex_day()
                 is_root_lane = True
             elif lane_extract_algo == "week d/m/y":
-                # TODO bug to get next week
                 lane_root_ids = self._get_lane_from_regex_week()
             elif lane_extract_algo == "pattern":
                 lane_root_ids = self._get_lane_from_pattern()
@@ -2914,12 +2932,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
                     lane_query
                 )
 
-        if search_recursive_lane:
-            lane_ids = lane_ids.get_list_child_lane_from_lane(add_itself=True)
-            if lst_lane_name and is_root_lane:
-                lane_ids = lane_ids.filtered(
-                    lambda l: l.title in lst_lane_name
-                )
+        # Force to search with recursive, cannot have cards if contain lanes
+        lane_ids = lane_ids.get_list_child_lane_from_lane(add_itself=True)
+        if lst_lane_name and is_root_lane:
+            lane_ids = lane_ids.filtered(lambda l: l.title in lst_lane_name)
 
         if exclude_lane_name:
             lst_exclude_lane_name = exclude_lane_name.split(";")
@@ -2930,6 +2946,42 @@ class PlanViewAgilePlaceProcessus(models.Model):
             return lane_ids[:limit]
 
         return lane_ids
+
+    def add_lane(self):
+        for rec in self:
+            if not rec.add_lane_name:
+                msg_txt = "ERR Need the new lane_name to add lane.\n"
+                rec.log_txt += msg_txt
+                rec.log_error_txt += msg_txt
+                _logger.error(msg_txt.strip())
+                continue
+            # TODO create sorted by sequence, but root first, after child for all element
+            lane_ids = self.search_lanes_from_processus(sync_cards=False)
+            lane_ids = lane_ids.sorted_all_by_sequence()
+            lst_op = []
+            cmd_gen = {"add_lane": lst_op}
+            for lane_id in lane_ids:
+                if rec.add_lane_ignore_string_lane:
+                    lane_path = [a.replace(rec.add_lane_ignore_string_lane, "") for a in lane_id.get_hierarchy_list()]
+                else:
+                    lane_path = lane_id.get_hierarchy_list()
+
+                dct_op = {
+                    "action": rec.add_lane_action,
+                    "action_value": rec.add_lane_name.split(";"),
+                    "lane_path": lane_path,
+                }
+                lst_op.append(dct_op)
+            str_cmd_gen = json.dumps(cmd_gen)
+            # str_cmd_gen = str_cmd_gen.replace(" ", "%20").replace('"', "'")
+            temp_file = tempfile.NamedTemporaryFile(mode='w', delete=False)
+            json.dump(cmd_gen, temp_file)
+            msg_txt = "Write json config file \n"
+            msg_txt += temp_file.name
+            temp_file.close()
+            msg_txt += f"\n\n{str_cmd_gen}\n\n"
+            rec.log_txt += msg_txt
+            _logger.info(msg_txt.strip())
 
     def fill_board_id(self, use_from_board=False, raise_error=True):
         for rec in self:
