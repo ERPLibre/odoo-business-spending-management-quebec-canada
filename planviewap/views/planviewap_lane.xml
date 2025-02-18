@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="planviewap_lane_view_form" model="ir.ui.view">
+        <field name="name">planviewap_lane_form</field>
+        <field name="model">planviewap.lane</field>
+        <field name="arch" type="xml">
+            <form string="Titre">
+                <header>
+                    <button name="action_sync_cards" string="Sync card" type="object" class="oe_highlight" />
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name" class="oe_edit_only" />
+                        <h1>
+                            <field name="name" />
+                        </h1>
+                    </div>
+                    <div class="oe_button_box" name="button_box">
+                        <button class="oe_stat_button" icon="fa-archive" name="toggle_active" type="object">
+                            <field name="active" widget="boolean_button" />
+                        </button>
+                    </div>
+                    <group>
+                        <group string="General">
+                            <field name="title" />
+                            <field name="board_id" />
+                            <field name="sequence" />
+                            <field name="description" />
+                            <field name="is_collapsed" />
+                            <field name="need_update_compute" />
+                            <field name="columns" />
+                            <field name="orientation" />
+                            <field name="session_id" />
+                            <field name="count_card" />
+                        </group>
+                        <group string="Lane">
+                            <field name="lane_class_type" />
+                            <field name="lane_id_pvap" />
+                            <field name="lane_type" />
+                            <field name="lane_root_id" />
+                            <field name="lane_root_name" />
+                            <field name="breadcrumb_middle_name" />
+                            <field name="lane_sub_name" />
+                            <field name="lane_parent_id" />
+                            <field name="lane_parent_name" />
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Child lane">
+                            <group>
+                                <field name="lane_child_ids" />
+                            </group>
+                        </page>
+                        <page string="Cards">
+                            <group>
+                                <field name="card_ids" />
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="planviewap_lane_view_graph" model="ir.ui.view">
+        <field name="name">planviewap_lane_graph</field>
+        <field name="model">planviewap.lane</field>
+        <field name="arch" type="xml">
+            <graph string="Plan view agile place lane">
+                <field name="name" type="row" />
+                <field name="lane_id_pvap" type="row" />
+                <field name="session_id" type="row" />
+            </graph>
+        </field>
+    </record>
+
+    <record id="planviewap_lane_view_kanban" model="ir.ui.view">
+        <field name="name">planviewap_lane_kanban</field>
+        <field name="model">planviewap.lane</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile">
+                <field name="name" />
+                <field name="title" />
+                <field name="lane_id_pvap" />
+                <field name="session_id" />
+                <templates>
+                    <t t-name="kanban-box">
+                        <div t-attf-class="oe_kanban_global_click">
+                            <div class="oe_kanban_details">
+                                <ul>
+                                    <li class="mb4">
+                                        <strong>
+                                            <field name="title" />
+                                        </strong>
+                                    </li>
+                                    <li class="mb4">
+                                        <strong>
+                                            <field name="name" />
+                                        </strong>
+                                    </li>
+                                    <li class="mb4">
+                                        <strong>
+                                            <field name="lane_id_pvap" />
+                                        </strong>
+                                    </li>
+                                    <li class="mb4">
+                                        <strong>
+                                            <field name="session_id" />
+                                        </strong>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="planviewap_lane_view_pivot" model="ir.ui.view">
+        <field name="name">planviewap_lane_pivot</field>
+        <field name="model">planviewap.lane</field>
+        <field name="arch" type="xml">
+            <pivot string="Plan view agile place lane">
+                <field name="name" type="row" />
+                <field name="lane_id_pvap" type="row" />
+                <field name="session_id" type="row" />
+            </pivot>
+        </field>
+    </record>
+
+    <record id="planviewap_lane_view_search" model="ir.ui.view">
+        <field name="name">planviewap_lane_search</field>
+        <field name="model">planviewap.lane</field>
+        <field name="arch" type="xml">
+            <search string="Plan view agile place lane">
+                <field name="name" filter_domain="['|', ('name','ilike',self), ('title','ilike',self)]" string="Name" />
+                <field name="title" filter_domain="[('title','ilike',self)]" string="Title" />
+                <field name="board_id" filter_domain="[('board_id','ilike',self)]" string="Board" />
+                <filter name="with_card" string="With card" domain="[('count_card','>',0)]" />
+                <group string="Group By" expand="1">
+                    <filter name="lane_parent_id" string="Parent" context="{'group_by':'lane_parent_id'}" />
+                    <filter name="board_id" string="Board" context="{'group_by':'board_id'}" />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="planviewap_lane_view_tree" model="ir.ui.view">
+        <field name="name">planviewap_lane_tree</field>
+        <field name="model">planviewap.lane</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="sequence" />
+                <field name="title" />
+                <field name="name" />
+                <field name="is_collapsed" />
+                <field name="lane_class_type" />
+                <field name="lane_id_pvap" />
+                <field name="lane_type" />
+                <field name="orientation" />
+                <field name="count_card" />
+                <field name="lane_parent_id" />
+                <field name="session_id" />
+            </tree>
+        </field>
+    </record>
+
+    <act_window
+        id="planviewap_lane_view_agile_place_lane_action_window"
+        name="View agile place lane"
+        res_model="planviewap.lane"
+        view_mode="kanban,tree,pivot,graph,form"
+    />
+</odoo>

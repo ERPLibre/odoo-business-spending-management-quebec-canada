@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!--Root menu-->
+
+    <menuitem
+        id="planviewap"
+        name="Plan View"
+        sequence="20"
+        web_icon="planviewap,static/description/icon.png"
+        groups="group_admin_planviewap"
+    />
+
+    <!--Sub menu-->
+
+    <menuitem id="menu_connexion" name="Connexion" sequence="1" parent="planviewap" />
+
+    <menuitem id="menu_data" name="Data" sequence="1" parent="planviewap" />
+
+    <menuitem id="menu_processus" name="Processus" sequence="2" parent="planviewap" />
+
+    <menuitem id="menu_configuration" name="Configuration" sequence="3" parent="planviewap" />
+
+    <!--Child menu-->
+
+    <menuitem
+        id="view_agile_place_session"
+        name="Session API"
+        action="planviewap_session_view_agile_place_session_action_window"
+        sequence="1"
+        parent="menu_connexion"
+    />
+
+    <menuitem
+        id="view_agile_place_request_history"
+        name="Request history"
+        action="planviewap_request_history_view_agile_place_request_history_action_window"
+        sequence="2"
+        parent="menu_connexion"
+    />
+
+    <menuitem
+        id="view_agile_place_board"
+        name="Board"
+        action="planviewap_board_view_agile_place_board_action_window"
+        sequence="1"
+        parent="menu_data"
+    />
+
+    <menuitem
+        id="view_agile_place_lane"
+        name="Lane"
+        action="planviewap_lane_view_agile_place_lane_action_window"
+        sequence="2"
+        parent="menu_data"
+    />
+
+    <menuitem
+        id="view_agile_place_card"
+        name="Card"
+        action="planviewap_card_view_agile_place_card_action_window"
+        sequence="3"
+        parent="menu_data"
+    />
+
+    <menuitem
+        id="view_agile_place_card_type"
+        name="Card type"
+        action="planviewap_card_type_view_agile_place_card_type_action_window"
+        sequence="4"
+        parent="menu_data"
+    />
+
+    <menuitem
+        id="view_agile_place_customfield"
+        name="Custom Field"
+        action="planviewap_customfield_view_agile_place_customfield_action_window"
+        sequence="5"
+        parent="menu_data"
+    />
+
+    <menuitem
+        id="view_agile_place_processus"
+        name="Processus"
+        action="planviewap_processus_view_agile_place_processus_action_window"
+        sequence="1"
+        parent="menu_processus"
+    />
+
+    <menuitem
+        id="view_agile_place_sms_history"
+        name="SMS history"
+        action="planviewap_sms_history_view_agile_place_sms_history_action_window"
+        sequence="2"
+        parent="menu_processus"
+    />
+
+    <menuitem
+        id="view_action_planifie"
+        name="Action planifié"
+        action="base.ir_cron_act"
+        sequence="3"
+        parent="menu_processus"
+    />
+
+    <menuitem
+        id="view_action_planifie_log"
+        name="Action planifié LOG"
+        action="planviewap_automated_action_log_view_agile_place_automated_action_log_action_window"
+        sequence="4"
+        parent="menu_processus"
+    />
+
+    <menuitem
+        id="view_board_type"
+        name="Board type"
+        action="planviewap_board_type_view_agile_place_board_action_window"
+        sequence="2"
+        parent="menu_configuration"
+    />
+</odoo>

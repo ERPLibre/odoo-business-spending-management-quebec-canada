@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="planviewap_customfield_view_form" model="ir.ui.view">
+        <field name="name">planviewap_customfield_form</field>
+        <field name="model">planviewap.customfield</field>
+        <field name="arch" type="xml">
+            <form string="Titre">
+                <sheet>
+                    <group>
+                        <field name="label" />
+                    </group>
+                    <group>
+                        <field name="created_by_pvap" />
+                    </group>
+                    <group>
+                        <field name="created_on" />
+                    </group>
+                    <group>
+                        <field name="help_text" />
+                    </group>
+                    <group>
+                        <field name="id_pvap" />
+                    </group>
+                    <group>
+                        <field name="index" />
+                    </group>
+                    <group>
+                        <field name="type" />
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="planviewap_customfield_view_graph" model="ir.ui.view">
+        <field name="name">planviewap_customfield_graph</field>
+        <field name="model">planviewap.customfield</field>
+        <field name="arch" type="xml">
+            <graph string="Plan view agile place customfield">
+                <field name="label" type="row" />
+                <field name="created_by_pvap" type="row" />
+                <field name="created_on" type="row" />
+                <field name="help_text" type="row" />
+                <field name="id_pvap" type="row" />
+                <field name="index" type="measure" />
+                <field name="type" type="row" />
+            </graph>
+        </field>
+    </record>
+
+    <record id="planviewap_customfield_view_kanban" model="ir.ui.view">
+        <field name="name">planviewap_customfield_kanban</field>
+        <field name="model">planviewap.customfield</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile">
+                <field name="label" />
+                <field name="created_by_pvap" />
+                <field name="created_on" />
+                <field name="help_text" />
+                <field name="id_pvap" />
+                <field name="index" />
+                <field name="type" />
+                <templates>
+                    <t t-name="kanban-box">
+                        <div t-attf-class="oe_kanban_global_click">
+                            <div class="oe_kanban_details">
+                                <ul>
+                                    <li class="mb4">
+                                        <strong>
+                                            <field name="label" />
+                                        </strong>
+                                    </li>
+                                    <li class="mb4">
+                                        <strong>Index:</strong>
+                                        <field name="index" />
+                                    </li>
+                                    <li class="mb4">
+                                        <strong>Type:</strong>
+                                        <field name="type" />
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="planviewap_customfield_view_pivot" model="ir.ui.view">
+        <field name="name">planviewap_customfield_pivot</field>
+        <field name="model">planviewap.customfield</field>
+        <field name="arch" type="xml">
+            <pivot string="Plan view agile place customfield">
+                <field name="label" type="row" />
+                <field name="created_by_pvap" type="row" />
+                <field name="created_on" type="row" />
+                <field name="help_text" type="row" />
+                <field name="id_pvap" type="row" />
+                <field name="index" type="measure" />
+                <field name="type" type="row" />
+            </pivot>
+        </field>
+    </record>
+
+    <record id="planviewap_customfield_view_search" model="ir.ui.view">
+        <field name="name">planviewap_customfield_search</field>
+        <field name="model">planviewap.customfield</field>
+        <field name="arch" type="xml">
+            <search string="Plan view agile place customfield">
+                <filter domain="[('label','!=',False)]" name="label" string="Label" />
+                <filter domain="[('created_by_pvap','!=',False)]" name="created_by_pvap" string="Created By Pvap" />
+                <filter domain="[('created_on','!=',False)]" name="created_on" string="Created On" />
+                <filter domain="[('help_text','!=',False)]" name="help_text" string="help_text" />
+                <filter domain="[('id_pvap','!=',False)]" name="id_pvap" string="Id Pvap" />
+                <filter domain="[('index','!=',False)]" name="index" string="Index" />
+                <filter domain="[('type','!=',False)]" name="type" string="Type" />
+            </search>
+        </field>
+    </record>
+
+    <record id="planviewap_customfield_view_tree" model="ir.ui.view">
+        <field name="name">planviewap_customfield_tree</field>
+        <field name="model">planviewap.customfield</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="label" />
+                <field name="created_by_pvap" />
+                <field name="created_on" />
+                <field name="icon_color" />
+                <field name="icon_name" />
+                <field name="help_text" />
+                <field name="id_pvap" />
+                <field name="index" />
+                <field name="type" />
+                <field name="choices" />
+                <field name="board_id" />
+            </tree>
+        </field>
+    </record>
+
+    <act_window
+        id="planviewap_customfield_view_agile_place_customfield_action_window"
+        name="View agile place customfield"
+        res_model="planviewap.customfield"
+        view_mode="kanban,tree,pivot,graph,form"
+    />
+</odoo>

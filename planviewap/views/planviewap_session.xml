@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="planviewap_session_view_form" model="ir.ui.view">
+        <field name="name">planviewap_session_form</field>
+        <field name="model">planviewap.session</field>
+        <field name="arch" type="xml">
+            <form string="Titre">
+                <header>
+                    <button
+                        name="action_sync_board_info"
+                        string="Sync board list"
+                        type="object"
+                        class="btn-success"
+                        attrs="{'invisible': [('board_ids', '!=', [])]}"
+                    />
+                    <button
+                        name="action_sync_board_info"
+                        string="Sync board list"
+                        type="object"
+                        class="oe_highlight"
+                        attrs="{'invisible': [('board_ids', '=', [])]}"
+                    />
+                    <button
+                        name="action_sync_all"
+                        string="Sync all"
+                        type="object"
+                        class="oe_highlight"
+                        attrs="{'invisible': [('board_ids', '=', [])]}"
+                    />
+                    <button
+                        name="action_sync_board"
+                        string="Sync board with type"
+                        type="object"
+                        class="btn-success"
+                        attrs="{'invisible': ['|',('board_ids', '=', []),('has_board_with_type', '=', False)]}"
+                    />
+                    <button name="action_clear_all" string="Clear" type="object" class="oe_highlight" />
+                    <button
+                        name="action_production"
+                        string="Enable production"
+                        class="btn-warning"
+                        type="object"
+                        attrs="{'invisible': ['|',('production_enabled', '!=', False),('has_first_sync', '=', False)]}"
+                    />
+                    <button
+                        name="action_production"
+                        string="Disable production"
+                        type="object"
+                        attrs="{'invisible': ['|',('production_enabled', '=', False),('has_first_sync', '=', False)]}"
+                    />
+                </header>
+                <sheet>
+                    <field name="production_enabled" invisible="True" />
+                    <field name="has_board_with_type" invisible="True" />
+                    <div class="oe_title">
+                        <label for="name" class="oe_edit_only" />
+                        <h1>
+                            <field name="name" />
+                        </h1>
+                    </div>
+                    <div class="alert alert-info">
+                        Reference LeanKit:
+                        <a href="https://success.planview.com/Planview_AgilePlace/AgilePlace_API">API documentation</a>
+                    </div>
+                    <div class="alert alert-info">
+                        Guide:
+                        <ul>
+                            <li>First create configuration (missing doc)</li>
+                            <li>Click "Sync Board List"</li>
+                            <li>Associate Board with "Type Board"</li>
+                            <li>Click "Sync board with type"</li>
+                        </ul>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="api_token" type="password" password="True" />
+                            <field name="has_first_sync" />
+                            <field name="sms_enable" />
+                        </group>
+                        <group string="SMS" attrs="{'invisible': [('sms_enable', '=', False)]}">
+                            <field name="sms_api_url" />
+                            <field name="sms_api_token" type="password" password="True" />
+                            <field name="sms_from_number_phone_default" />
+                            <field name="sms_from_country_default" />
+                            <field name="sms_to_number_phone_default" />
+                            <field name="sms_to_country_default" />
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Board">
+                            <group>
+                                <field name="board_ids" />
+                            </group>
+                        </page>
+                        <page string="Requests">
+                            <group>
+                                <field name="request_history_ids" />
+                            </group>
+                        </page>
+                        <page string="Binding ERP">
+                            <div class="text-warning">
+                                You need to create algorithm process to indicate how doing the binding.
+                            </div>
+                            <group>
+                                <group string="RH">
+                                    <field name="bind_rh_employee_create_enabled" />
+                                    <field name="bind_rh_employee_delete_enabled" />
+                                </group>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="planviewap_session_view_graph" model="ir.ui.view">
+        <field name="name">planviewap_session_graph</field>
+        <field name="model">planviewap.session</field>
+        <field name="arch" type="xml">
+            <graph string="Plan view agile place session">
+                <field name="name" type="row" />
+                <field name="api_token" type="row" />
+                <field name="has_first_sync" type="row" />
+            </graph>
+        </field>
+    </record>
+
+    <record id="planviewap_session_view_kanban" model="ir.ui.view">
+        <field name="name">planviewap_session_kanban</field>
+        <field name="model">planviewap.session</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile">
+                <field name="name" />
+                <field name="api_token" />
+                <field name="has_first_sync" />
+                <templates>
+                    <t t-name="kanban-box">
+                        <div t-attf-class="oe_kanban_global_click">
+                            <div class="oe_kanban_details">
+                                <ul>
+                                    <li class="mb4">
+                                        <strong>
+                                            <field name="name" />
+                                        </strong>
+                                    </li>
+                                    <li class="text-success float-right mb4" t-if="record.has_first_sync.raw_value">
+                                        <i aria-label="Ok" class="fa fa-circle" role="img" title="Ok" />
+                                    </li>
+                                    <li class="text-danger float-right mb4" t-if="!record.has_first_sync.raw_value">
+                                        <i aria-label="Invalid" class="fa fa-circle" role="img" title="Invalid" />
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="planviewap_session_view_pivot" model="ir.ui.view">
+        <field name="name">planviewap_session_pivot</field>
+        <field name="model">planviewap.session</field>
+        <field name="arch" type="xml">
+            <pivot string="Plan view agile place session">
+                <field name="name" type="row" />
+                <field name="api_token" type="row" />
+                <field name="has_first_sync" type="row" />
+            </pivot>
+        </field>
+    </record>
+
+    <record id="planviewap_session_view_search" model="ir.ui.view">
+        <field name="name">planviewap_session_search</field>
+        <field name="model">planviewap.session</field>
+        <field name="arch" type="xml">
+            <search string="Plan view agile place session">
+                <filter domain="[('name','!=',False)]" name="name" string="URL" />
+                <filter domain="[('api_token','!=',False)]" name="api_token" string="Api Token" />
+                <filter domain="[('has_first_sync','=',True)]" name="has_first_sync" string="Has First Sync" />
+            </search>
+        </field>
+    </record>
+
+    <record id="planviewap_session_view_tree" model="ir.ui.view">
+        <field name="name">planviewap_session_tree</field>
+        <field name="model">planviewap.session</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name" />
+                <field name="api_token" />
+                <field name="has_first_sync" />
+            </tree>
+        </field>
+    </record>
+
+    <act_window
+        id="planviewap_session_view_agile_place_session_action_window"
+        name="View agile place session"
+        res_model="planviewap.session"
+        view_mode="kanban,tree,pivot,graph,form"
+    />
+</odoo>

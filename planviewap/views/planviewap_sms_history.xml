@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="planviewap_sms_history_view_form" model="ir.ui.view">
+        <field name="name">planviewap_sms_history_form</field>
+        <field name="model">planviewap.sms.history</field>
+        <field name="arch" type="xml">
+            <form string="Titre">
+                <header>
+                    <button name="send_sms" string="Send SMS" type="object" class="oe_highlight" />
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name" class="oe_edit_only" />
+                        <h1>
+                            <field name="name" />
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="General">
+                            <field name="create_date" />
+                            <field name="processus_id" />
+                            <field name="session_id" />
+                            <field name="is_sent" />
+                            <field name="error_msg" />
+                        </group>
+                        <group string="Phone">
+                            <field name="from_number_phone_country" />
+                            <field name="from_number_phone" />
+                            <field name="to_number_phone_country" />
+                            <field name="to_number_phone" />
+                        </group>
+                        <group string="Debug">
+                            <field name="from_number_real_phone" />
+                            <field name="to_number_real_phone" />
+                            <field name="group_execution_name" />
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="planviewap_sms_history_view_graph" model="ir.ui.view">
+        <field name="name">planviewap_sms_history_graph</field>
+        <field name="model">planviewap.sms.history</field>
+        <field name="arch" type="xml">
+            <graph string="Plan view agile place sms history">
+                <field name="name" type="row" />
+                <field name="from_number_phone" type="row" />
+                <field name="from_number_phone_country" type="row" />
+                <field name="is_sent" type="row" />
+                <field name="to_number_phone" type="row" />
+                <field name="to_number_phone_country" type="row" />
+            </graph>
+        </field>
+    </record>
+
+    <record id="planviewap_sms_history_view_kanban" model="ir.ui.view">
+        <field name="name">planviewap_sms_history_kanban</field>
+        <field name="model">planviewap.sms.history</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile">
+                <field name="name" />
+                <field name="is_sent" />
+                <field name="from_number_real_phone" />
+                <field name="to_number_real_phone" />
+                <templates>
+                    <t t-name="kanban-box">
+                        <div t-attf-class="oe_kanban_global_click">
+                            <div class="oe_kanban_details">
+                                <ul>
+                                    <li class="mb4">
+                                        <strong>
+                                            <field name="name" />
+                                        </strong>
+                                    </li>
+                                    <li class="mb4">
+                                        <strong>
+                                            From
+                                            <field name="from_number_real_phone" />
+                                            To
+                                            <field name="to_number_real_phone" />
+                                        </strong>
+                                    </li>
+                                    <li class="text-success float-right mb4" t-if="record.is_sent.raw_value">
+                                        <i aria-label="Ok" class="fa fa-circle" role="img" title="Ok" />
+                                    </li>
+                                    <li class="text-danger float-right mb4" t-if="!record.is_sent.raw_value">
+                                        <i aria-label="Invalid" class="fa fa-circle" role="img" title="Invalid" />
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="planviewap_sms_history_view_pivot" model="ir.ui.view">
+        <field name="name">planviewap_sms_history_pivot</field>
+        <field name="model">planviewap.sms.history</field>
+        <field name="arch" type="xml">
+            <pivot string="Plan view agile place sms history">
+                <field name="name" type="row" />
+                <field name="from_number_phone" type="row" />
+                <field name="from_number_phone_country" type="row" />
+                <field name="is_sent" type="row" />
+                <field name="to_number_phone" type="row" />
+                <field name="to_number_phone_country" type="row" />
+            </pivot>
+        </field>
+    </record>
+
+    <record id="planviewap_sms_history_view_search" model="ir.ui.view">
+        <field name="name">planviewap_sms_history_search</field>
+        <field name="model">planviewap.sms.history</field>
+        <field name="arch" type="xml">
+            <search string="Plan view agile place sms history">
+                <filter domain="[('name','!=',False)]" name="name" string="Name" />
+                <filter
+                    domain="[('from_number_phone','!=',False)]"
+                    name="from_number_phone"
+                    string="From Number Phone"
+                />
+                <filter
+                    domain="[('from_number_phone_country','!=',False)]"
+                    name="from_number_phone_country"
+                    string="From Number Phone Country"
+                />
+                <filter domain="[('is_sent','=',True)]" name="is_sent" string="Is Sended" />
+                <filter domain="[('to_number_phone','!=',False)]" name="to_number_phone" string="To Number Phone" />
+                <filter
+                    domain="[('to_number_phone_country','!=',False)]"
+                    name="to_number_phone_country"
+                    string="To Number Phone Country"
+                />
+                <group string="Group By">
+                    <filter
+                        string="Create date"
+                        name="create_date_filter"
+                        domain="[]"
+                        context="{'group_by':'create_date'}"
+                    />
+                    <filter
+                        string="Group execution"
+                        name="group_execution_name"
+                        domain="[]"
+                        context="{'group_by':'group_execution_name'}"
+                    />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="planviewap_sms_history_view_tree" model="ir.ui.view">
+        <field name="name">planviewap_sms_history_tree</field>
+        <field name="model">planviewap.sms.history</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="create_date" />
+                <field name="is_sent" />
+                <field name="to_number_real_phone" />
+                <field name="to_number_phone" />
+                <field name="name" />
+            </tree>
+        </field>
+    </record>
+
+    <act_window
+        id="planviewap_sms_history_view_agile_place_sms_history_action_window"
+        name="View agile place sms history"
+        res_model="planviewap.sms.history"
+        view_mode="kanban,tree,pivot,graph,form"
+    />
+</odoo>
