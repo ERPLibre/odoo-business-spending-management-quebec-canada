@@ -127,6 +127,10 @@ class PlanViewAgilePlaceProcessus(models.Model):
 
     bind_field = fields.Text()
 
+    create_more_field = fields.Text()
+
+    create_more_field_algo = fields.Text()
+
     default_value_model = fields.Text()
 
     ignore_warning_from_name = fields.Char(
@@ -2782,6 +2786,36 @@ class PlanViewAgilePlaceProcessus(models.Model):
                         {"name": value}
                     )
                 new_model_value[key] = rec_find_id.id
+
+        # if rec.create_more_field:
+        #     try:
+        #         create_more_field = json.loads(rec.create_more_field)
+        #         for field_name_bind, model_info_bind in create_more_field.items():
+        #             model_name_bind = model_info_bind.get("model")
+        #             new_model_value[field_name_bind] = self.env[model_name_bind].create({"name": new_model_value.get("name")}).id
+        #     except Exception as e:
+        #         lst_custom_field = None
+        #         msg_txt = f"ERR card name '{card_id.name}' card entete '{card_id.entete}', fail to load rec.create_more_field value '{rec.create_more_field}'.\n"
+        #         rec.log_txt += msg_txt
+        #         rec.log_error_txt += msg_txt
+        #         _logger.error(msg_txt.strip())
+        if (
+            rec.create_more_field_algo
+            and rec.create_more_field_algo == "fsm.equipment with stock"
+        ):
+            # Create product
+            product_id = self.env["product.product"].create(
+                {"name": new_model_value.get("name")}
+            )
+            new_model_value["product_id"] = product_id.id
+            # Create lot
+            lot_id = self.env["stock.lot"].create(
+                {
+                    "name": new_model_value.get("name"),
+                    "product_id": product_id.id,
+                }
+            )
+            new_model_value["lot_id"] = lot_id.id
 
         # Update or create
         new_model_id = self.env[rec.model_name].search(
