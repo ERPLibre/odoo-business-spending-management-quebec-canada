@@ -28,7 +28,7 @@
         <field name="name">planviewap_request_history_graph</field>
         <field name="model">planviewap.request_history</field>
         <field name="arch" type="xml">
-            <graph string="Plan view agile place request history">
+            <graph string="Request history">
                 <field name="name" type="row" />
                 <field name="session_id" type="row" />
             </graph>
@@ -70,7 +70,7 @@
         <field name="name">planviewap_request_history_pivot</field>
         <field name="model">planviewap.request_history</field>
         <field name="arch" type="xml">
-            <pivot string="Plan view agile place request history">
+            <pivot string="Request history">
                 <field name="name" type="row" />
                 <field name="session_id" type="row" />
             </pivot>
@@ -81,7 +81,7 @@
         <field name="name">planviewap_request_history_search</field>
         <field name="model">planviewap.request_history</field>
         <field name="arch" type="xml">
-            <search string="Plan view agile place request history">
+            <search string="Request history">
                 <filter domain="[('name','!=',False)]" name="name" string="Name" />
                 <filter domain="[('session_id','!=',False)]" name="session_id" string="Session" />
             </search>
@@ -106,7 +106,7 @@
 
     <act_window
         id="planviewap_request_history_view_agile_place_request_history_action_window"
-        name="View agile place request history"
+        name="Tequest history"
         res_model="planviewap.request_history"
         view_mode="kanban,tree,pivot,graph,form"
     />

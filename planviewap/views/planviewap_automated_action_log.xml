@@ -26,7 +26,7 @@
         <field name="name">planviewap_automated_action_log_search</field>
         <field name="model">planviewap.automated.action.log</field>
         <field name="arch" type="xml">
-            <search string="Plan view agile place automated action log">
+            <search string="Automated action log">
                 <field name="name" />
                 <group string="Group By" expand="1">
                     <filter name="ir_cron_id" string="Ir Cron" context="{'group_by':'ir_cron_id'}" />
@@ -50,7 +50,7 @@
 
     <act_window
         id="planviewap_automated_action_log_view_agile_place_automated_action_log_action_window"
-        name="View agile place automated action log"
+        name="Automated action log"
         res_model="planviewap.automated.action.log"
         view_mode="tree,form"
     />

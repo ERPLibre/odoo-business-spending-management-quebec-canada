@@ -44,7 +44,7 @@
         <field name="name">planviewap_sms_history_graph</field>
         <field name="model">planviewap.sms.history</field>
         <field name="arch" type="xml">
-            <graph string="Plan view agile place sms history">
+            <graph string="SMS history">
                 <field name="name" type="row" />
                 <field name="from_number_phone" type="row" />
                 <field name="from_number_phone_country" type="row" />
@@ -101,7 +101,7 @@
         <field name="name">planviewap_sms_history_pivot</field>
         <field name="model">planviewap.sms.history</field>
         <field name="arch" type="xml">
-            <pivot string="Plan view agile place sms history">
+            <pivot string="SMS history">
                 <field name="name" type="row" />
                 <field name="from_number_phone" type="row" />
                 <field name="from_number_phone_country" type="row" />
@@ -116,7 +116,7 @@
         <field name="name">planviewap_sms_history_search</field>
         <field name="model">planviewap.sms.history</field>
         <field name="arch" type="xml">
-            <search string="Plan view agile place sms history">
+            <search string="SMS history">
                 <filter domain="[('name','!=',False)]" name="name" string="Name" />
                 <filter
                     domain="[('from_number_phone','!=',False)]"
@@ -169,7 +169,7 @@
 
     <act_window
         id="planviewap_sms_history_view_agile_place_sms_history_action_window"
-        name="View agile place sms history"
+        name="SMS history"
         res_model="planviewap.sms.history"
         view_mode="kanban,tree,pivot,graph,form"
     />

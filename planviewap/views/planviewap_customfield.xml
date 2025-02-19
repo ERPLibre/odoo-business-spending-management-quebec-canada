@@ -36,7 +36,7 @@
         <field name="name">planviewap_customfield_graph</field>
         <field name="model">planviewap.customfield</field>
         <field name="arch" type="xml">
-            <graph string="Plan view agile place customfield">
+            <graph string="Customfield">
                 <field name="label" type="row" />
                 <field name="created_by_pvap" type="row" />
                 <field name="created_on" type="row" />
@@ -91,7 +91,7 @@
         <field name="name">planviewap_customfield_pivot</field>
         <field name="model">planviewap.customfield</field>
         <field name="arch" type="xml">
-            <pivot string="Plan view agile place customfield">
+            <pivot string="Customfield">
                 <field name="label" type="row" />
                 <field name="created_by_pvap" type="row" />
                 <field name="created_on" type="row" />
@@ -107,7 +107,7 @@
         <field name="name">planviewap_customfield_search</field>
         <field name="model">planviewap.customfield</field>
         <field name="arch" type="xml">
-            <search string="Plan view agile place customfield">
+            <search string="Customfield">
                 <filter domain="[('label','!=',False)]" name="label" string="Label" />
                 <filter domain="[('created_by_pvap','!=',False)]" name="created_by_pvap" string="Created By Pvap" />
                 <filter domain="[('created_on','!=',False)]" name="created_on" string="Created On" />
@@ -141,7 +141,7 @@
 
     <act_window
         id="planviewap_customfield_view_agile_place_customfield_action_window"
-        name="View agile place customfield"
+        name="Custom Field"
         res_model="planviewap.customfield"
         view_mode="kanban,tree,pivot,graph,form"
     />

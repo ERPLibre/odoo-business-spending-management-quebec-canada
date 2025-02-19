@@ -533,9 +533,7 @@ class PlanViewAPProcessus(models.Model):
                         ].create(sms_history_vals)
                         sms_history_ids += sms_history_id
             else:
-                sms_history_ids = self.env[
-                    "planviewap.sms.history"
-                ].search(
+                sms_history_ids = self.env["planviewap.sms.history"].search(
                     [("processus_id", "=", rec.id), ("is_sent", "=", False)]
                 )
 
@@ -1043,9 +1041,7 @@ class PlanViewAPProcessus(models.Model):
                 "board_id_pvap": response.get("id"),
                 "type_board_ids": [(6, 0, rec.board_id.type_board_ids.ids)],
             }
-            board_id = self.env["planviewap.board"].create(
-                board_value
-            )
+            board_id = self.env["planviewap.board"].create(board_value)
             board_id.action_sync()
 
             # Execute processus of adding cards
@@ -1144,9 +1140,7 @@ class PlanViewAPProcessus(models.Model):
                 ).split(";")
                 if lst_card_type_name:
                     for card_type_name in lst_card_type_name:
-                        card_type_id = self.env[
-                            "planviewap.card.type"
-                        ].search(
+                        card_type_id = self.env["planviewap.card.type"].search(
                             [
                                 ("name", "=", card_type_name),
                                 ("board_id", "=", rec.board_id.id),
@@ -1315,9 +1309,9 @@ class PlanViewAPProcessus(models.Model):
                     "session_id": rec.session_id.id,
                 }
 
-                sms_history_ids += self.env[
-                    "planviewap.sms.history"
-                ].create(sms_history_value)
+                sms_history_ids += self.env["planviewap.sms.history"].create(
+                    sms_history_value
+                )
 
     def algo_send_annonce_sms_all_employee(self):
         for rec in self:
@@ -1517,9 +1511,9 @@ class PlanViewAPProcessus(models.Model):
                                 type_card_msg_1_ids.ids,
                             ),
                         ]
-                        card_msg_1_ids = self.env[
-                            "planviewap.card"
-                        ].search(lst_query)
+                        card_msg_1_ids = self.env["planviewap.card"].search(
+                            lst_query
+                        )
 
                         if len(card_msg_1_ids) > 1:
                             msg_txt = (
@@ -1587,9 +1581,9 @@ class PlanViewAPProcessus(models.Model):
                                 type_card_msg_2_ids.ids,
                             ),
                         ]
-                        card_msg_2_ids = self.env[
-                            "planviewap.card"
-                        ].search(lst_query)
+                        card_msg_2_ids = self.env["planviewap.card"].search(
+                            lst_query
+                        )
                         if card_msg_2_ids:
                             for card_msg_2_id in card_msg_2_ids:
                                 dct_lane_summary[card_msg_2_id.name][
@@ -1603,7 +1597,7 @@ class PlanViewAPProcessus(models.Model):
                                 rec.sms_detect_card_type_msg_2_default_name
                             ][partner_id.name].append(card_name)
                         else:
-                            msg_txt = "ERR Cannot detect associate card for type msg 2."
+                            msg_txt = "ERR Cannot detect associate card for type msg 2.\n"
                             rec.log_txt += msg_txt
                             rec.log_error_txt += msg_txt
                             _logger.error(msg_txt.strip())
@@ -1651,9 +1645,9 @@ class PlanViewAPProcessus(models.Model):
 
             sms_history_ids = None
             if lst_value_sms:
-                sms_history_ids = self.env[
-                    "planviewap.sms.history"
-                ].create(lst_value_sms)
+                sms_history_ids = self.env["planviewap.sms.history"].create(
+                    lst_value_sms
+                )
 
             if not msg_summary_sms:
                 continue
@@ -1963,9 +1957,9 @@ class PlanViewAPProcessus(models.Model):
                     == "associate_card_location_inclusion"
                 ):
                     # Search associate card location
-                    location_card_id = self.env[
-                        "planviewap.card"
-                    ].search([("entete", "=", card_id.lane_name)])
+                    location_card_id = self.env["planviewap.card"].search(
+                        [("entete", "=", card_id.lane_name)]
+                    )
                     lst_inclusion = location_card_id.get_custom_field_value(
                         rec.validation_location_custom_field_name
                     )
@@ -2104,9 +2098,7 @@ class PlanViewAPProcessus(models.Model):
             card_ids = rec.search_cards_from_processus()
             for card_sync_id in card_ids:
                 # Search associate card
-                card_to_sync_ids = self.env[
-                    "planviewap.card"
-                ].search(
+                card_to_sync_ids = self.env["planviewap.card"].search(
                     [
                         ("board_id", "=", rec.board_id.id),
                         ("card_id_pvap", "!=", card_sync_id.card_id_pvap),
@@ -2114,9 +2106,7 @@ class PlanViewAPProcessus(models.Model):
                         ("custom_fields", "!=", card_sync_id.custom_fields),
                     ]
                 )
-                card_to_no_sync_ids = self.env[
-                    "planviewap.card"
-                ].search(
+                card_to_no_sync_ids = self.env["planviewap.card"].search(
                     [
                         ("board_id", "=", rec.board_id.id),
                         ("card_id_pvap", "!=", card_sync_id.card_id_pvap),
@@ -2393,9 +2383,9 @@ class PlanViewAPProcessus(models.Model):
                         "session_id": rec.session_id.id,
                         "name": msg_alert,
                     }
-                    sms_history_id = self.env[
-                        "planviewap.sms.history"
-                    ].create(value_sms)
+                    sms_history_id = self.env["planviewap.sms.history"].create(
+                        value_sms
+                    )
 
     def algo_copy_cards_from_lane(self, start_time):
         for rec in self:
@@ -2443,9 +2433,7 @@ class PlanViewAPProcessus(models.Model):
 
             if rec.clean_before_card_into_copy_to_lane:
                 # get all cards to delete
-                card_to_delete_ids = self.env[
-                    "planviewap.card"
-                ].search(
+                card_to_delete_ids = self.env["planviewap.card"].search(
                     [
                         ("lane_id", "in", lane_to_copy_ids.ids),
                         ("board_id", "=", rec.board_id.id),
@@ -2975,9 +2963,7 @@ class PlanViewAPProcessus(models.Model):
                     lane_query, order=order
                 )
             else:
-                lane_ids = self.env["planviewap.lane"].search(
-                    lane_query
-                )
+                lane_ids = self.env["planviewap.lane"].search(lane_query)
 
         # Force to search with recursive, cannot have cards if contain lanes TODO no need this when get_all_lane
         lane_ids = lane_ids.get_list_child_lane_from_lane(add_itself=True)
@@ -2994,9 +2980,7 @@ class PlanViewAPProcessus(models.Model):
         # Remove doublon
         lst_unique_ids = set(lane_ids.ids)
         if len(lane_ids.ids) != len(lst_unique_ids):
-            lane_ids = self.env["planviewap.lane"].browse(
-                list(lst_unique_ids)
-            )
+            lane_ids = self.env["planviewap.lane"].browse(list(lst_unique_ids))
         return lane_ids
 
     def operate_lane(self):
@@ -3050,7 +3034,9 @@ class PlanViewAPProcessus(models.Model):
             # str_cmd_gen = str_cmd_gen.replace(" ", "%20").replace('"', "'")
             temp_file = tempfile.NamedTemporaryFile(mode="w", delete=False)
             json.dump(cmd_gen, temp_file)
-            msg_txt = f"Write json config file with {len(lst_op)} operations \n"
+            msg_txt = (
+                f"Write json config file with {len(lst_op)} operations \n"
+            )
             msg_txt += temp_file.name
             temp_file.close()
             msg_txt += f"\n\n{str_cmd_gen}\n\n"
@@ -3110,9 +3096,7 @@ class PlanViewAPProcessus(models.Model):
 
             if rec.type_card:
                 lst_type_card = rec.type_card.split(";")
-                type_card_ids = self.env[
-                    "planviewap.card.type"
-                ].search(
+                type_card_ids = self.env["planviewap.card.type"].search(
                     [
                         ("name", "in", lst_type_card),
                         ("board_id", "=", rec.board_id.id),
@@ -3127,9 +3111,7 @@ class PlanViewAPProcessus(models.Model):
 
                 lst_query.append(("card_type_id", "in", type_card_ids.ids))
             lst_query.append(("board_id", "=", rec.board_id.id))
-            card_ids += self.env["planviewap.card"].search(
-                lst_query
-            )
+            card_ids += self.env["planviewap.card"].search(lst_query)
             if rec.force_refresh_custom_fields:
                 for card_id in card_ids:
                     card_id.update_card_details()

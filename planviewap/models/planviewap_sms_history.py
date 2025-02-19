@@ -49,9 +49,7 @@ class PlanViewAPSmsHistory(models.Model):
         )
     )
 
-    processus_id = fields.Many2one(
-        "planviewap.processus", string="Processus"
-    )
+    processus_id = fields.Many2one("planviewap.processus", string="Processus")
 
     session_id = fields.Many2one(
         comodel_name="planviewap.session",

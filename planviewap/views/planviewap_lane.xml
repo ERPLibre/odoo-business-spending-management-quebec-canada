@@ -66,7 +66,7 @@
         <field name="name">planviewap_lane_graph</field>
         <field name="model">planviewap.lane</field>
         <field name="arch" type="xml">
-            <graph string="Plan view agile place lane">
+            <graph string="Lane">
                 <field name="name" type="row" />
                 <field name="lane_id_pvap" type="row" />
                 <field name="session_id" type="row" />
@@ -121,7 +121,7 @@
         <field name="name">planviewap_lane_pivot</field>
         <field name="model">planviewap.lane</field>
         <field name="arch" type="xml">
-            <pivot string="Plan view agile place lane">
+            <pivot string="Lane">
                 <field name="name" type="row" />
                 <field name="lane_id_pvap" type="row" />
                 <field name="session_id" type="row" />
@@ -133,7 +133,7 @@
         <field name="name">planviewap_lane_search</field>
         <field name="model">planviewap.lane</field>
         <field name="arch" type="xml">
-            <search string="Plan view agile place lane">
+            <search string="Lane">
                 <field name="name" filter_domain="['|', ('name','ilike',self), ('title','ilike',self)]" string="Name" />
                 <field name="title" filter_domain="[('title','ilike',self)]" string="Title" />
                 <field name="board_id" filter_domain="[('board_id','ilike',self)]" string="Board" />
@@ -168,7 +168,7 @@
 
     <act_window
         id="planviewap_lane_view_agile_place_lane_action_window"
-        name="View agile place lane"
+        name="Lane"
         res_model="planviewap.lane"
         view_mode="kanban,tree,pivot,graph,form"
     />

@@ -66,9 +66,7 @@ class PlanViewAPBoard(models.Model):
                 color_hex = dct_card_types.get("colorHex")
                 is_card_type = dct_card_types.get("isCardType")
                 is_task_type = dct_card_types.get("isTaskType")
-                card_type_id = self.env[
-                    "planviewap.card.type"
-                ].search(
+                card_type_id = self.env["planviewap.card.type"].search(
                     [
                         ("card_type_id_pvap", "=", card_type_id_pvap),
                         ("board_id", "=", rec.id),
@@ -88,9 +86,9 @@ class PlanViewAPBoard(models.Model):
                         "session_id": rec.session_id.id,
                         "board_id": rec.id,
                     }
-                    card_type_id = self.env[
-                        "planviewap.card.type"
-                    ].create(value)
+                    card_type_id = self.env["planviewap.card.type"].create(
+                        value
+                    )
 
             # Create custom field
             lst_custom_field = rec.session_id.request_api_get_unlimited(
@@ -120,9 +118,7 @@ class PlanViewAPBoard(models.Model):
                             "choices"
                         )
                     )
-                self.env["planviewap.customfield"].create(
-                    custom_field_value
-                )
+                self.env["planviewap.customfield"].create(custom_field_value)
 
             # Create Lanes
             dct_lane_id_no_lane_id = {}
@@ -178,9 +174,7 @@ class PlanViewAPBoard(models.Model):
                         "board_id": rec.id,
                         "session_id": rec.session_id.id,
                     }
-                    lane_id = self.env["planviewap.lane"].create(
-                        value
-                    )
+                    lane_id = self.env["planviewap.lane"].create(value)
                     dct_lane_id_no_lane_id[lane_id.lane_id_pvap] = lane_id
 
             # Rebuild parent lane

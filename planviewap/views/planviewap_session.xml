@@ -118,7 +118,7 @@
         <field name="name">planviewap_session_graph</field>
         <field name="model">planviewap.session</field>
         <field name="arch" type="xml">
-            <graph string="Plan view agile place session">
+            <graph string="Session">
                 <field name="name" type="row" />
                 <field name="api_token" type="row" />
                 <field name="has_first_sync" type="row" />
@@ -163,7 +163,7 @@
         <field name="name">planviewap_session_pivot</field>
         <field name="model">planviewap.session</field>
         <field name="arch" type="xml">
-            <pivot string="Plan view agile place session">
+            <pivot string="Session">
                 <field name="name" type="row" />
                 <field name="api_token" type="row" />
                 <field name="has_first_sync" type="row" />
@@ -175,7 +175,7 @@
         <field name="name">planviewap_session_search</field>
         <field name="model">planviewap.session</field>
         <field name="arch" type="xml">
-            <search string="Plan view agile place session">
+            <search string="Session">
                 <filter domain="[('name','!=',False)]" name="name" string="URL" />
                 <filter domain="[('api_token','!=',False)]" name="api_token" string="Api Token" />
                 <filter domain="[('has_first_sync','=',True)]" name="has_first_sync" string="Has First Sync" />
@@ -197,7 +197,7 @@
 
     <act_window
         id="planviewap_session_view_agile_place_session_action_window"
-        name="View agile place session"
+        name="Session"
         res_model="planviewap.session"
         view_mode="kanban,tree,pivot,graph,form"
     />

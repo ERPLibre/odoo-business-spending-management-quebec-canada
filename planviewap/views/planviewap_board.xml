@@ -27,7 +27,7 @@
         <field name="name">planviewap_board_graph</field>
         <field name="model">planviewap.board</field>
         <field name="arch" type="xml">
-            <graph string="Plan view agile place board">
+            <graph string="Place board">
                 <field name="name" type="row" />
                 <field name="board_id_pvap" type="row" />
                 <field name="session_id" type="row" />
@@ -76,7 +76,7 @@
         <field name="name">planviewap_board_pivot</field>
         <field name="model">planviewap.board</field>
         <field name="arch" type="xml">
-            <pivot string="Plan view agile place board">
+            <pivot string="Place board">
                 <field name="name" type="row" />
                 <field name="board_id_pvap" type="row" />
                 <field name="session_id" type="row" />
@@ -88,7 +88,7 @@
         <field name="name">planviewap_board_search</field>
         <field name="model">planviewap.board</field>
         <field name="arch" type="xml">
-            <search string="Plan view agile place board">
+            <search string="Place board">
                 <filter domain="[('name','!=',False)]" name="name" string="Name" />
                 <filter domain="[('board_id_pvap','!=',False)]" name="board_id_pvap" string="Board Id Pvap" />
                 <filter domain="[('session_id','!=',False)]" name="session_id" string="Session" />
@@ -111,7 +111,7 @@
 
     <act_window
         id="planviewap_board_view_agile_place_board_action_window"
-        name="View agile place board"
+        name="Board"
         res_model="planviewap.board"
         view_mode="kanban,tree,pivot,graph,form"
     />

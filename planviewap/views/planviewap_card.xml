@@ -63,7 +63,7 @@
         <field name="name">planviewap_card_graph</field>
         <field name="model">planviewap.card</field>
         <field name="arch" type="xml">
-            <graph string="Plan view agile place card">
+            <graph string="Card">
                 <field name="name" type="row" />
                 <field name="board_id" type="row" />
                 <field name="card_id_pvap" type="row" />
@@ -126,7 +126,7 @@
         <field name="name">planviewap_card_pivot</field>
         <field name="model">planviewap.card</field>
         <field name="arch" type="xml">
-            <pivot string="Plan view agile place card">
+            <pivot string="Card">
                 <field name="name" type="row" />
                 <field name="board_id" type="row" />
                 <field name="card_id_pvap" type="row" />
@@ -140,7 +140,7 @@
         <field name="name">planviewap_card_search</field>
         <field name="model">planviewap.card</field>
         <field name="arch" type="xml">
-            <search string="Plan view agile place card">
+            <search string="Card">
                 <!--                <field name="name" filter_domain="['|', ('name','ilike',self), ('lane_parent_name','ilike',self)]" string="Name" />-->
                 <field name="name" />
                 <field name="lane_root_name" filter_domain="[('lane_root_name','ilike',self)]" />
@@ -172,7 +172,7 @@
 
     <act_window
         id="planviewap_card_view_agile_place_card_action_window"
-        name="View agile place card"
+        name="Card"
         res_model="planviewap.card"
         view_mode="tree,kanban,pivot,graph,form"
     />

@@ -31,7 +31,7 @@
         <field name="name">planviewap_card_type_graph</field>
         <field name="model">planviewap.card.type</field>
         <field name="arch" type="xml">
-            <graph string="Plan view agile place card type">
+            <graph string="Card type">
                 <field name="name" type="row" />
                 <field name="card_type_id_pvap" type="row" />
                 <field name="color_hex" type="row" />
@@ -125,7 +125,7 @@
         <field name="name">planviewap_card_type_pivot</field>
         <field name="model">planviewap.card.type</field>
         <field name="arch" type="xml">
-            <pivot string="Plan view agile place card type">
+            <pivot string="Card type">
                 <field name="name" type="row" />
                 <field name="card_type_id_pvap" type="row" />
                 <field name="color_hex" type="row" />
@@ -142,7 +142,7 @@
         <field name="name">planviewap_card_type_search</field>
         <field name="model">planviewap.card.type</field>
         <field name="arch" type="xml">
-            <search string="Plan view agile place card type">
+            <search string="Card type">
                 <filter domain="[('name','!=',False)]" name="name" string="Name" />
                 <filter
                     domain="[('card_type_id_pvap','!=',False)]"
@@ -182,7 +182,7 @@
 
     <act_window
         id="planviewap_card_type_view_agile_place_card_type_action_window"
-        name="View agile place card type"
+        name="Card type"
         res_model="planviewap.card.type"
         view_mode="kanban,tree,pivot,graph,form"
     />

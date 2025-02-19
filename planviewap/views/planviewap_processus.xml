@@ -215,7 +215,7 @@
         <field name="name">planviewap_processus_graph</field>
         <field name="model">planviewap.processus</field>
         <field name="arch" type="xml">
-            <graph string="Plan view agile place processus">
+            <graph string="Processus">
                 <field name="name" type="row" />
                 <field name="algo_key" type="row" />
                 <field name="bind_custom_field" type="row" />
@@ -269,7 +269,7 @@
         <field name="name">planviewap_processus_pivot</field>
         <field name="model">planviewap.processus</field>
         <field name="arch" type="xml">
-            <pivot string="Plan view agile place processus">
+            <pivot string="Processus">
                 <field name="name" type="row" />
                 <field name="algo_key" type="row" />
                 <field name="bind_custom_field" type="row" />
@@ -284,7 +284,7 @@
         <field name="name">planviewap_processus_search</field>
         <field name="model">planviewap.processus</field>
         <field name="arch" type="xml">
-            <search string="Plan view agile place processus">
+            <search string="Processus">
                 <field name="name" filter_domain="[('name','ilike',self)]" string="Name" />
                 <field name="algo_key" filter_domain="[('algo_key','ilike',self)]" string="Algo Key" />
                 <group string="Group By">
@@ -317,7 +317,7 @@
 
     <act_window
         id="planviewap_processus_view_agile_place_processus_action_window"
-        name="View agile place processus"
+        name="Processus"
         res_model="planviewap.processus"
         view_mode="tree,kanban,pivot,graph,form"
         context="{'search_default_group_algo_key': 1}"

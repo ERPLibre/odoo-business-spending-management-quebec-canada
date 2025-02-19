@@ -204,9 +204,9 @@ class PlanViewAPSession(models.Model):
         if data:
             request_history_value["send_data"] = json_data
 
-        request_history_id = self.env[
-            "planviewap.request_history"
-        ].create(request_history_value)
+        request_history_id = self.env["planviewap.request_history"].create(
+            request_history_value
+        )
 
         return response.status_code, response_data
 
@@ -284,9 +284,7 @@ class PlanViewAPSession(models.Model):
                         "session_id": rec.id,
                         "board_id_pvap": board_id_pvap,
                     }
-                    board_id = self.env["planviewap.board"].create(
-                        board_value
-                    )
+                    board_id = self.env["planviewap.board"].create(board_value)
                     board_ids += board_id
         return board_ids
 

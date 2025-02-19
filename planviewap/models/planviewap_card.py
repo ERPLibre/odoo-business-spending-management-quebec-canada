@@ -461,9 +461,7 @@ class PlanViewAPCard(models.Model):
                     "custom_fields": custom_fields,
                 }
 
-                card_id = self.env["planviewap.card"].create(
-                    card_value
-                )
+                card_id = self.env["planviewap.card"].create(card_value)
 
             # Force sync card details
             # Not running update_card_details for all cards, too much time execution
