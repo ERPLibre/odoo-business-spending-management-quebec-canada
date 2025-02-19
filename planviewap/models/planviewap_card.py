@@ -172,7 +172,7 @@ class PlanViewAPCard(models.Model):
             # TODO miss active, moved_on, version, externalLinks,
             if rec.custom_fields:
                 # Strangely, need to switch id to fieldId
-                data["customFields"] = eval(
+                data["customFields"] = json.loads(
                     rec.custom_fields.replace("'id'", "'fieldId'")
                 )
                 # rec.custom_fields = ""

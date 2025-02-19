@@ -2117,14 +2117,7 @@ class PlanViewAPProcessus(models.Model):
                 count_card_to_no_sync += len(card_to_no_sync_ids)
                 for card_to_sync_id in card_to_sync_ids:
                     # Be sure it's different
-                    custom_fields_card_to_sync_fix = (
-                        card_to_sync_id.custom_fields.replace(
-                            "None", "null"
-                        ).replace("'", '"')
-                    )
-                    lst_dct_to_sync = json.loads(
-                        custom_fields_card_to_sync_fix
-                    )
+                    lst_dct_to_sync = json.loads(card_to_sync_id.custom_fields)
                     lst_dct_sync = json.loads(card_sync_id.custom_fields)
                     is_same = self.compare_custom_fields(
                         lst_dct_to_sync, lst_dct_sync
@@ -2465,9 +2458,7 @@ class PlanViewAPProcessus(models.Model):
                             "size": card_to_copy_id.size,
                             "card_type_id": card_to_copy_id.card_type_id.id,
                             "entete": card_to_copy_id.entete,
-                            "custom_fields": str(
-                                json.loads(card_to_copy_id.custom_fields)
-                            ),
+                            "custom_fields": card_to_copy_id.custom_fields,
                             "description": card_to_copy_id.description,
                             "assigned_users": card_to_copy_id.assigned_users,
                             "session_id": rec.session_id.id,

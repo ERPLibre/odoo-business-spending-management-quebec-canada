@@ -170,6 +170,10 @@ class PlanViewAPSession(models.Model):
                 )
                 if total_second_to_wait > 0:
                     time.sleep(total_second_to_wait)
+                else:
+                    # sometime, the difference is lesser than a second
+                    time.sleep(1)
+
                 _logger.info(f"Wait done, continue!")
                 continue
             has_finish = True
