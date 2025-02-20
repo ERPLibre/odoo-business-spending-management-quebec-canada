@@ -1860,6 +1860,13 @@ class PlanViewAPProcessus(models.Model):
                         ):
                             # Ignore it
                             continue
+                        if (
+                            "tu dois te rendre le" in lst_new_sms_history[0]
+                            and "tu dois te rendre à l'entrepôt"
+                            in lst_existing_sms_history[0]
+                        ):
+                            # Ignore it
+                            continue
                     for new_sms_history in lst_new_sms_history:
                         msg_cut = new_sms_history[
                             new_sms_history.find(str_key) + len(str_key) + 1 :
