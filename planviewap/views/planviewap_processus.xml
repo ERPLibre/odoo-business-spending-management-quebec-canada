@@ -44,6 +44,7 @@
                             <field name="exclude_lane_name" />
                             <field name="get_all_lane" />
                             <field name="is_root_lane" />
+                            <field name="extract_only_root_lane" />
                             <field name="search_lane_required_string" />
                             <field name="lane_extract_algo" />
                             <field name="force_refresh_custom_fields" />

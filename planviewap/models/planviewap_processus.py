@@ -226,6 +226,10 @@ class PlanViewAPProcessus(models.Model):
         help="Enable when the cards to extract is inside the root lane, because a root lane has no parent lane."
     )
 
+    extract_only_root_lane = fields.Boolean(
+        help="Enable to extract only root lane."
+    )
+
     validation_target_achieved = fields.Char(
         help="Validation string in target_achieved for detected card, support ; for multiple choice."
     )
@@ -2845,6 +2849,7 @@ class PlanViewAPProcessus(models.Model):
                 is_root_lane=rec.is_root_lane,
                 lane_name=rec.lane_name,
                 sync_cards=sync_cards,
+                extract_only_root_lane=rec.extract_only_root_lane,
                 limit=limit,
                 order=order,
                 log_txt=rec.log_txt,
@@ -2864,6 +2869,7 @@ class PlanViewAPProcessus(models.Model):
         lane_name=None,
         is_root_lane=False,
         sync_cards=True,
+        extract_only_root_lane=False,
         limit=-1,
         order=None,
         log_txt=None,
@@ -2964,9 +2970,12 @@ class PlanViewAPProcessus(models.Model):
                 lane_ids = self.env["planviewap.lane"].search(lane_query)
 
         # Force to search with recursive, cannot have cards if contain lanes TODO no need this when get_all_lane
-        lane_ids = lane_ids.get_list_child_lane_from_lane(add_itself=True)
-        if lst_lane_name and is_root_lane:
-            lane_ids = lane_ids.filtered(lambda l: l.title in lst_lane_name)
+        if not extract_only_root_lane:
+            lane_ids = lane_ids.get_list_child_lane_from_lane(add_itself=True)
+            if lst_lane_name and is_root_lane:
+                lane_ids = lane_ids.filtered(
+                    lambda l: l.title in lst_lane_name
+                )
 
         if exclude_lane_name:
             lst_exclude_lane_name = exclude_lane_name.split(";")
