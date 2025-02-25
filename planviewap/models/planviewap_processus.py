@@ -2411,6 +2411,7 @@ class PlanViewAPProcessus(models.Model):
                 log_txt=rec.log_txt,
                 log_error_txt=rec.log_error_txt,
             )
+            lane_to_copy_ids = lane_to_copy_ids.sorted_all_by_sequence()
 
             if not lane_from_copy_ids:
                 msg_txt = "ERR Cannot find lane, check search lane variable.\n"
