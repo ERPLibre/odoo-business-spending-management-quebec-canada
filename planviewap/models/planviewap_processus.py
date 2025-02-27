@@ -1143,6 +1143,21 @@ class PlanViewAPProcessus(models.Model):
                     "fsm.person"
                 ).split(";")
                 if lst_card_type_name:
+                    # TODO wrong hack, suppose to be create somewhere else
+                    if card_id.lane_parent_name not in fsm_order_id.name:
+                        if not fsm_order_id.project_id:
+                            project_id = self.env["project.project"].search(
+                                [("name", "=", card_id.lane_name)],
+                                limit=1,
+                            )
+                            if not project_id:
+                                project_id = self.env[
+                                    "project.project"
+                                ].create({"name": card_id.lane_name})
+                            fsm_order_id.project_id = project_id.id
+                        fsm_order_id.name += " " + card_id.lane_parent_name
+
+                    # Exception, add date into fsm.order
                     for card_type_name in lst_card_type_name:
                         card_type_id = self.env["planviewap.card.type"].search(
                             [
