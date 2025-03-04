@@ -173,7 +173,7 @@ class PlanViewAPCard(models.Model):
             if rec.custom_fields:
                 # Strangely, need to switch id to fieldId
                 data["customFields"] = json.loads(
-                    rec.custom_fields.replace("'id'", "'fieldId'")
+                    rec.custom_fields.replace('"id"', '"fieldId"')
                 )
                 # rec.custom_fields = ""
             if rec.description:
