@@ -82,11 +82,13 @@ class PlanViewAPSmsHistory(models.Model):
                     to_number_phone = (
                         rec.to_number_phone_country + rec.to_number_phone
                     )
-                else:
+                elif rec.session_id.sms_to_country_default:
                     to_number_phone = (
                         rec.session_id.sms_to_country_default
                         + rec.to_number_phone
                     )
+                else:
+                    to_number_phone = rec.to_number_phone
             else:
                 error_msg = "Cannot send SMS, missing number phone TO."
                 _logger.error(error_msg)
