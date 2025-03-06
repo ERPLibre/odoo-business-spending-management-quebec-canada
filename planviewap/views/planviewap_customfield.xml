@@ -139,10 +139,9 @@
         </field>
     </record>
 
-    <act_window
-        id="planviewap_customfield_view_agile_place_customfield_action_window"
-        name="Custom Field"
-        res_model="planviewap.customfield"
-        view_mode="kanban,tree,pivot,graph,form"
-    />
+    <record id="planviewap_customfield_view_agile_place_customfield_action_window" model="ir.actions.act_window">
+        <field name="name">Custom Field</field>
+        <field name="res_model">planviewap.customfield</field>
+        <field name="view_mode">kanban,tree,pivot,graph,form</field>
+    </record>
 </odoo>

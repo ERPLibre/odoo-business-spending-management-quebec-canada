@@ -170,10 +170,9 @@
         </field>
     </record>
 
-    <act_window
-        id="planviewap_card_view_agile_place_card_action_window"
-        name="Card"
-        res_model="planviewap.card"
-        view_mode="tree,kanban,pivot,graph,form"
-    />
+    <record id="planviewap_card_view_agile_place_card_action_window" model="ir.actions.act_window">
+        <field name="name">Card</field>
+        <field name="res_model">planviewap.card</field>
+        <field name="view_mode">tree,kanban,pivot,graph,form</field>
+    </record>
 </odoo>

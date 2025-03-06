@@ -92,10 +92,9 @@
         </field>
     </record>
 
-    <act_window
-        id="planviewap_board_type_view_agile_place_board_action_window"
-        name="Board type"
-        res_model="planviewap.board.type"
-        view_mode="kanban,tree,pivot,graph,form"
-    />
+    <record id="planviewap_board_type_view_agile_place_board_action_window" model="ir.actions.act_window">
+        <field name="name">Board type</field>
+        <field name="res_model">planviewap.board.type</field>
+        <field name="view_mode">kanban,tree,pivot,graph,form</field>
+    </record>
 </odoo>

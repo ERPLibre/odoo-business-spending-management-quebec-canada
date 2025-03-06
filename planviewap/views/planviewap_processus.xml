@@ -316,11 +316,10 @@
         </field>
     </record>
 
-    <act_window
-        id="planviewap_processus_view_agile_place_processus_action_window"
-        name="Processus"
-        res_model="planviewap.processus"
-        view_mode="tree,kanban,pivot,graph,form"
-        context="{'search_default_group_algo_key': 1}"
-    />
+    <record id="planviewap_processus_view_agile_place_processus_action_window" model="ir.actions.act_window">
+        <field name="name">Processus</field>
+        <field name="res_model">planviewap.processus</field>
+        <field name="view_mode">tree,kanban,pivot,graph,form</field>
+        <field name="context">{'search_default_group_algo_key': 1}</field>
+    </record>
 </odoo>

@@ -167,10 +167,9 @@
         </field>
     </record>
 
-    <act_window
-        id="planviewap_sms_history_view_agile_place_sms_history_action_window"
-        name="SMS history"
-        res_model="planviewap.sms.history"
-        view_mode="kanban,tree,pivot,graph,form"
-    />
+    <record id="planviewap_sms_history_view_agile_place_sms_history_action_window" model="ir.actions.act_window">
+        <field name="name">SMS history</field>
+        <field name="res_model">planviewap.sms.history</field>
+        <field name="view_mode">kanban,tree,pivot,graph,form</field>
+    </record>
 </odoo>

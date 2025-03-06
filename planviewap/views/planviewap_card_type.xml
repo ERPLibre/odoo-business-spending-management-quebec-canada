@@ -180,10 +180,9 @@
         </field>
     </record>
 
-    <act_window
-        id="planviewap_card_type_view_agile_place_card_type_action_window"
-        name="Card type"
-        res_model="planviewap.card.type"
-        view_mode="kanban,tree,pivot,graph,form"
-    />
+    <record id="planviewap_card_type_view_agile_place_card_type_action_window" model="ir.actions.act_window">
+        <field name="name">Card type</field>
+        <field name="res_model">planviewap.card.type</field>
+        <field name="view_mode">kanban,tree,pivot,graph,form</field>
+    </record>
 </odoo>

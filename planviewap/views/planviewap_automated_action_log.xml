@@ -48,10 +48,12 @@
         </field>
     </record>
 
-    <act_window
+    <record
         id="planviewap_automated_action_log_view_agile_place_automated_action_log_action_window"
-        name="Automated action log"
-        res_model="planviewap.automated.action.log"
-        view_mode="tree,form"
-    />
+        model="ir.actions.act_window"
+    >
+        <field name="name">Automated action log</field>
+        <field name="res_model">planviewap.automated.action.log</field>
+        <field name="view_mode">kanban,tree,pivot,graph,form</field>
+    </record>
 </odoo>

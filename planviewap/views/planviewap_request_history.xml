@@ -104,10 +104,12 @@
         </field>
     </record>
 
-    <act_window
+    <record
         id="planviewap_request_history_view_agile_place_request_history_action_window"
-        name="Tequest history"
-        res_model="planviewap.request_history"
-        view_mode="kanban,tree,pivot,graph,form"
-    />
+        model="ir.actions.act_window"
+    >
+        <field name="name">Request history</field>
+        <field name="res_model">planviewap.request_history</field>
+        <field name="view_mode">kanban,tree,pivot,graph,form</field>
+    </record>
 </odoo>

@@ -166,10 +166,9 @@
         </field>
     </record>
 
-    <act_window
-        id="planviewap_lane_view_agile_place_lane_action_window"
-        name="Lane"
-        res_model="planviewap.lane"
-        view_mode="kanban,tree,pivot,graph,form"
-    />
+    <record id="planviewap_lane_view_agile_place_lane_action_window" model="ir.actions.act_window">
+        <field name="name">Lane</field>
+        <field name="res_model">planviewap.lane</field>
+        <field name="view_mode">kanban,tree,pivot,graph,form</field>
+    </record>
 </odoo>

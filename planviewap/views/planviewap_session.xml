@@ -58,11 +58,11 @@
                             <field name="name" />
                         </h1>
                     </div>
-                    <div class="alert alert-info">
+                    <div class="alert alert-info" role="alert">
                         Reference LeanKit:
                         <a href="https://success.planview.com/Planview_AgilePlace/AgilePlace_API">API documentation</a>
                     </div>
-                    <div class="alert alert-info">
+                    <div class="alert alert-info" role="alert">
                         Guide:
                         <ul>
                             <li>First create configuration (missing doc)</li>
@@ -195,10 +195,9 @@
         </field>
     </record>
 
-    <act_window
-        id="planviewap_session_view_agile_place_session_action_window"
-        name="Session"
-        res_model="planviewap.session"
-        view_mode="kanban,tree,pivot,graph,form"
-    />
+    <record id="planviewap_session_view_agile_place_session_action_window" model="ir.actions.act_window">
+        <field name="name">Session</field>
+        <field name="res_model">planviewap.session</field>
+        <field name="view_mode">kanban,tree,pivot,graph,form</field>
+    </record>
 </odoo>
