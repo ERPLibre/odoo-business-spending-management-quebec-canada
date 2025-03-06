@@ -113,6 +113,7 @@
                         <!--                        </group>-->
                         <group string="Schedule">
                             <field name="delay_in_day" />
+                            <field name="delay_in_day_plus_one_if_friday" />
                             <field name="get_all_week" />
                             <field name="ignore_weekend" />
                             <field name="force_update_model" />

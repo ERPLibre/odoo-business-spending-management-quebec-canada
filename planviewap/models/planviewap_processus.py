@@ -191,6 +191,8 @@ class PlanViewAPProcessus(models.Model):
         selection=[
             ("jour d/m", "jour d/m"),
             ("week d/m/y", "week d/m/y"),
+            ("week d/m/y from today", "week d/m/y from today"),
+            ("week d/m/y from tomorrow", "week d/m/y from tomorrow"),
             ("pattern", "pattern"),
         ]
     )
@@ -199,6 +201,10 @@ class PlanViewAPProcessus(models.Model):
 
     delay_in_day = fields.Integer(
         string="Delay in day or week", help="Will depend the lane_extract_algo"
+    )
+
+    delay_in_day_plus_one_if_friday = fields.Boolean(
+        help="Will add 1 to delay_in_day if now is friday."
     )
 
     get_all_week = fields.Boolean(
@@ -472,17 +478,30 @@ class PlanViewAPProcessus(models.Model):
             )
             if not rec.lane_extract_algo:
                 rec.debug_show_first_day = ""
+            delay_in_day = rec.delay_in_day
+
+            if rec.delay_in_day_plus_one_if_friday:
+                weekday = self.env[
+                    "planviewap.automated.action.log"
+                ].get_weekday_now()
+                if weekday == 4:
+                    delay_in_day += 1
+
             elif rec.lane_extract_algo == "jour d/m":
                 target_date = self.return_next_open_day(
                     datetime.datetime.now().astimezone(user_timezone),
-                    delay_day=rec.delay_in_day,
+                    delay_day=delay_in_day,
                     is_skipping_weekend=rec.ignore_weekend,
                 )
                 rec.debug_show_first_day = f"{target_date:%Y/%m/%d}"
-            elif rec.lane_extract_algo == "week d/m/y":
+            elif rec.lane_extract_algo in [
+                "week d/m/y",
+                "week d/m/y from today",
+                "week d/m/y from tomorrow",
+            ]:
                 target_date = self.return_monday_day(
                     datetime.datetime.now().astimezone(user_timezone),
-                    delay_week=rec.delay_in_day,
+                    delay_week=delay_in_day,
                 )
                 rec.debug_show_first_day = f"{target_date:%Y/%m/%d}"
 
@@ -2318,10 +2337,13 @@ class PlanViewAPProcessus(models.Model):
                     else rec.sms_message_prefix + " "
                 )
                 colonne_name = " - ".join(set([a.lane_name for a in card_ids]))
+                lane_name_ordered_ids = (
+                    card_ids.lane_parent_id.sorted_all_by_sequence()
+                )
                 lane_name = (
                     colonne_name
                     + " "
-                    + " - ".join(set([a.lane_parent_name for a in card_ids]))
+                    + " - ".join([a.title for a in lane_name_ordered_ids])
                 )
                 if rec.alert_count_card_msg:
                     msg_min_count = rec.alert_count_card_msg % (lane_name,)
@@ -2353,10 +2375,13 @@ class PlanViewAPProcessus(models.Model):
                     else rec.sms_message_prefix + " "
                 )
                 colonne_name = " - ".join(set([a.lane_name for a in card_ids]))
+                lane_name_ordered_ids = (
+                    card_ids.lane_parent_id.sorted_all_by_sequence()
+                )
                 lane_name = (
                     colonne_name
                     + " "
-                    + " - ".join(set([a.lane_parent_name for a in card_ids]))
+                    + " - ".join([a.title for a in lane_name_ordered_ids])
                 )
                 if rec.alert_count_card_msg:
                     msg_max_count = rec.alert_count_card_msg % (lane_name,)
@@ -2371,10 +2396,12 @@ class PlanViewAPProcessus(models.Model):
                 msg_alert = f"{msg_sms}{msg_max_count}"
 
                 # Add URL to the card
-                for card_id in card_ids:
+                for card_id in card_ids[:3]:
                     msg_alert += (
                         f"\n{rec.session_id.name}/card/{card_id.card_id_pvap}"
                     )
+                if len(card_ids) > 3:
+                    msg_alert += "\n[...]"
                 lst_msg_alert.append(msg_alert)
 
             # Send message
@@ -2503,9 +2530,18 @@ class PlanViewAPProcessus(models.Model):
             [("board_id", "=", rec.board_id.id)]
         )
         regex = r"(?P<jour>[A-Z]+)\s+(?P<journee>\d+)/(?P<mois>\d+)"
+
+        delay_in_day = rec.delay_in_day
+        if rec.delay_in_day_plus_one_if_friday:
+            weekday = self.env[
+                "planviewap.automated.action.log"
+            ].get_weekday_now()
+            if weekday == 4:
+                delay_in_day += 1
+
         next_day = self.return_next_open_day(
             datetime.datetime.now().astimezone(user_timezone),
-            delay_day=rec.delay_in_day,
+            delay_day=delay_in_day,
             is_skipping_weekend=rec.ignore_weekend,
         )
 
@@ -2572,14 +2608,30 @@ class PlanViewAPProcessus(models.Model):
         elif ttype == "str":
             return lst_value[value]
 
-    def _get_lane_from_regex_week(self):
+    def _get_lane_from_regex_week(
+        self, ignore_before_today=False, ignore_before_tomorrow=False
+    ):
         user_timezone = timezone(
             self.env.context.get("tz") or self.env.user.tz or "UTC"
         )
+        time_now = (
+            datetime.datetime.now()
+            .astimezone(user_timezone)
+            .replace(hour=0, minute=0, second=0, microsecond=0)
+        )
+        time_tomorrow = time_now + datetime.timedelta(days=1)
         mois_en_francais = self._get_month_fr()
         find_lane_ids = self.env["planviewap.lane"]
         regex = r"(?P<journee>\d{1,2})\s+(?P<mois>\w+)\s+(?P<annee>\d{4})"
         for rec in self:
+            delay_in_day = rec.delay_in_day
+            if self.delay_in_day_plus_one_if_friday:
+                weekday = self.env[
+                    "planviewap.automated.action.log"
+                ].get_weekday_now()
+                if weekday == 4:
+                    delay_in_day += 1
+
             lane_ids = self.env["planviewap.lane"].search(
                 [
                     ("board_id", "=", rec.board_id.id),
@@ -2587,8 +2639,8 @@ class PlanViewAPProcessus(models.Model):
                 ]
             )
             monday_day = self.return_monday_day(
-                datetime.datetime.now().astimezone(user_timezone),
-                delay_week=rec.delay_in_day,
+                time_now,
+                delay_week=delay_in_day,
             )
             for lane_id in lane_ids:
                 result = re.search(regex, lane_id.title)
@@ -2608,7 +2660,31 @@ class PlanViewAPProcessus(models.Model):
                     ):
                         # Ignore this value
                         continue
-                    find_lane_ids += lane_id
+                    if not ignore_before_today and not ignore_before_tomorrow:
+                        find_lane_ids += lane_id
+                    else:
+                        for under_lane_id in lane_id.lane_child_ids:
+                            # extract inner day
+                            regex_day = r"(?P<jour>[A-Z]+)\s+(?P<journee>\d+)/(?P<mois>\d+)"
+                            result_day = re.search(
+                                regex_day, under_lane_id.title
+                            )
+                            if not result:
+                                continue
+                            check_date = user_timezone.localize(
+                                datetime.datetime(
+                                    int(result.group("annee")),
+                                    int(result_day.group("mois")),
+                                    int(result_day.group("journee")),
+                                )
+                            )
+                            if (
+                                ignore_before_today and check_date >= time_now
+                            ) or (
+                                ignore_before_tomorrow
+                                and check_date >= time_tomorrow
+                            ):
+                                find_lane_ids += under_lane_id
         return find_lane_ids
 
     def _get_lane_from_pattern(self):
@@ -2850,7 +2926,7 @@ class PlanViewAPProcessus(models.Model):
         return new_model_id
 
     def search_lanes_from_processus(
-        self, sync_cards=True, limit=-1, order=None
+        self, sync_cards=True, limit=-1, order="sequence asc"
     ):
         for rec in self:
             return rec.search_lanes(
@@ -2897,8 +2973,26 @@ class PlanViewAPProcessus(models.Model):
             if lane_extract_algo == "jour d/m":
                 lane_root_ids = self._get_lane_from_regex_day()
                 is_root_lane = True
-            elif lane_extract_algo == "week d/m/y":
-                lane_root_ids = self._get_lane_from_regex_week()
+            elif lane_extract_algo in [
+                "week d/m/y",
+                "week d/m/y from today",
+                "week d/m/y from tomorrow",
+            ]:
+                ignore_before_today = lane_extract_algo in [
+                    "week d/m/y from today"
+                ]
+                ignore_before_tomorrow = lane_extract_algo in [
+                    "week d/m/y from tomorrow"
+                ]
+                lane_root_ids = self._get_lane_from_regex_week(
+                    ignore_before_today=ignore_before_today,
+                    ignore_before_tomorrow=ignore_before_tomorrow,
+                )
+                if ignore_before_today or ignore_before_tomorrow:
+                    lane_parent_name = ";".join(
+                        [a.title for a in lane_root_ids]
+                    )
+                    lane_root_ids = None
             elif lane_extract_algo == "pattern":
                 lane_root_ids = self._get_lane_from_pattern()
             else:
@@ -2943,7 +3037,7 @@ class PlanViewAPProcessus(models.Model):
                     log_error_txt += msg_txt
                 return self.env["planviewap.lane"]
         # Force auto refresh root lane
-        if sync_cards:
+        if sync_cards and lane_root_ids:
             if lane_root_name:
                 msg_txt = (
                     f"INFO sync cards from processus '{process_name}' root lane name"
@@ -2965,8 +3059,9 @@ class PlanViewAPProcessus(models.Model):
         else:
             lane_query = [
                 ("board_id", "=", board_id.id),
-                ("lane_root_id", "in", lane_root_ids.ids),
             ]
+            if lane_root_ids:
+                lane_query.append(("lane_root_id", "in", lane_root_ids.ids))
 
             if lst_lane_name:
                 lane_query.append(("title", "in", lst_lane_name))
