@@ -142,6 +142,8 @@ class PlanViewAPProcessus(models.Model):
 
     model_fetch_record = fields.Char()
 
+    alert_execution_msg = fields.Text(readonly=True, help="The alert execution will be show in this field.")
+
     alert_min_size_card_enable = fields.Boolean()
 
     alert_min_size_card = fields.Integer(
@@ -154,6 +156,10 @@ class PlanViewAPProcessus(models.Model):
 
     alert_max_size_card = fields.Integer(
         default=0, help="Alert upper the max."
+    )
+
+    custom_process_method_name = fields.Char(
+        help="Will call this method instead of normal execution for full custom execution."
     )
 
     alert_count_card_msg = fields.Char()
@@ -656,7 +662,11 @@ class PlanViewAPProcessus(models.Model):
                     rec.bind_required_field_list
                 )
 
-            if rec.algo_key == "operate_lane":
+            if rec.custom_process_method_name:
+                getattr(rec, rec.custom_process_method_name)(
+                    ctx=ctx, start_time=start_time
+                )
+            elif rec.algo_key == "operate_lane":
                 rec.operate_lane()
             elif rec.algo_key == "copy_cards_from_lane_from_board":
                 rec.fill_board_id(use_from_board=True, raise_error=False)
