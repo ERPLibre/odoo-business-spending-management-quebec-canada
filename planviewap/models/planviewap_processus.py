@@ -2238,6 +2238,12 @@ class PlanViewAPProcessus(models.Model):
                         # print(info_name)
                         # print(lst_diff)
                 rec.log_txt += msg_txt
+                if not dct_info:
+                    msg_txt = "ERR Cannot get information to validation structure.\n"
+                    rec.log_error_txt += msg_txt
+                    rec.log_txt += msg_txt
+                    _logger.error(msg_txt.strip())
+                    rec.add_log_time_execution(start_time)
                 continue
             card_ids = rec.search_cards_from_processus(
                 sync_cards=rec.force_sync_before_algo
