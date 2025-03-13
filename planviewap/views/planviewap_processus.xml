@@ -26,6 +26,7 @@
                     </div>
                     <group>
                         <group string="General">
+                            <field name="sequence" />
                             <field name="description" />
                             <field name="session_id" />
                             <field name="board_id" />
@@ -308,6 +309,7 @@
         <field name="model">planviewap.processus</field>
         <field name="arch" type="xml">
             <tree>
+                <field name="sequence" widget="handle"/>
                 <field name="name" />
                 <field name="algo_key" />
                 <field name="bind_custom_field" />

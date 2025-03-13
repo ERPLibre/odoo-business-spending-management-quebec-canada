@@ -27,12 +27,14 @@ _logger = logging.getLogger(__name__)
 class PlanViewAPProcessus(models.Model):
     _name = "planviewap.processus"
     _description = "planviewap_processus"
+    _order = "sequence, name"
 
     name = fields.Char()
 
     algo_key = fields.Selection(
         selection=[
             ("multi_process", "Bundle multi-process"),
+            ("import", "Import data"),
             ("operate_lane", "Operate lane"),
             ("create_card_from_model", "Build cards into PVAP"),
             ("create_new_board", "Create new board"),
@@ -72,6 +74,8 @@ class PlanViewAPProcessus(models.Model):
         default="create_model_from_card",
         readonly=True,
     )
+
+    sequence = fields.Integer(default=10)
 
     algo_rename = fields.Selection(
         selection=[
