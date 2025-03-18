@@ -309,7 +309,7 @@
         <field name="model">planviewap.processus</field>
         <field name="arch" type="xml">
             <tree>
-                <field name="sequence" widget="handle"/>
+                <field name="sequence" widget="handle" />
                 <field name="name" />
                 <field name="algo_key" />
                 <field name="bind_custom_field" />

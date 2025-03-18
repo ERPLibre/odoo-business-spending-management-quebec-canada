@@ -36,6 +36,11 @@ class HREmployee(models.Model):
         string="Card",
     )
 
+    def generate_inherit_pvap_card(self, card_value, board_id, process_id):
+        self.ensure_one()
+        # Inherit this method to add value into card at creation
+        pass
+
     def generate_pvap_card(self, process_id):
         if not process_id:
             _logger.warning(
@@ -109,6 +114,9 @@ class HREmployee(models.Model):
             if card_type_id:
                 card_value["card_type_id"] = card_type_id.id
                 card_value["entete"] = card_type_id.name
+
+            # TODO add another field from card
+            rec.generate_inherit_pvap_card(card_value, board_id, process_id)
 
             for i in range(process_id.duplicate_multiple_time):
                 for lane_id in lane_ids:

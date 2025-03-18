@@ -146,7 +146,9 @@ class PlanViewAPProcessus(models.Model):
 
     model_fetch_record = fields.Char()
 
-    alert_execution_msg = fields.Text(readonly=True, help="The alert execution will be show in this field.")
+    alert_execution_msg = fields.Text(
+        readonly=True, help="The alert execution will be show in this field."
+    )
 
     alert_min_size_card_enable = fields.Boolean()
 
@@ -2243,7 +2245,9 @@ class PlanViewAPProcessus(models.Model):
                         # print(lst_diff)
                 rec.log_txt += msg_txt
                 if not dct_info:
-                    msg_txt = "ERR Cannot get information to validation structure.\n"
+                    msg_txt = (
+                        "ERR Cannot get information to validation structure.\n"
+                    )
                     rec.log_error_txt += msg_txt
                     rec.log_txt += msg_txt
                     _logger.error(msg_txt.strip())
