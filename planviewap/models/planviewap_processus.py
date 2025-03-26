@@ -39,7 +39,7 @@ class PlanViewAPProcessus(models.Model):
             ("create_card_from_model", "Build cards into PVAP"),
             ("create_new_board", "Create new board"),
             ("create_model_from_card", "Create Model from Card"),
-            ("create_model_from_lane", "Create Model from Lane"),
+            ("extract_data", "Extraction"),
             ("send_sms_schedule", "Send SMS schedule"),
             (
                 "send_sms_schedule_week_summary",
@@ -209,8 +209,6 @@ class PlanViewAPProcessus(models.Model):
         ]
     )
 
-    type_card_bind = fields.Char()
-
     delay_in_day = fields.Integer(
         string="Delay in day or week", help="Will depend the lane_extract_algo"
     )
@@ -292,14 +290,6 @@ class PlanViewAPProcessus(models.Model):
 
     is_disabled = fields.Boolean(
         help="When true, the processus will not execute."
-    )
-
-    compute_model_fsm_location = fields.Boolean(
-        help="Associate with model res.partner, will create fsm.location associate with partner"
-    )
-
-    compute_model_fsm_person = fields.Boolean(
-        help="Associate with model hr.employee, will create fsm.person associate with employee"
     )
 
     force_update_after_create = fields.Boolean(
@@ -701,8 +691,6 @@ class PlanViewAPProcessus(models.Model):
                 rec.algo_delete_cards()
             elif rec.algo_key == "validation_card":
                 rec.algo_validation_card()
-            elif rec.algo_key == "create_model_from_lane":
-                rec.algo_create_model_from_lane(start_time, diff_hour_timezone)
             elif rec.algo_key == "create_new_board":
                 rec.algo_create_new_board(start_time)
             elif rec.algo_key == "create_card_from_model":
@@ -732,6 +720,9 @@ class PlanViewAPProcessus(models.Model):
             rec.log_txt += f"{msg_end}"
             rec.log_error_txt += f"{msg_end}"
             rec.add_log_time_execution(start_time)
+
+    def internal_process_create_model_from_card(self, rec, model_id, card_id):
+        pass
 
     def algo_create_model_from_card(
         self,
@@ -782,64 +773,9 @@ class PlanViewAPProcessus(models.Model):
                     rec.log_error_txt += msg
                     _logger.warning(msg.strip())
 
-                if rec.compute_model_fsm_location and model_id:
-                    # Find associate fsm.location or create it
-                    fsm_location_id = self.env["fsm.location"].search(
-                        [("owner_id", "=", model_id.id)], limit=1
-                    )
-                    # TODO do we need to update geo_localize when exist?
-                    if not fsm_location_id:
-                        fsm_location_value = {
-                            "name": model_id.name,
-                            "owner_id": model_id.id,
-                        }
-                        fsm_location_id = self.env["fsm.location"].create(
-                            fsm_location_value
-                        )
-                        # Update partner_id information
-                        fsm_location_id.partner_id.type = "contact"
-                        fsm_location_id.geo_localize()
-                        # Validate or show an error
-                        if (
-                            not fsm_location_id.partner_latitude
-                            and not fsm_location_id.partner_longitude
-                        ):
-                            msg = f"WAR cannot localize '{fsm_location_id.name}' with address '{fsm_location_id.street}'\n"
-                            rec.log_txt += msg
-                            rec.log_error_txt += msg
-                            _logger.warning(msg.strip())
-
-                if rec.compute_model_fsm_person and model_id:
-                    # Create a user associate
-                    # hr.employee
-                    # model_id.
-                    user_id = self.env["res.users"].search(
-                        [("name", "=", model_id.name)], limit=1
-                    )
-                    if not user_id:
-                        user_vals = {
-                            "name": model_id.name,
-                            "login": model_id.name,
-                            "email": model_id.name,
-                            "password": model_id.name,
-                        }
-                        user_id = self.env["res.users"].create(user_vals)
-                    model_id.user_id = user_id.id
-                    partner_id = user_id.partner_id
-                    # Find associate fsm.location or create it
-                    fsm_person_id = self.env["fsm.person"].search(
-                        [("partner_id", "=", partner_id.id)], limit=1
-                    )
-                    if not fsm_person_id:
-                        # TODO this is hardcoded, need to use mapping
-                        fsm_person_vals = {
-                            "name": model_id.name,
-                            "partner_id": partner_id.id,
-                            "phone": model_id.work_phone,
-                        }
-                        fsm_person_id = self.env["fsm.person"].create(
-                            fsm_person_vals
-                        )
+                rec.internal_process_create_model_from_card(
+                    rec, model_id, card_id
+                )
 
             rec.log_txt += "\n"
             rec.log_error_txt += "\n"
@@ -1093,125 +1029,6 @@ class PlanViewAPProcessus(models.Model):
                 #     process_id.board_copy_to_id =
 
                 process_id.action_execute_algo()
-
-    def algo_create_model_from_lane(
-        self,
-        start_time,
-        diff_hour_timezone,
-    ):
-        user_timezone = timezone(
-            self.env.context.get("tz") or self.env.user.tz or "UTC"
-        )
-        for rec in self:
-            # This will find the lane_root
-            # TODO problème avec utc?
-            monday_day = self.return_monday_day(
-                datetime.datetime.now().astimezone(user_timezone),
-            ).replace(hour=0, minute=0, second=0, microsecond=0)
-            lane_ids = rec._get_lane_from_regex_week()
-            if len(lane_ids) > 1:
-                multi_lane_name = ",".join([a.title for a in lane_ids])
-                msg_txt = f"ERR Find {len(lane_ids)} lanes with the regex '{multi_lane_name}'.\n"
-                rec.log_txt += msg_txt
-                rec.log_error_txt += msg_txt
-                _logger.error(msg_txt.strip())
-            elif len(lane_ids) == 0:
-                msg_txt = f"ERR Cannot found lane with regex of next day.\n"
-                rec.log_txt += msg_txt
-                rec.log_error_txt += msg_txt
-                _logger.error(msg_txt.strip())
-                rec.add_log_time_execution(start_time)
-                continue
-            rec.lane_root_name = lane_ids[0].title
-            card_ids = rec.search_cards_from_processus()
-
-            for card_id in card_ids:
-                # TODO bug name, fix that!
-                # location_id = self.env["fsm.location"].search(
-                #     [("name", "like", card_id.lane_name)], limit=1
-                # )
-                location_ids = self.env["fsm.location"].search([])
-                location_id = None
-                for a_location_id in location_ids:
-                    # TODO this is not good, hardcoded from data client, need a dynamic way
-                    if a_location_id.name[:5] == card_id.lane_name[:5]:
-                        location_id = a_location_id
-                if not location_id:
-                    msg_txt = f"WARN Cannot found fsm.location with name '{card_id.lane_name}'.\n"
-                    rec.log_txt += msg_txt
-                    rec.log_error_txt += msg_txt
-                    _logger.warning(msg_txt.strip())
-                    rec.add_log_time_execution(start_time)
-                    continue
-                # Get weekdate
-                regex = r"(?P<jour>[A-Z]+)\s+(?P<journee>\d+)/(?P<mois>\d+)"
-                result = re.search(regex, card_id.lane_parent_name)
-                diff_date = int(result.group("journee")) - monday_day.day
-                # TODO this is an hack, need to retrieve the exact day with month and day
-                actual_day = monday_day + datetime.timedelta(days=diff_date)
-                next_day = actual_day + datetime.timedelta(days=1)
-                fsm_order_id = self.env["fsm.order"].search(
-                    [
-                        ("location_id", "=", location_id.id),
-                        ("scheduled_date_start", ">=", actual_day),
-                        ("scheduled_date_start", "<", next_day),
-                    ],
-                    limit=1,
-                )
-                actual_day_time_work = actual_day + datetime.timedelta(
-                    hours=7 + diff_hour_timezone
-                )
-                if not fsm_order_id:
-                    # Create a new one
-                    fsm_order_vals = {
-                        "name": card_id.lane_name,
-                        "location_id": location_id.id,
-                        "scheduled_date_start": actual_day_time_work.replace(
-                            tzinfo=None
-                        ),
-                        "scheduled_duration": 6,
-                    }
-                    fsm_order_id = self.env["fsm.order"].create(fsm_order_vals)
-                # Add this card
-                json_type_card_bind = json.loads(rec.type_card_bind)
-                lst_card_type_name = json_type_card_bind.get(
-                    "fsm.person"
-                ).split(";")
-                if lst_card_type_name:
-                    # TODO wrong hack, suppose to be create somewhere else
-                    if card_id.lane_parent_name not in fsm_order_id.name:
-                        if not fsm_order_id.project_id:
-                            project_id = self.env["project.project"].search(
-                                [("name", "=", card_id.lane_name)],
-                                limit=1,
-                            )
-                            if not project_id:
-                                project_id = self.env[
-                                    "project.project"
-                                ].create({"name": card_id.lane_name})
-                            fsm_order_id.project_id = project_id.id
-                        fsm_order_id.name += " " + card_id.lane_parent_name
-
-                    # Exception, add date into fsm.order
-                    for card_type_name in lst_card_type_name:
-                        card_type_id = self.env["planviewap.card.type"].search(
-                            [
-                                ("name", "=", card_type_name),
-                                ("board_id", "=", rec.board_id.id),
-                            ]
-                        )
-                        if (
-                            card_type_id
-                            and card_id.card_type_id == card_type_id
-                        ):
-                            fsm_person_id = self.env["fsm.person"].search(
-                                [("name", "=", card_id.name.title())],
-                                limit=1,
-                            )
-                            if fsm_person_id:
-                                fsm_order_id.write(
-                                    {"person_ids": [(4, fsm_person_id.id)]}
-                                )
 
     def algo_send_sms_schedule_week_summary(self):
         for rec in self:
@@ -2011,7 +1828,9 @@ class PlanViewAPProcessus(models.Model):
                     and rec.validation_algo
                     == "negative_same_name_different_size"
                 ):
-                    print("ok")
+                    _logger.warning(
+                        f"Not supported algo {rec.validation_algo}"
+                    )
                 elif (
                     rec.validation_algo
                     and rec.validation_algo
@@ -3114,8 +2933,11 @@ class PlanViewAPProcessus(models.Model):
 
         if exclude_lane_name:
             lst_exclude_lane_name = exclude_lane_name.split(";")
+            # TODO implement better mechanism, maybe a dedicated method?
             lane_ids = lane_ids.filtered(
                 lambda l: l.title not in lst_exclude_lane_name
+                and l.lane_parent_name not in lst_exclude_lane_name
+                and l.lane_root_name not in lst_exclude_lane_name
             )
         if limit > 0:
             return lane_ids[:limit]

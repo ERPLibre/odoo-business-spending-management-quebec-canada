@@ -89,12 +89,12 @@
                     <notebook>
                         <page string="Board">
                             <group>
-                                <field name="board_ids" />
+                                <field name="board_ids" nolabel="1" colspan="2" />
                             </group>
                         </page>
                         <page string="Requests">
                             <group>
-                                <field name="request_history_ids" />
+                                <field name="request_history_ids" nolabel="1" colspan="2" />
                             </group>
                         </page>
                         <page string="Binding ERP">
