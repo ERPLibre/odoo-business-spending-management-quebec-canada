@@ -36,6 +36,8 @@ class PlanViewAPSession(models.Model):
         default=False, help="Ignore this functionality if not enable."
     )
 
+    extract_archive = fields.Boolean(help="Get list with archive.")
+
     bind_rh_employee_create_enabled = fields.Boolean(
         default=False, help="Will create employe in kanban agile place."
     )
@@ -262,7 +264,11 @@ class PlanViewAPSession(models.Model):
             # TODO configuration board
             # champs personnalisés champs telephone
             # effacer une carte
-            status, response = rec.request_api_get("/io/board")
+            if rec.extract_archive:
+                data = {"archived": True}
+            else:
+                data = None
+            status, response = rec.request_api_get("/io/board", data=data)
             if str(status)[0] != "2":
                 continue
             lst_boards = response.get("boards")

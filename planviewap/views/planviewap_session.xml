@@ -76,6 +76,7 @@
                             <field name="api_token" type="password" password="True" />
                             <field name="has_first_sync" />
                             <field name="sms_enable" />
+                            <field name="extract_archive" groups="base.group_no_one" />
                         </group>
                         <group string="SMS" attrs="{'invisible': [('sms_enable', '=', False)]}">
                             <field name="sms_api_url" />

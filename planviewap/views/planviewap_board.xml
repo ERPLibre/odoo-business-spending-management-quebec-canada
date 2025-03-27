@@ -89,6 +89,7 @@
         <field name="model">planviewap.board</field>
         <field name="arch" type="xml">
             <search string="Place board">
+                <field name="name" />
                 <filter domain="[('name','!=',False)]" name="name" string="Name" />
                 <filter domain="[('board_id_pvap','!=',False)]" name="board_id_pvap" string="Board Id Pvap" />
                 <filter domain="[('session_id','!=',False)]" name="session_id" string="Session" />
