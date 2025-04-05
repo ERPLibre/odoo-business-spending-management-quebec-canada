@@ -115,13 +115,15 @@ class HREmployee(models.Model):
                 card_value["card_type_id"] = card_type_id.id
                 card_value["entete"] = card_type_id.name
 
-            # TODO add another field from card
             rec.generate_inherit_pvap_card(card_value, board_id, process_id)
 
-            for i in range(process_id.duplicate_multiple_time):
-                for lane_id in lane_ids:
-                    card_value["lane_id"] = lane_id.id
-                    lst_card_value.append(card_value.copy())
+            if "lane_id" not in card_value.keys():
+                for i in range(process_id.duplicate_multiple_time):
+                    for lane_id in lane_ids:
+                        card_value["lane_id"] = lane_id.id
+                        lst_card_value.append(card_value.copy())
+            else:
+                lst_card_value.append(card_value.copy())
 
         self.env["planviewap.card"].create(lst_card_value)
 

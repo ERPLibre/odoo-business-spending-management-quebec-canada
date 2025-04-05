@@ -2512,7 +2512,7 @@ class PlanViewAPProcessus(models.Model):
                             result_day = re.search(
                                 regex_day, under_lane_id.title
                             )
-                            if not result:
+                            if not result or not result_day:
                                 continue
                             check_date = user_timezone.localize(
                                 datetime.datetime(
