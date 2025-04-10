@@ -8,6 +8,7 @@ import logging
 import time
 
 import requests
+from dateutil import parser
 
 from odoo import _, api, exceptions, fields, models
 
@@ -160,9 +161,8 @@ class PlanViewAPSession(models.Model):
             if response.status_code == 429:
                 # Detect too much request
                 retry_after = response.headers.get("retry-after")
-                timestamp_retry_after = datetime.datetime.strptime(
-                    retry_after,
-                    "%a, %d %b %Y %H:%M:%S %Z",
+                timestamp_retry_after = parser.parse(retry_after).replace(
+                    tzinfo=None
                 )
                 diff_time = timestamp_retry_after - datetime.datetime.now()
                 total_second_to_wait = diff_time.total_seconds()
@@ -191,10 +191,9 @@ class PlanViewAPSession(models.Model):
                 reason += ";" + str(e)
         else:
             response_data = ""
-
-        request_server_date = datetime.datetime.strptime(
-            response.headers.get("Date"), "%a, %d %b %Y %H:%M:%S %Z"
-        )
+        request_server_date = parser.parse(
+            response.headers.get("Date")
+        ).replace(tzinfo=None)
 
         request_history_value = {
             "name": url,
