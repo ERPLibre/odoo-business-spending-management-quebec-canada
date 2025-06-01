@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!--Root menu-->
+
+    <menuitem id="asana" name="Asana" sequence="20" web_icon="asana,static/description/icon.png" />
+
+    <!--Sub menu-->
+
+    <menuitem id="menu" name="Menu" sequence="1" parent="asana" />
+
+    <!--Child menu-->
+
+    <menuitem id="session" name="Session" action="asana_session_session_action_window" sequence="1" parent="menu" />
+</odoo>
