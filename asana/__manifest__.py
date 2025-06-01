@@ -10,5 +10,6 @@
         "views/asana_session.xml",
         "views/menu.xml",
     ],
+    "external_dependencies": {"python": ["asana"]},
     "installable": True,
 }

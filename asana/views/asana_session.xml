@@ -5,9 +5,25 @@
         <field name="model">asana.session</field>
         <field name="arch" type="xml">
             <form string="Titre">
+                <header>
+                    <button name="action_test_asana" string="Test asana" type="object" class="btn-success" />
+                </header>
                 <sheet>
+                    <div class="oe_title">
+                        <label for="name" class="oe_edit_only" />
+                        <h1>
+                            <field name="name" />
+                        </h1>
+                    </div>
                     <group>
-                        <field name="name" />
+                        <group string="API">
+                            <field name="api_token_responsable" />
+                            <field name="api_token" password="True" />
+                        </group>
+                        <group string="Workspace information">
+                            <field name="workspace_gid" />
+                            <field name="workspace_name" />
+                        </group>
                     </group>
                 </sheet>
             </form>
@@ -79,10 +95,9 @@
         </field>
     </record>
 
-    <act_window
-        id="asana_session_session_action_window"
-        name="Session"
-        res_model="asana.session"
-        view_mode="kanban,tree,pivot,graph,form"
-    />
+    <record id="asana_session_session_action_window" model="ir.actions.act_window">
+        <field name="name">Session</field>
+        <field name="res_model">asana.session</field>
+        <field name="view_mode">kanban,tree,pivot,graph,form</field>
+    </record>
 </odoo>
