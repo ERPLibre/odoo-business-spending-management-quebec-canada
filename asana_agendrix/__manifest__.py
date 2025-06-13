@@ -7,10 +7,11 @@
     "application": True,
     "data": [
         "security/ir.model.access.csv",
-        "views/asana_session.xml",
-        "views/templates.xml",
+        "views/asana_agendrix.xml",
+        "views/asana_task_agendrix_resource.xml",
         "views/menu.xml",
     ],
+    "depends": ["asana", "agendrix"],
     "external_dependencies": {"python": ["asana"]},
     "installable": True,
 }

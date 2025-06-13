@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!--Root menu-->
+
+    <menuitem id="asana_agendrix" name="Agendrix" action="asana_agendrix_agendrix_action_window" sequence="1" parent="asana.menu" />
+    <menuitem id="asana_task_agendrix_resource" name="Task with resource" action="asana_task_agendrix_resource_action_window" sequence="2" parent="asana.menu" />
+</odoo>

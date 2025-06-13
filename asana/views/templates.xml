@@ -1,0 +1,14 @@
+<odoo>
+    <template id="auth_html" name="Auth Page">
+        <t t-name="asana_integration.auth_html">
+            <html>
+                <head>
+                    <title>Auth Page</title>
+                </head>
+                <body>
+                    <h1>Auth Page</h1>
+                </body>
+            </html>
+        </t>
+    </template>
+</odoo>

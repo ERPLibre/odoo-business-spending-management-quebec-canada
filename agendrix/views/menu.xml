@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!--Root menu-->
+
+    <menuitem id="agendrix" name="Agendrix" sequence="20" web_icon="agendrix,static/description/icon.png" />
+
+    <!--Sub menu-->
+
+    <menuitem id="menu" name="Menu" sequence="1" parent="agendrix" />
+
+    <!--Child menu-->
+
+    <menuitem id="session" name="Session" action="agendrix_session_session_action_window" sequence="1" parent="menu" />
+    <menuitem id="resource" name="Resource" action="agendrix_resource_resource_action_window" sequence="2" parent="menu" />
+</odoo>

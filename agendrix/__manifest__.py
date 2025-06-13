@@ -1,5 +1,5 @@
 {
-    "name": "Asana",
+    "name": "Agendrix",
     "version": "12.0.1.0",
     "author": "TechnoLibre",
     "license": "AGPL-3",
@@ -7,10 +7,9 @@
     "application": True,
     "data": [
         "security/ir.model.access.csv",
-        "views/asana_session.xml",
-        "views/templates.xml",
+        "views/agendrix_session.xml",
+        "views/agendrix_resource.xml",
         "views/menu.xml",
     ],
-    "external_dependencies": {"python": ["asana"]},
     "installable": True,
 }
