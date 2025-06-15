@@ -11,5 +11,11 @@
     <!--Child menu-->
 
     <menuitem id="session" name="Session" action="agendrix_session_session_action_window" sequence="1" parent="menu" />
-    <menuitem id="resource" name="Resource" action="agendrix_resource_resource_action_window" sequence="2" parent="menu" />
+    <menuitem
+        id="resource"
+        name="Resource"
+        action="agendrix_resource_resource_action_window"
+        sequence="2"
+        parent="menu"
+    />
 </odoo>

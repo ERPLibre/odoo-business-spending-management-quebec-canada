@@ -126,6 +126,7 @@ class AgendrixSession(models.Model):
         json_response = response.json()
         if json_response.get("errors"):
             errors = json_response.get("errors")
+            _logger.error(f"Error before force refresh access token {errors}.")
             if errors == [
                 {
                     "short_message": "Your token is expired. Refresh it using the refresh token.",
@@ -135,8 +136,10 @@ class AgendrixSession(models.Model):
                 # Refresh it
                 self.refresh_access_token(force=True)
                 response = request_ressources()
+                json_response = response.json()
                 if json_response.get("errors"):
                     errors = json_response.get("errors")
+                    _logger.error(f"Error after force refresh access token {errors}.")
                     _logger.error(errors)
                     return
         json_data = json_response.get("data")

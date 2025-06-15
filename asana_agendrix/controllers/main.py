@@ -181,33 +181,39 @@ class AsanaAgendrixController(http.Controller):
     def rule_on_url_widget(self, **kwargs):
         _logger.info("on_url_widget")
 
-        resource_id = (
+        resource_ids = (
             request.env["agendrix.resource"]
             .sudo()
-            .search([], limit=1, order="id desc")
+            .search([], limit=2, order="id desc")
         )
         # TODO search with task_id and agendrix_project
         # TODO search by resource_url or attachment
+        lst_fields = []
+        for resource_id in [resource_ids[1]]:
+            lst_fields.append(
+                {
+                    "name": "Nom",
+                    "type": "text_with_icon",
+                    "text": resource_id.name,
+                }
+            )
+            lst_fields.append(
+                {
+                    "name": "Adresse",
+                    "type": "text_with_icon",
+                    "text": resource_id.address,
+                }
+            )
         form_value = {
             "template": "summary_with_details_v0",
             "metadata": {
                 "title": "Ressource associée",
                 "subtitle": "Création d'une ressource",
-                "fields": [
-                    {
-                        "name": "Nom",
-                        "type": "text_with_icon",
-                        "text": resource_id.name,
-                    },
-                    {
-                        "name": "Adresse",
-                        "type": "text_with_icon",
-                        "text": resource_id.address,
-                    },
-                ],
+                "fields": lst_fields,
                 "footer": {
                     "footer_type": "custom_text",
-                    "text": "",
+                    "text": f"Ressource complémentaire : {resource_id.name} - PRÉ - POST PRODUCTION",
+                    # "text": f"Ressource complémentaire : {resource_ids[0].name} - PRÉ - POST PRODUCTION",
                 },
             },
         }
