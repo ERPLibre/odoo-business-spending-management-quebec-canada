@@ -67,7 +67,7 @@ class AgendrixSession(models.Model):
                 _logger.info(
                     "Run automation script to extract Agendrix token."
                 )
-                script = f"./.venv/bin/python ./script/selenium/selenium_agendrix.py --agendrix_test --scenario all --url https://developers.agendrix.com/fr/sign-in --is_sandbox --filepath_output_token {tmp.name} --headless"
+                script = f"./.venv/bin/python ./private/selenium_agendrix.py --agendrix_test --scenario all --url https://developers.agendrix.com/fr/sign-in --is_sandbox --filepath_output_token {tmp.name} --headless"
                 process = subprocess.Popen(
                     script,
                     shell=True,
