@@ -6,6 +6,7 @@ import json
 import logging
 import os.path
 import random
+import sys
 import subprocess
 import tempfile
 from datetime import datetime
@@ -65,21 +66,46 @@ class AgendrixSession(models.Model):
         if force or not self.access_token:
             with tempfile.NamedTemporaryFile() as tmp:
                 _logger.info(
-                    "Run automation script to extract Agendrix token."
+                    f"Run automation script to extract Agendrix token to output {tmp.name}."
                 )
-                script = f"./.venv/bin/python ./private/selenium_agendrix.py --agendrix_test --scenario all --url https://developers.agendrix.com/fr/sign-in --is_sandbox --filepath_output_token {tmp.name} --headless"
-                process = subprocess.Popen(
-                    script,
-                    shell=True,
-                    text=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                )
-                stdout, stderr = process.communicate()
-                status_code = process.returncode
-                if stderr:
-                    _logger.error(stderr)
-                    _logger.error(f"status_code={status_code}")
+                # script = f"echo \"Begin selenium Agendrix...\";./.venv/bin/python ./private/selenium_agendrix.py --agendrix_test --scenario all --gecko_binary_path /usr/local/bin/geckodriver --firefox_binary_path /usr/bin/firefox"
+                script = f"echo \"Begin selenium Agendrix...\";./.venv/bin/python ./private/selenium_agendrix.py --agendrix_test --scenario all --url https://developers.agendrix.com/fr/sign-in --is_sandbox --filepath_output_token {tmp.name} --headless"
+                # script = f"echo \"Begin selenium Agendrix...\";./.venv/bin/python ./private/selenium_agendrix.py --agendrix_test --scenario all --url https://developers.agendrix.com/fr/sign-in --is_sandbox --filepath_output_token {tmp.name}"
+                # script = f"echo \"Begin selenium Agendrix...\";./.venv/bin/python ./private/selenium_agendrix.py --agendrix_test --scenario all --url https://developers.agendrix.com/fr/sign-in --gecko_binary_path /usr/local/bin/geckodriver --firefox_binary_path /usr/bin/firefox --is_sandbox --filepath_output_token {tmp.name} --headless"
+                print(script)
+                try:
+                    process = subprocess.Popen(
+                        script,
+                        shell=True,
+                        text=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                    )
+                    # If need a timeout, no livelog
+                    # stdout, stderr = process.communicate(timeout=60)
+                except subprocess.TimeoutExpired:
+                    _logger.error("Le script Selenium a dépassé le temps imparti.")
+                except Exception as e:
+                    _logger.error(f"Erreur imprévue lors de l'exécution du script: {e}")
+                # Lire la sortie ligne par ligne
+                for line in process.stdout:
+                    sys.stdout.write(line)  # Rediriger vers stdout
+                    _logger.info(line.strip())  # Logger la ligne
+                    # temp_file.write(line)  # Écrire dans le fichier temporaire
+
+                # Attendre la fin du processus et vérifier les erreurs
+                return_code = process.wait()
+                if return_code != 0:
+                    # Si une erreur s'est produite, logger stderr
+                    for line in process.stderr:
+                        sys.stderr.write(line)  # Rediriger vers stderr
+                        _logger.error(line.strip())
+                        # temp_file.write(line)  # Écrire les erreurs dans le fichier temporaire
+                # stdout, stderr = process.communicate()
+                # status_code = process.returncode
+                # if stderr:
+                #     _logger.error(stderr)
+                #     _logger.error(f"status_code={status_code}")
                 if os.path.isfile(tmp.name):
                     with open(tmp.name) as f:
                         data_token = json.load(f)
@@ -98,7 +124,7 @@ class AgendrixSession(models.Model):
                     )
 
     def create_resources(
-        self, resource_name, resource_address, type_job_site=True
+        self, resource_name, resource_address, type_job_site=True, search_for_no_double=False
     ):
         if not self.access_token:
             self.refresh_access_token(force=True)
@@ -106,7 +132,7 @@ class AgendrixSession(models.Model):
                 _logger.error(f"Cannot get access token Agendrix.")
                 return
 
-        def request_ressources():
+        def request_create_ressources():
             url = f"{self.get_prefix_api_url()}/v1/resources"
             headers = {
                 "Content-Type": "application/json",
@@ -120,7 +146,27 @@ class AgendrixSession(models.Model):
             response = requests.post(url, headers=headers, json=data_json)
             return response
 
-        response = request_ressources()
+        def request_search_ressources():
+            url = f"{self.get_prefix_api_url()}/v1/resources"
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.access_token}",
+            }
+            data_json = {
+                "search[name]": resource_name,
+            }
+            response = requests.get(url, headers=headers, json=data_json)
+            return response
+
+        # response_search = request_search_ressources()
+        #
+        # # Pour obtenir le JSON de la réponse
+        # json_response = response_search.json()
+        # if json_response.get("errors"):
+
+        # TODO support search before create, what to do if found multiple?
+
+        response = request_create_ressources()
 
         # Pour obtenir le JSON de la réponse
         json_response = response.json()
@@ -135,7 +181,7 @@ class AgendrixSession(models.Model):
             ]:
                 # Refresh it
                 self.refresh_access_token(force=True)
-                response = request_ressources()
+                response = request_create_ressources()
                 json_response = response.json()
                 if json_response.get("errors"):
                     errors = json_response.get("errors")

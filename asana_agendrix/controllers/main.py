@@ -97,6 +97,7 @@ class AsanaAgendrixController(http.Controller):
             default_name,
             default_address,
             asana_task_id_no,
+            search_for_no_double=True,
         )
 
         # resource_url = f"https://{config['ngrok_url']}/asana_integration/get_ressource"
@@ -189,21 +190,26 @@ class AsanaAgendrixController(http.Controller):
         # TODO search with task_id and agendrix_project
         # TODO search by resource_url or attachment
         lst_fields = []
-        for resource_id in [resource_ids[1]]:
-            lst_fields.append(
-                {
-                    "name": "Nom",
-                    "type": "text_with_icon",
-                    "text": resource_id.name,
-                }
-            )
-            lst_fields.append(
-                {
-                    "name": "Adresse",
-                    "type": "text_with_icon",
-                    "text": resource_id.address,
-                }
-            )
+        if resource_ids:
+            for resource_id in [resource_ids[1]]:
+                lst_fields.append(
+                    {
+                        "name": "Nom",
+                        "type": "text_with_icon",
+                        "text": resource_id.name,
+                    }
+                )
+                lst_fields.append(
+                    {
+                        "name": "Adresse",
+                        "type": "text_with_icon",
+                        "text": resource_id.address,
+                    }
+                )
+        if not lst_fields:
+            footer_text = "Information manquante, svp contacter votre développeur!"
+        else:
+            footer_text = f"Ressource complémentaire : {resource_id.name} - PRÉ - POST PRODUCTION"
         form_value = {
             "template": "summary_with_details_v0",
             "metadata": {
@@ -212,7 +218,7 @@ class AsanaAgendrixController(http.Controller):
                 "fields": lst_fields,
                 "footer": {
                     "footer_type": "custom_text",
-                    "text": f"Ressource complémentaire : {resource_id.name} - PRÉ - POST PRODUCTION",
+                    "text": footer_text,
                     # "text": f"Ressource complémentaire : {resource_ids[0].name} - PRÉ - POST PRODUCTION",
                 },
             },

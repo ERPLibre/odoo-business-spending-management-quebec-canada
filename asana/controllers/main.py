@@ -37,15 +37,6 @@ class AsanaController(http.Controller):
         return response
 
     @http.route(
-        "/asana_integration/auth", type="http", auth="public", website=True
-    )
-    def auth(self, **kwargs):
-        _logger.info("Auth happened!")
-        asana_url = "/asana_integration/static/auth.html"
-        _logger.info(asana_url)
-        return self._add_cors_headers(request.redirect(asana_url))
-
-    @http.route(
         "/asana_integration/authenticate",
         type="http",
         auth="public",

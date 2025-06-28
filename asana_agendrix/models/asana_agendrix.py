@@ -28,6 +28,7 @@ class AsanaAgendrix(models.Model):
         resource_address,
         asana_task_id_no,
         type_job_site=True,
+        search_for_no_double=False,
     ):
         for rec in self:
             # TODO send link to agendrix
@@ -35,6 +36,7 @@ class AsanaAgendrix(models.Model):
                 resource_name=resource_name,
                 resource_address=resource_address,
                 type_job_site=type_job_site,
+                search_for_no_double=search_for_no_double,
             )
 
             request.env["asana.task.agendrix.resource"].sudo().create(
