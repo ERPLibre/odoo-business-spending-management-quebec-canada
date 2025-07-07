@@ -1,3 +1,4 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 asana_agendrix_access_user_types_/_internal_user,asana_agendrix Access User types / Internal User,model_asana_agendrix,base.group_user,1,1,1,1
+asana_agendrix_action_log_access_user_types_/_internal_user,asana_agendrix_action_log Access User types / Internal User,model_asana_agendrix_action_log,base.group_user,1,1,1,1
 asana_task_agendrix_resource_access_user_types_/_internal_user,asana_task_agendrix_resource Access User types / Internal User,model_asana_task_agendrix_resource,base.group_user,1,1,1,1

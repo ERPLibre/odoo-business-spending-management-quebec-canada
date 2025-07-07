@@ -16,4 +16,11 @@
         sequence="2"
         parent="asana.menu"
     />
+    <menuitem
+        id="asana_task_agendrix_action_log_resource"
+        name="Action with agendrix"
+        action="asana_agendrix_action_log_agendrix_action_window"
+        sequence="3"
+        parent="asana.menu"
+    />
 </odoo>

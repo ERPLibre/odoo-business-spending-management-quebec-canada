@@ -4,17 +4,9 @@
 
 import json
 import logging
-import os
-import uuid
+from datetime import datetime
 
-import asana
-import requests
-import werkzeug.utils
-import werkzeug.wrappers
-from asana.rest import ApiException
-from werkzeug.utils import redirect
-
-from odoo import http
+from odoo import _, http
 from odoo.http import Response, request
 from odoo.tools import config
 
@@ -57,20 +49,59 @@ class AsanaAgendrixController(http.Controller):
             asana_task_id_no
         )
 
-        # dct_bind = {"ID. de projet": "name", "Lieux de l'événement": "address"}
-
-        default_name = "TEST"
-        default_address = "TEST"
-        for dct_custom_fields in dct_task_information.get("custom_fields", []):
-            if dct_custom_fields.get("name") == "ID. de projet":
-                default_name = dct_custom_fields.get("text_value")
-            elif dct_custom_fields.get("name") == "Lieux de l'événement":
-                default_address = dct_custom_fields.get("text_value")
-
         asana_agendrix_id = (
-            request.env["asana.agendrix"].sudo().search([], limit=1)
+            request.env["asana.agendrix"]
+            .sudo()
+            .search(
+                [
+                    ("asana_id_workspace", "=", dct_param.get("workspace")),
+                    ("asana_id_project", "=", dct_param.get("project")),
+                    ("asana_id_action", "=", dct_param.get("action")),
+                    (
+                        "asana_id_action_type",
+                        "=",
+                        dct_param.get("action_type"),
+                    ),
+                ],
+                limit=1,
+            )
         )
-        if not asana_agendrix_id:
+
+        app_configuration_json = dct_param.get("app_configuration_json")
+
+        dct_app_configuration = json.loads(app_configuration_json)
+        has_different_configuration = True
+
+        try:
+            dct_fields = {
+                dct_value.get("id"): dct_value
+                for dct_value in dct_app_configuration.get("metadata").get(
+                    "fields"
+                )
+            }
+        except Exception as e:
+            _logger.exception(e)
+            response = Response(
+                "Cannot read parameters metadata, check asana communication action.",
+                status=500,
+            )
+            return response
+
+        field_bind_agendrix_name = dct_fields.get(
+            "agendrix_field_name_bind"
+        ).get("value")
+        field_bind_agendrix_address = dct_fields.get(
+            "agendrix_field_address_bind"
+        ).get("value")
+        if asana_agendrix_id:
+            if (
+                field_bind_agendrix_name
+                == asana_agendrix_id.asana_bind_field_name
+                and field_bind_agendrix_address
+                == asana_agendrix_id.asana_bind_field_address
+            ):
+                has_different_configuration = False
+        else:
             agendrix_session_id = (
                 request.env["agendrix.session"].sudo().search([], limit=1)
             )
@@ -81,12 +112,52 @@ class AsanaAgendrixController(http.Controller):
                     .create({"name": "First connexion agendrix"})
                 )
 
+        action_log_values = {
+            "asana_agendrix_id": (
+                False if not asana_agendrix_id else asana_agendrix_id.id
+            ),
+            "asana_id_workspace": dct_param.get("workspace"),
+            "asana_id_target_object": dct_param.get("target_object"),
+            "asana_id_action_type": dct_param.get("action_type"),
+            "asana_id_action": dct_param.get("action"),
+            "asana_id_user": dct_param.get("user"),
+            "asana_app_configuration_json": app_configuration_json,
+            "asana_id_empotency_key": dct_param.get("idempotency_key"),
+            "asana_expires_at": datetime.strptime(
+                dct_param.get("expires_at"), "%Y-%m-%dT%H:%M:%S.%fZ"
+            ),
+            "has_different_configuration": has_different_configuration,
+        }
+        asana_agendrix_action_log_id = (
+            request.env["asana.agendrix.action.log"]
+            .sudo()
+            .create(action_log_values)
+        )
+
+        default_name = "ERROR"
+        default_address = "ERROR"
+        for dct_custom_fields in dct_task_information.get("custom_fields", []):
+            if dct_custom_fields.get("name") == field_bind_agendrix_name:
+                default_name = dct_custom_fields.get("text_value")
+            elif dct_custom_fields.get("name") == field_bind_agendrix_address:
+                default_address = dct_custom_fields.get("text_value")
+
+        if not asana_agendrix_id:
+            environment = dct_fields.get("environment").get("value")
+            agendrix_session_id = (
+                request.env["agendrix.session"]
+                .sudo()
+                .search(
+                    [("production_enabled", "=", environment == "2")],
+                    limit=1,
+                )
+            )
             asana_agendrix_id = (
                 request.env["asana.agendrix"]
                 .sudo()
                 .create(
                     {
-                        "name": "First connexion",
+                        "name": "Fix missing from database, create a new one",
                         "asana_session_id": session_id.id,
                         "agendrix_session_id": agendrix_session_id.id,
                     }
@@ -98,9 +169,8 @@ class AsanaAgendrixController(http.Controller):
             default_address,
             asana_task_id_no,
             search_for_no_double=True,
+            asana_agendrix_action_log_id=asana_agendrix_action_log_id,
         )
-
-        # resource_url = f"https://{config['ngrok_url']}/asana_integration/get_ressource"
 
         form_rule = {
             "action_result": "resources_created",
@@ -128,39 +198,62 @@ class AsanaAgendrixController(http.Controller):
         _logger.info(
             "Receive request from /asana_integration/agendrix/create_resource/rule_run_metadata"
         )
+        # Check builder from https://app.asana.com/0/my-apps/response-builder
         form_value = {
             "template": "form_metadata_v0",
             "metadata": {
-                "title": "Mon formulaire",
-                "submit_button_text": "Créer",
+                "title": _("Information de connexion vers Agendrix"),
+                "submit_button_text": _("Créer"),
                 "on_submit_callback": f"https://{config['ngrok_url']}/asana_integration/agendrix/create_resource/on_submit_callback",
                 "fields": [
                     {
-                        "type": "single_line_text",
-                        "id": "single_line_text_full_width",
-                        "name": "Single-line text field",
-                        "value": "",
-                        "is_required": False,
-                        "placeholder": "Type something SVP...",
-                        "width": "full",
-                    },
-                    {
                         "type": "dropdown",
-                        "id": "dropdown",
-                        "name": "Dropdown field",
-                        "is_required": False,
+                        "id": "environment",
+                        "name": "Environment",
+                        "is_required": True,
                         "options": [
                             {
                                 "id": "1",
-                                "label": "Option 1",
-                                "icon_url": "https://www.fillmurray.com/16/16",
+                                "label": _("Sandbox"),
+                                "icon_url": "https://img.icons8.com/?size=100&id=ZKAK_hw7x9Dv&format=png&color=FF0000",
                             },
                             {
                                 "id": "2",
-                                "label": "Option 2",
-                                "icon_url": "https://www.fillmurray.com/16/16",
+                                "label": _("Production"),
+                                "icon_url": "https://img.icons8.com/?size=100&id=lOpR2t8Ke7gs&format=png&color=FF0000",
                             },
                         ],
+                        "width": "full",
+                    },
+                    {
+                        "type": "rich_text",
+                        "id": "reason_connection",
+                        "name": _("Raison de la connexion avec Agendrix"),
+                        "value": _(
+                            "1) Lier des tâches à des ressources selon les champs suivants."
+                        ),
+                        "is_required": True,
+                        "placeholder": _(
+                            "Expliquer la raison de la connexion."
+                        ),
+                        "width": "full",
+                    },
+                    {
+                        "type": "single_line_text",
+                        "id": "agendrix_field_name_bind",
+                        "name": _("Bind sur champs Agendrix 'name'"),
+                        "value": "🔢 ID. de projet",
+                        "is_required": True,
+                        "placeholder": "Nom du champs Agendrix 'name'",
+                        "width": "full",
+                    },
+                    {
+                        "type": "single_line_text",
+                        "id": "agendrix_field_address_bind",
+                        "name": _("Bind sur champs Agendrix 'address'"),
+                        "value": "📍 Lieux de l'événement",
+                        "is_required": True,
+                        "placeholder": "Nom du champs Agendrix 'address'",
                         "width": "full",
                     },
                 ],
@@ -207,7 +300,9 @@ class AsanaAgendrixController(http.Controller):
                     }
                 )
         if not lst_fields:
-            footer_text = "Information manquante, svp contacter votre développeur!"
+            footer_text = (
+                "Information manquante, svp contacter votre développeur!"
+            )
         else:
             footer_text = f"Ressource complémentaire : {resource_id.name} - PRÉ - POST PRODUCTION"
         form_value = {
@@ -253,5 +348,60 @@ class AsanaAgendrixController(http.Controller):
         _logger.info(
             "/asana_integration/agendrix/create_resource/on_submit_callback"
         )
-        response = Response("Succeed", status=200)
+        if request.httprequest.data:
+            try:
+                json_data = json.loads(request.httprequest.data)
+                data = json.loads(json_data.get("data"))
+
+                environment = data.get("values").get("environment")
+
+                agendrix_session_id = (
+                    request.env["agendrix.session"]
+                    .sudo()
+                    .search(
+                        [("production_enabled", "=", environment == "2")],
+                        limit=1,
+                    )
+                )
+                asana_session_id = (
+                    request.env["asana.session"].sudo().search([], limit=1)
+                )
+                asana_agendrix_values = {
+                    "asana_session_id": asana_session_id.id,
+                    "agendrix_session_id": agendrix_session_id.id,
+                    "agendrix_environment": environment,
+                    "reason_connexion": data.get("values").get(
+                        "reason_connection"
+                    ),
+                    "asana_id_action": data.get("action"),
+                    "asana_id_action_type": data.get("action_type"),
+                    "asana_expires_at": datetime.strptime(
+                        data.get("expires_at"), "%Y-%m-%dT%H:%M:%S.%fZ"
+                    ),
+                    "asana_id_project": data.get("project"),
+                    "asana_rule_name": data.get("rule_name"),
+                    "asana_id_user": data.get("user"),
+                    "asana_id_workspace": data.get("workspace"),
+                    "asana_bind_field_name": data.get("values").get(
+                        "agendrix_field_name_bind"
+                    ),
+                    "asana_bind_field_address": data.get("values").get(
+                        "agendrix_field_address_bind"
+                    ),
+                }
+                asana_agendrix_id = (
+                    request.env["asana.agendrix"]
+                    .sudo()
+                    .create(asana_agendrix_values)
+                )
+                response = Response("Succeed", status=200)
+            except Exception as e:
+                _logger.error(e)
+                response = Response(
+                    "Cannot read parameters, check asana communication after modals form.",
+                    status=500,
+                )
+        else:
+            response = Response("Ignore empty request", status=200)
+
         return self._add_cors_headers(response)

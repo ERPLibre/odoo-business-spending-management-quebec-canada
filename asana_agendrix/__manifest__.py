@@ -8,6 +8,7 @@
     "data": [
         "security/ir.model.access.csv",
         "views/asana_agendrix.xml",
+        "views/asana_agendrix_action_log.xml",
         "views/asana_task_agendrix_resource.xml",
         "views/menu.xml",
     ],

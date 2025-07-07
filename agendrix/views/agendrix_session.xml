@@ -23,6 +23,7 @@
                             <field name="refresh_token" />
                         </group>
                         <group string="Other">
+                            <field name="project_name" />
                             <field name="production_enabled" />
                             <field name="workspace_name" />
                             <field name="workspace_gid" />

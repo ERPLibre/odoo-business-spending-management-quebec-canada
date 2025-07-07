@@ -6,8 +6,8 @@ import json
 import logging
 import os.path
 import random
-import sys
 import subprocess
+import sys
 import tempfile
 from datetime import datetime
 from pprint import pprint
@@ -40,6 +40,10 @@ class AgendrixSession(models.Model):
 
     workspace_name = fields.Char(help="The workspace name.")
 
+    project_name = fields.Char(
+        help="The project name specified from Agendrix."
+    )
+
     workspace_gid = fields.Char(
         help="The workspace number identity to works with."
     )
@@ -50,7 +54,7 @@ class AgendrixSession(models.Model):
                 return "https://api.agendrix.com"
             return "https://api.sandbox.agendrix.net"
         if self.production_enabled:
-            return ""
+            return "https://app.agendrix.com"
         return "https://sandbox.agendrix.net"
 
     def refresh_access_token(self, force=False):
@@ -68,11 +72,15 @@ class AgendrixSession(models.Model):
                 _logger.info(
                     f"Run automation script to extract Agendrix token to output {tmp.name}."
                 )
+                script_is_production = (
+                    "--is_sandbox " if not self.production_enabled else ""
+                )
                 # script = f"echo \"Begin selenium Agendrix...\";./.venv/bin/python ./private/selenium_agendrix.py --agendrix_test --scenario all --gecko_binary_path /usr/local/bin/geckodriver --firefox_binary_path /usr/bin/firefox"
-                script = f"echo \"Begin selenium Agendrix...\";./.venv/bin/python ./private/selenium_agendrix.py --agendrix_test --scenario all --url https://developers.agendrix.com/fr/sign-in --is_sandbox --filepath_output_token {tmp.name} --headless"
+                # script = f'echo "Begin selenium Agendrix...";./.venv/bin/python ./private/selenium_agendrix.py --agendrix_test --scenario all --url https://developers.agendrix.com/fr/sign-in {script_is_production}--filepath_output_token {tmp.name} --headless'
+                script = f'echo "Begin selenium Agendrix...";./.venv/bin/python ./private/selenium_agendrix.py --agendrix_test --scenario refresh_token --url https://developers.agendrix.com/fr/sign-in {script_is_production}--filepath_output_token {tmp.name} --headless'
                 # script = f"echo \"Begin selenium Agendrix...\";./.venv/bin/python ./private/selenium_agendrix.py --agendrix_test --scenario all --url https://developers.agendrix.com/fr/sign-in --is_sandbox --filepath_output_token {tmp.name}"
                 # script = f"echo \"Begin selenium Agendrix...\";./.venv/bin/python ./private/selenium_agendrix.py --agendrix_test --scenario all --url https://developers.agendrix.com/fr/sign-in --gecko_binary_path /usr/local/bin/geckodriver --firefox_binary_path /usr/bin/firefox --is_sandbox --filepath_output_token {tmp.name} --headless"
-                print(script)
+                _logger.info(script)
                 try:
                     process = subprocess.Popen(
                         script,
@@ -84,12 +92,16 @@ class AgendrixSession(models.Model):
                     # If need a timeout, no livelog
                     # stdout, stderr = process.communicate(timeout=60)
                 except subprocess.TimeoutExpired:
-                    _logger.error("Le script Selenium a dépassé le temps imparti.")
+                    _logger.error(
+                        "Le script Selenium a dépassé le temps imparti."
+                    )
                 except Exception as e:
-                    _logger.error(f"Erreur imprévue lors de l'exécution du script: {e}")
+                    _logger.error(
+                        f"Erreur imprévue lors de l'exécution du script: {e}"
+                    )
                 # Lire la sortie ligne par ligne
                 for line in process.stdout:
-                    sys.stdout.write(line)  # Rediriger vers stdout
+                    # sys.stdout.write(line)  # Rediriger vers stdout
                     _logger.info(line.strip())  # Logger la ligne
                     # temp_file.write(line)  # Écrire dans le fichier temporaire
 
@@ -124,7 +136,12 @@ class AgendrixSession(models.Model):
                     )
 
     def create_resources(
-        self, resource_name, resource_address, type_job_site=True, search_for_no_double=False
+        self,
+        resource_name,
+        resource_address,
+        type_job_site=True,
+        search_for_no_double=False,
+        asana_agendrix_action_log_id=False,
     ):
         if not self.access_token:
             self.refresh_access_token(force=True)
@@ -158,13 +175,21 @@ class AgendrixSession(models.Model):
             response = requests.get(url, headers=headers, json=data_json)
             return response
 
-        # response_search = request_search_ressources()
-        #
-        # # Pour obtenir le JSON de la réponse
-        # json_response = response_search.json()
-        # if json_response.get("errors"):
-
-        # TODO support search before create, what to do if found multiple?
+        # Detect doublon
+        if search_for_no_double:
+            response_search = request_search_ressources()
+            data_json = json.loads(response_search.text)
+            for dct_result in data_json.get("data", []):
+                if dct_result.get("name").lower() == resource_name.lower():
+                    _logger.error(
+                        f"Doublon detected in resource name, {resource_name}."
+                    )
+                    if asana_agendrix_action_log_id:
+                        asana_agendrix_action_log_id.execution_error = True
+                        asana_agendrix_action_log_id.execution_error_reason = (
+                            _("Doublon detected '%s'") % resource_name
+                        )
+                    return False, dct_result.get("id")
 
         response = request_create_ressources()
 
@@ -185,7 +210,9 @@ class AgendrixSession(models.Model):
                 json_response = response.json()
                 if json_response.get("errors"):
                     errors = json_response.get("errors")
-                    _logger.error(f"Error after force refresh access token {errors}.")
+                    _logger.error(
+                        f"Error after force refresh access token {errors}."
+                    )
                     _logger.error(errors)
                     return
         json_data = json_response.get("data")
