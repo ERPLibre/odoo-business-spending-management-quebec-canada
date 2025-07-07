@@ -88,6 +88,7 @@ class AgendrixSession(models.Model):
                         text=True,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
+                        bufsize=1,
                     )
                     # If need a timeout, no livelog
                     # stdout, stderr = process.communicate(timeout=60)
@@ -179,7 +180,8 @@ class AgendrixSession(models.Model):
         if search_for_no_double:
             response_search = request_search_ressources()
             data_json = json.loads(response_search.text)
-            for dct_result in data_json.get("data", []):
+            lst_data = data_json.get("data", []) or []
+            for dct_result in lst_data:
                 if dct_result.get("name").lower() == resource_name.lower():
                     _logger.error(
                         f"Doublon detected in resource name, {resource_name}."
@@ -214,7 +216,7 @@ class AgendrixSession(models.Model):
                         f"Error after force refresh access token {errors}."
                     )
                     _logger.error(errors)
-                    return
+                    return False, False
         json_data = json_response.get("data")
 
         created_at = json_data.get("created_at")
@@ -240,4 +242,4 @@ class AgendrixSession(models.Model):
             "agendrix_update_at": parse_updated_at,
         }
         resource_id = self.env["agendrix.resource"].create(resource_values)
-        return resource_id
+        return resource_id, json_data.get("id")

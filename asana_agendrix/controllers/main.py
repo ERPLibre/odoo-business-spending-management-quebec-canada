@@ -275,12 +275,14 @@ class AsanaAgendrixController(http.Controller):
     def rule_on_url_widget(self, **kwargs):
         _logger.info("on_url_widget")
 
+        task_no = kwargs.get("task")
+
         resource_ids = (
-            request.env["agendrix.resource"]
+            request.env["asana.task.agendrix.resource"]
             .sudo()
-            .search([], limit=2, order="id desc")
+            .search([("asana_task_id_no", "=", task_no)], limit=2)
         )
-        # TODO search with task_id and agendrix_project
+
         # TODO search by resource_url or attachment
         lst_fields = []
         if resource_ids:
