@@ -5,6 +5,14 @@
         <field name="model">agendrix.session</field>
         <field name="arch" type="xml">
             <form string="Titre">
+                <header>
+                    <button
+                        type="object"
+                        name="action_force_refresh_access_token"
+                        string="Force refresh access token"
+                        class="btn-primary"
+                    />
+                </header>
                 <!--                <header>-->
                 <!--                    <button name="action_test_agendrix" string="Test agendrix" type="object" class="btn-success" />-->
                 <!--                </header>-->
