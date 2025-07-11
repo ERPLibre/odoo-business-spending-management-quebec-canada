@@ -164,7 +164,11 @@ class AsanaAgendrixController(http.Controller):
                 )
             )
 
-        resource_url = asana_agendrix_id.sudo().create_resources(
+        (
+            resource_url,
+            resource_id,
+            agendrix_id_no,
+        ) = asana_agendrix_id.sudo().create_resources_url(
             default_name,
             default_address,
             asana_task_id_no,
@@ -181,9 +185,8 @@ class AsanaAgendrixController(http.Controller):
                 }
             ],
         }
-        response = Response(
-            json.dumps(form_rule), content_type="application/json"
-        )
+        data_json = json.dumps(form_rule)
+        response = Response(data_json, content_type="application/json")
         return self._add_cors_headers(response)
 
     @http.route(
@@ -286,7 +289,7 @@ class AsanaAgendrixController(http.Controller):
         # TODO search by resource_url or attachment
         lst_fields = []
         if resource_ids:
-            for resource_id in [resource_ids[1]]:
+            for resource_id in [resource_ids[0]]:
                 lst_fields.append(
                     {
                         "name": "Nom",

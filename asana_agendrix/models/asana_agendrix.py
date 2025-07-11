@@ -58,7 +58,7 @@ class AsanaAgendrix(models.Model):
         for rec in self:
             rec.name = f"{rec.asana_expires_at} - {rec.asana_id_user} - {rec.asana_id_action} - {rec.asana_id_project} - {rec.asana_id_workspace}"
 
-    def create_resources(
+    def create_resources_url(
         self,
         resource_name,
         resource_address,
@@ -91,4 +91,4 @@ class AsanaAgendrix(models.Model):
                 )
                 project_number = rec.agendrix_session_id.project_name
                 resource_url = f"{rec.agendrix_session_id.get_prefix_api_url(is_api=False)}/o/{project_number}/resources/{agendrix_id_no}/summary/"
-            return resource_url
+            return resource_url, resource_id, agendrix_id_no

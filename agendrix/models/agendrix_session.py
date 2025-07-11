@@ -150,37 +150,26 @@ class AgendrixSession(models.Model):
             self.refresh_access_token(force=True)
             if not self.access_token:
                 _logger.error(f"Cannot get access token Agendrix.")
-                return
+                return None, None
 
-        def request_create_ressources():
-            url = f"{self.get_prefix_api_url()}/v1/resources"
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.access_token}",
-            }
-            data_json = {
-                "name": resource_name,
-                "address": resource_address,
-                "type_job_site": type_job_site,
-            }
-            response = requests.post(url, headers=headers, json=data_json)
-            return response
-
-        def request_search_ressources():
-            url = f"{self.get_prefix_api_url()}/v1/resources"
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.access_token}",
-            }
-            data_json = {
-                "search[name]": resource_name,
-            }
-            response = requests.get(url, headers=headers, json=data_json)
-            return response
+        # First check token
+        response_search = self.request_search_ressources(resource_name)
+        json_response = json.loads(response_search.text)
+        if json_response.get("errors"):
+            errors = json_response.get("errors")
+            _logger.error(f"Error before force refresh access token {errors}.")
+            if errors == [
+                {
+                    "short_message": "Your token is expired. Refresh it using the refresh token.",
+                    "source": "unauthorized",
+                }
+            ]:
+                # Refresh it
+                self.refresh_access_token(force=True)
 
         # Detect doublon
         if search_for_no_double:
-            response_search = request_search_ressources()
+            response_search = self.request_search_ressources(resource_name)
             data_json = json.loads(response_search.text)
             lst_data = data_json.get("data", []) or []
             for dct_result in lst_data:
@@ -190,12 +179,23 @@ class AgendrixSession(models.Model):
                     )
                     if asana_agendrix_action_log_id:
                         asana_agendrix_action_log_id.execution_error = True
+                        str_sentence = ""
+                        if asana_agendrix_action_log_id.execution_error_reason:
+                            str_sentence = (
+                                asana_agendrix_action_log_id.execution_error_reason
+                            )
                         asana_agendrix_action_log_id.execution_error_reason = (
-                            _("Doublon detected '%s'") % resource_name
+                            str_sentence
+                            + _("Doublon detected '%s'") % resource_name
                         )
-                    return False, dct_result.get("id")
+                    resource_id = self.env["agendrix.resource"].search(
+                        [("name", "=", resource_name)], limit=1
+                    )
+                    return resource_id, dct_result.get("id")
 
-        response = request_create_ressources()
+        response = self.request_create_ressources(
+            resource_name, resource_address, type_job_site
+        )
 
         # Pour obtenir le JSON de la réponse
         json_response = response.json()
@@ -210,7 +210,9 @@ class AgendrixSession(models.Model):
             ]:
                 # Refresh it
                 self.refresh_access_token(force=True)
-                response = request_create_ressources()
+                response = self.request_create_ressources(
+                    resource_name, resource_address, type_job_site
+                )
                 json_response = response.json()
                 if json_response.get("errors"):
                     errors = json_response.get("errors")
@@ -248,3 +250,31 @@ class AgendrixSession(models.Model):
 
     def action_force_refresh_access_token(self):
         self.refresh_access_token(force=True)
+
+    def request_create_ressources(
+        self, resource_name, resource_address, type_job_site
+    ):
+        url = f"{self.get_prefix_api_url()}/v1/resources"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.access_token}",
+        }
+        data_json = {
+            "name": resource_name,
+            "address": resource_address,
+            "type_job_site": type_job_site,
+        }
+        response = requests.post(url, headers=headers, json=data_json)
+        return response
+
+    def request_search_ressources(self, resource_name):
+        url = f"{self.get_prefix_api_url()}/v1/resources"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.access_token}",
+        }
+        data_json = {
+            "search[name]": resource_name,
+        }
+        response = requests.get(url, headers=headers, json=data_json)
+        return response
