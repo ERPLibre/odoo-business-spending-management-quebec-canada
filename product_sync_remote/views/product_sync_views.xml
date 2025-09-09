@@ -1,0 +1,60 @@
+<odoo>
+    <record id="view_product_sync_job_tree" model="ir.ui.view">
+        <field name="name">product.sync.job.tree</field>
+        <field name="model">product.sync.job</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name" />
+                <field name="state" />
+                <field name="processed_count" />
+                <field name="last_log" />
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_product_sync_job_form" model="ir.ui.view">
+        <field name="name">product.sync.job.form</field>
+        <field name="model">product.sync.job</field>
+        <field name="arch" type="xml">
+            <form string="Job de synchronisation">
+                <header>
+                    <button
+                        name="action_run"
+                        type="object"
+                        string="Exécuter"
+                        class="oe_highlight"
+                        attrs="{'invisible': [('state', '=', 'running')]}"
+                    />
+                    <field name="state" widget="statusbar" statusbar_visible="draft,running,done,failed" />
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="remote_url" />
+                            <field name="remote_db" />
+                            <field name="remote_user" />
+                            <field name="remote_password" password="True" />
+                        </group>
+                        <group>
+                            <field name="create_missing_attributes" />
+                            <field name="update_existing" />
+                            <field name="limit" />
+                            <field name="processed_count" readonly="1" />
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Logs">
+                            <field name="last_log" nolabel="1" widget="text" />
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_product_sync_jobs" model="ir.actions.act_window">
+        <field name="name">Jobs de synchronisation</field>
+        <field name="res_model">product.sync.job</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+</odoo>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <menuitem id="menu_product_sync_root" name="Sync Produits" sequence="20" />
+    <menuitem id="menu" name="Menu" sequence="1" parent="menu_product_sync_root" />
+    <menuitem id="menu_product_sync_jobs" name="Jobs" parent="menu" action="action_product_sync_jobs" />
+    <menuitem
+        id="menu_product_sync_wizard"
+        name="Importer depuis source"
+        parent="menu"
+        action="action_product_sync_wizard"
+        sequence="1"
+    />
+</odoo>

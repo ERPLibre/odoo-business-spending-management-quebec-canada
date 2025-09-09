@@ -1,0 +1,32 @@
+<odoo>
+    <record id="view_product_sync_wizard" model="ir.ui.view">
+        <field name="name">product.sync.wizard.form</field>
+        <field name="model">product.sync.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Synchroniser depuis une instance distante">
+                <group>
+                    <field name="remote_url" placeholder="https://source.example.com" />
+                    <field name="remote_db" />
+                    <field name="remote_user" />
+                    <field name="remote_password" password="True" />
+                </group>
+                <group>
+                    <field name="create_missing_attributes" />
+                    <field name="update_existing" />
+                    <field name="limit" />
+                </group>
+                <footer>
+                    <button name="action_start" type="object" string="Lancer la synchronisation" class="btn-primary" />
+                    <button string="Annuler" class="btn-secondary" special="cancel" />
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_product_sync_wizard" model="ir.actions.act_window">
+        <field name="name">Synchroniser des produits</field>
+        <field name="res_model">product.sync.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>
